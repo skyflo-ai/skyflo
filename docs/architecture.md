@@ -1,5 +1,9 @@
 # Skyflo.ai Architecture
 
+<div align="center">
+  <img src="../assets/architecture.png" alt="Skyflo.ai Architecture" width="800"/>
+</div>
+
 This document outlines the architecture of Skyflo.ai, a B2B SaaS product that enables the creation of secure and SOC2-compliant AI agents to automate DevOps and cloud operations.
 
 ## Overview
@@ -14,7 +18,7 @@ Skyflo.ai provides AI-powered agents for AWS and Kubernetes management, enabling
 
 Skyflo.ai operates through a secure agent-based model:
 
-![Agents Flow](../assets/agents-flow.png)
+![Agents Flow](../assets/architecture/agents-flow.png)
 
 ### AWS Agent Flow
 

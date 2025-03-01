@@ -1,5 +1,9 @@
 # Skyflo.ai API Documentation
 
+<div align="center">
+  <img src="../assets/api.png" alt="Skyflo.ai Django API Reference" width="800"/>
+</div>
+
 This document provides information about the Skyflo.ai API endpoints, authentication, and usage.
 
 ## Base URL

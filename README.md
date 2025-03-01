@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/main.png" alt="Skyflo.ai" width="1000"/>
+  <img src="./assets/readme.png" alt="Skyflo.ai" width="1000"/>
 </p>
 
 <div align="center">
@@ -80,6 +80,7 @@ Skyflo.ai follows a modular approach with multiple repositories:
 - [Official Documentation](https://docs.skyflo.ai)
 - [Architecture](docs/architecture.md)
 - [API Reference](docs/api.md)
+- [Usage Examples](docs/examples.md)
 
 ## Contributing
 
