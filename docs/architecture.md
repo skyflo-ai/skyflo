@@ -1,83 +1,93 @@
-# Skyflo.ai Architecture
+# Architecture
 
-<div align="center">
-  <img src="../assets/architecture.png" alt="Skyflo.ai Architecture" width="800"/>
-</div>
+This document outlines the architecture of [skyflo.ai](https://skyflo.ai).
 
-This document outlines the architecture of Skyflo.ai, a B2B SaaS product that enables the creation of secure and SOC2-compliant AI agents to automate DevOps and cloud operations.
+## Components
 
-## Overview
+Skyflo.ai follows a clean architecture with the following components:
 
-Skyflo.ai provides AI-powered agents for AWS and Kubernetes management, enabling:
+1. **Engine** (`/engine`):
+   - Hosts the multi-agent system including the following agents built using [AutoGen by Microsoft](https://github.com/microsoft/autogen):
+     - The Planner
+     - The Executor
+     - The Verifier
+   - True graph-based execution workflow built for reliability and scalability.
+   - Manages user authentication and conversations
+   - Communicates with the MCP server for tool discovery and execution
+   - Implements WebSocket-based real-time communication between the engine and the command center
 
-- Natural language management of cloud resources
-- Cloud cost monitoring and optimization
-- Real-time Q&A about infrastructure
+2. **MCP Server** (`/mcp`):
+   - Provides the MCP server for different cloud native tool definitions and handles their execution
+   - Implements tool definitions for `kubectl`, `argo`, and `helm`.
+   - Ensures secure access to cluster resources.
+   - Uses subprocess and shell commands for tool call execution.
 
-## Agent Architecture
+3. **Kubernetes Controller** (`/kubernetes-controller`):
+   - Implements custom resource definitions (CRDs) for the Kubernetes operator
+   - Manages deployment and configuration of all Skyflo.ai components within Kubernetes clusters
+   - Provides unified deployment through a single `SkyfloAI` custom resource
+   - Handles dynamic configuration updates and scaling of components
+   - Implements secure RBAC management for cluster interactions
+   - Supports namespace isolation and fine-grained access control
+   - Manages standard Kubernetes resources (Deployments, Services) for UI and API components
+   - Monitors and reports component health through status conditions
 
-Skyflo.ai operates through a secure agent-based model:
+4. **Command Center** (`/ui`):
+   - The command center for all your cloud native operations.
+   - Manages user authentication and conversations
+   - Displays real-time workflow progress visualization
+   - Implements responsive Markdown-based chat UI
+   - Shows operation status and terminal outputs in real-time
+   - Settings dashboard for managing team members and permissions
 
-![Agents Flow](../assets/architecture/agents-flow.png)
+## Multi-Agent Architecture
 
-### AWS Agent Flow
+Skyflo.ai uses a state-of-the-art multi-agent architecture powered by [AutoGen](https://github.com/microsoft/autogen) and [LangGraph](https://github.com/LangChain-AI/langgraph):
 
-1. **Account Creation**: Customer creates an account on Skyflo.ai
-2. **Agent Setup**: Customer creates an AWS agent in the platform
-3. **Installation**: Customer runs a provided script containing a secure AuthKey (JWT)
-4. **Agent Deployment**: The script deploys two components:
+1. **Planner Agent**:
+   - Analyzes natural language queries to determine user intent
+   - Follows a two-step process:
 
-   **A. Initial Crawler**
-   - Assumes AdministratorAccess
-   - Creates Lambda function to scan AWS resources
-   - Extracts required data based on configuration
-   - Sends data to Skyflo.ai backend
+      1. Discovery: Before creating a plan, the planner agent will understand the user's intent and run a discovery phase to find the resources that are relevant to the user's intent.
+      2. Plan creation: Once the discovery phase is complete, the planner agent will create a plan for the executor agent to execute.
+   - Identifies required Kubernetes operations and resources
+   - Generates detailed execution plans with step-by-step actions
+   - Optimizes tool selection based on capabilities and dependencies
 
-   **B. Real-time Watcher**
-   - Sets up IAM policy for CloudTrail and EventBridge
-   - Creates EventBridge rule targeting Skyflo.ai backend
-   - Monitors events from specified AWS services
+2. **Executor Agent**:
+   - Executes each step of the execution plan by calling the MCP server
+   - Handles complex, multi-stage operations by resolving dynamic parameters from previous steps
+   - Waits for user confirmation before executing any WRITE operation on the Kubernetes cluster
+   - Implements validation for parameter types and values
+   - Executes recursive operations on multiple resources
+   - Processes and formats command outputs for user readability
 
-## API Architecture
+3. **Verifier Agent**:
+   - Evaluates execution results against original user intent
+   - Confirms successful implementation of requested changes
+   - Provides clear explanations of what was accomplished
+   - Calls the Planner agent to create a new plan if any issues are detected during the execution phase
 
-**Base URL**: `https://api.skyflo.ai/v1`
+## Features
 
-**Authentication**: All APIs require Bearer token authentication
-
-### Core Endpoints
-
-1. **Agent Authentication**
-   - `POST /agents/auth-key` - Creates authentication for new agent installations
-
-2. **Agent Operations**
-   - `POST /agents/{agent_id}/alive` - Agent status and initial configuration
-
-3. **Crawl Webhooks**
-   - `POST /webhooks/{provider}/{agent_id}/crawl-complete` - Initial scan results
-   - `POST /webhooks/{provider}/{agent_id}/continuous-crawl` - Real-time updates
-
-### Security Implementation
-
-1. **Authentication**: JWT-based with short-lived tokens and 30-day rotation
-2. **Validation**: Rate limiting, payload restrictions, header validation
-3. **Monitoring**: Authentication logging, audit trails, performance metrics
+- **Natural Language Kubernetes Management**: Interact with Kubernetes using natural language
+- **Resource Discovery**: Automatic discovery of cluster resources
+- **Cluster Health Monitoring**: Get insights into cluster performance and resource utilization
+- **Real-time Q&A**: Get immediate answers about your Kubernetes infrastructure
+- **Secure by Design**: Zero-trust, least-privileged architecture
+- **Real-time Operation Status**: Live updates during execution with WebSockets
+- **Multi-stage Operations**: Complex workflows broken down into manageable steps
+- **Context-aware Responses**: Maintains conversation context for follow-up questions
+- **Progressive Delivery Support**: Integration with Argo Rollouts for advanced deployment patterns
+- **Package Management**: Helm chart installation, upgrades, and rollbacks
+- **Terminal Output**: Live display of command outputs
+- **Conversation Persistence**: Save and continue conversations later
 
 ## Technical Stack
 
-### Backend
-- Python
-- Django
-- GraphQL
-- Temporal
-
-### Frontend
-- TypeScript
-- React
-- Next.js
-- Tailwind CSS
-
-### Infrastructure
-- Kubernetes
-- Docker
-- Helm
-- Terraform 
+- **Backend**: Python 3.11+, FastAPI, LangGraph, Redis, PostgreSQL
+- **Frontend**: React, Next.js, TypeScript, TailwindCSS, Socket.IO
+- **AI/ML**: AutoGen, LangGraph, LLM integration
+- **Infrastructure**: Kubernetes, Argo, Helm
+- **Communication**: WebSockets, Redis pub/sub
+- **Security**: JWT authentication, RBAC permissions, PyCasbin

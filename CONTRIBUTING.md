@@ -2,7 +2,9 @@
 
 Thank you for considering contributing to Skyflo.ai! This document provides guidelines for contributing to the project.
 
-By participating, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
+We are committed to providing a friendly, safe, and welcoming environment for all contributors. Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+We highly recommend reading our [Architecture Guide](ARCHITECTURE.md) if you'd like to contribute! The repo is not as intimidating as it first seems if you read the guide!
 
 ## Quick Start
 
@@ -13,37 +15,6 @@ By participating, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md
 5. **Make Changes**: Follow our coding standards and add tests
 6. **Submit PR**: Create a pull request with a clear description of changes
 
-## Development Environment
-
-### Prerequisites
-
-- Python 3.9+
-- Node.js 18+ (frontend)
-- Go 1.19+ (specific components)
-- Docker and Docker Compose
-- Kubernetes cluster (testing)
-- AWS account (testing)
-
-### Setup
-
-```bash
-# Python repositories
-make setup-dev
-
-# Frontend repositories
-yarn install
-```
-
-### Testing
-
-```bash
-# Python components
-make test
-
-# Frontend repositories
-yarn test
-```
-
 ## Coding Standards
 
 - **Python**: [PEP 8](https://www.python.org/dev/peps/pep-0008/), type hints, docstrings
@@ -51,6 +22,15 @@ yarn test
 - **Go**: [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
 - **Documentation**: Markdown, clear language, code examples
 - **Commits**: [Conventional Commits](https://www.conventionalcommits.org/) format
+  - Include component scope in commit messages: `type(scope): message`
+  - Use the following component scopes:
+    - `ui`: Frontend components
+    - `engine`: Engine components
+    - `mcp`: MCP server components
+    - `k8s`: Kubernetes controller components
+    - `docs`: Documentation changes
+    - `infra`: Infrastructure or build system changes
+  - Example: `feat (mcp): add docker tools` or `fix (ui): resolve workflow visualizer overflow`
 
 ## Pull Request Process
 
@@ -60,27 +40,9 @@ yarn test
 4. Address review feedback
 5. Await approval from maintainer
 
-### PR Checklist
-
-- [ ] Code follows style guidelines
-- [ ] Tests for new features/fixes
-- [ ] Documentation updates
-- [ ] Changelog entry (significant changes)
-- [ ] Signed-off commits (`git commit -s`)
-
-## Testing Guidelines
-
-- Write tests for new features and bug fixes
-- Include unit, integration, and end-to-end tests as appropriate
-- Mock external dependencies
-- Ensure tests are deterministic and fast
-
 ## License
 
-Contributions are licensed under the repository-specific license:
-
-- UI, Crawlers, Main Repository: Apache License 2.0
-- Core Engine, API: Business Source License 1.1 (converts to Apache 2.0 after 4 years)
+Skyflo.ai is fully open source and licensed under the [Apache License 2.0](LICENSE).
 
 ## Community
 
