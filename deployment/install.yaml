@@ -1,0 +1,792 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: skyflo-ai
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: skyflo-secrets
+  namespace: skyflo-ai
+type: Opaque
+stringData:
+  openai-api-key: ${OPENAI_API_KEY}
+  jwt-secret: ${JWT_SECRET}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: skyfloais.skyflo.ai
+spec:
+  group: skyflo.ai
+  names:
+    kind: SkyfloAI
+    listKind: SkyfloAIList
+    plural: skyfloais
+    singular: skyfloai
+    shortNames:
+    - sky
+  scope: Namespaced
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+            - ui
+            - engine
+            - mcp
+            properties:
+              ui:
+                type: object
+                required:
+                - image
+                properties:
+                  image:
+                    type: string
+                  replicas:
+                    type: integer
+                    minimum: 1
+                  resources:
+                    type: object
+                  env:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - name
+                      properties:
+                        name:
+                          type: string
+                        value:
+                          type: string
+              engine:
+                type: object
+                required:
+                - image
+                properties:
+                  image:
+                    type: string
+                  replicas:
+                    type: integer
+                    minimum: 1
+                  resources:
+                    type: object
+                  databaseConfig:
+                    type: object
+                    properties:
+                      host:
+                        type: string
+                      port:
+                        type: integer
+                      database:
+                        type: string
+                      secretName:
+                        type: string
+                  redisConfig:
+                    type: object
+                    properties:
+                      host:
+                        type: string
+                      port:
+                        type: integer
+                      secretName:
+                        type: string
+                  env:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - name
+                      properties:
+                        name:
+                          type: string
+                        value:
+                          type: string
+              mcp:
+                type: object
+                required:
+                - image
+                properties:
+                  image:
+                    type: string
+                  replicas:
+                    type: integer
+                    minimum: 1
+                  resources:
+                    type: object
+                  kubeconfigSecret:
+                    type: string
+                  env:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - name
+                      properties:
+                        name:
+                          type: string
+                        value:
+                          type: string
+              imagePullSecrets:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+              nodeSelector:
+                type: object
+                additionalProperties:
+                  type: string
+              tolerations:
+                type: array
+                items:
+                  type: object
+              affinity:
+                type: object
+          status:
+            type: object
+            properties:
+              uiStatus:
+                type: object
+                properties:
+                  phase:
+                    type: string
+                  message:
+                    type: string
+                  readyReplicas:
+                    type: integer
+                  desiredReplicas:
+                    type: integer
+              engineStatus:
+                type: object
+                properties:
+                  phase:
+                    type: string
+                  message:
+                    type: string
+                  readyReplicas:
+                    type: integer
+                  desiredReplicas:
+                    type: integer
+              conditions:
+                type: array
+                items:
+                  type: object
+                  required:
+                  - type
+                  - status
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    reason:
+                      type: string
+                    message:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+    additionalPrinterColumns:
+    - name: UI Ready
+      type: string
+      jsonPath: .status.uiStatus.phase
+    - name: Engine Ready
+      type: string
+      jsonPath: .status.engineStatus.phase
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+    subresources:
+      status: {}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: skyflo-ai-controller-role
+rules:
+- apiGroups:
+  - skyflo.ai
+  resources:
+  - skyfloais
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - skyflo.ai
+  resources:
+  - skyfloais/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - skyflo.ai
+  resources:
+  - skyfloais/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: skyflo-ai-controller-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: skyflo-ai-controller-role
+subjects:
+- kind: ServiceAccount
+  name: skyflo-ai-controller
+  namespace: skyflo-ai
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: skyflo-ai-mcp
+  namespace: skyflo-ai
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: skyflo-ai-mcp-admin-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: skyflo-ai-mcp
+  namespace: skyflo-ai
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: skyflo-ai-controller
+  namespace: skyflo-ai
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skyflo-ai-controller
+  namespace: skyflo-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skyflo-ai-controller
+  template:
+    metadata:
+      labels:
+        app: skyflo-ai-controller
+    spec:
+      serviceAccountName: skyflo-ai-controller
+      containers:
+      - name: manager
+        image: skyfloaiagent/k8s-controller:v0.1.0
+        imagePullPolicy: Always
+        args:
+        - --leader-elect=false
+        - --metrics-bind-address=:8080
+        - --health-probe-bind-address=:8081
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 64Mi
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        - containerPort: 8081
+          name: health
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      securityContext:
+        runAsNonRoot: true
+      terminationGracePeriodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skyflo-ai-redis-headless
+  namespace: skyflo-ai
+spec:
+  clusterIP: None
+  ports:
+  - port: 6379
+    targetPort: redis
+    protocol: TCP
+    name: redis
+  selector:
+    app: skyflo-ai-redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: skyflo-ai-redis
+  namespace: skyflo-ai
+spec:
+  serviceName: skyflo-ai-redis-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skyflo-ai-redis
+  template:
+    metadata:
+      labels:
+        app: skyflo-ai-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:latest
+        ports:
+        - containerPort: 6379
+          name: redis
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        command:
+        - redis-server
+        - --appendonly
+        - "yes"
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skyflo-ai-redis
+  namespace: skyflo-ai
+spec:
+  ports:
+  - port: 6379
+    targetPort: redis
+    protocol: TCP
+    name: redis
+  selector:
+    app: skyflo-ai-redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skyflo-ai-postgres-headless
+  namespace: skyflo-ai
+spec:
+  clusterIP: None
+  ports:
+  - port: 5432
+    targetPort: postgres
+    protocol: TCP
+    name: postgres
+  selector:
+    app: skyflo-ai-postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: skyflo-ai-postgres
+  namespace: skyflo-ai
+spec:
+  serviceName: skyflo-ai-postgres-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skyflo-ai-postgres
+  template:
+    metadata:
+      labels:
+        app: skyflo-ai-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:latest
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          value: "skyflo"
+        - name: POSTGRES_PASSWORD
+          value: "skyflo" # In production, use a secret
+        - name: POSTGRES_DB
+          value: "skyflo"
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 200m
+            memory: 512Mi
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - skyflo
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - skyflo
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skyflo-ai-postgres
+  namespace: skyflo-ai
+spec:
+  ports:
+  - port: 5432
+    targetPort: postgres
+    protocol: TCP
+    name: postgres
+  selector:
+    app: skyflo-ai-postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skyflo-ai-ui
+  namespace: skyflo-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skyflo-ai-ui
+  template:
+    metadata:
+      labels:
+        app: skyflo-ai-ui
+    spec:
+      containers:
+      - name: ui
+        image: skyfloaiagent/ui:v0.1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1002
+          runAsGroup: 1002
+          capabilities:
+            drop:
+            - ALL
+      - name: proxy
+        image: skyfloaiagent/proxy:v0.1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http-proxy
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+      securityContext:
+        runAsNonRoot: false
+      terminationGracePeriodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skyflo-ai-ui
+  namespace: skyflo-ai
+spec:
+  ports:
+  - port: 80
+    targetPort: http-proxy
+    protocol: TCP
+    name: http
+  - port: 3000
+    targetPort: http
+    protocol: TCP
+    name: ui-http
+  type: NodePort
+  selector:
+    app: skyflo-ai-ui
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skyflo-ai-engine
+  namespace: skyflo-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skyflo-ai-engine
+  template:
+    metadata:
+      labels:
+        app: skyflo-ai-engine
+    spec:
+      containers:
+      - name: engine
+        image: skyfloaiagent/engine:v0.1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: openai-api-key
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: jwt-secret
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 200m
+            memory: 512Mi
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: http
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: http
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1002
+          runAsGroup: 1002
+          capabilities:
+            drop:
+            - ALL
+      securityContext:
+        runAsNonRoot: true
+      terminationGracePeriodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skyflo-ai-engine
+  namespace: skyflo-ai
+spec:
+  ports:
+  - port: 8080
+    targetPort: http
+    protocol: TCP
+    name: http
+    nodePort: 30081
+  type: NodePort
+  selector:
+    app: skyflo-ai-engine
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skyflo-ai-mcp
+  namespace: skyflo-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skyflo-ai-mcp
+  template:
+    metadata:
+      labels:
+        app: skyflo-ai-mcp
+    spec:
+      serviceAccountName: skyflo-ai-mcp
+      containers:
+      - name: mcp
+        image: skyfloaiagent/mcp:v0.1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8081
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /mcp/v1/health
+            port: http
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /mcp/v1/health
+            port: http
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 200m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1002
+          runAsGroup: 1002
+          capabilities:
+            drop:
+            - ALL
+      securityContext:
+        runAsNonRoot: true
+      terminationGracePeriodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skyflo-ai-mcp
+  namespace: skyflo-ai
+spec:
+  ports:
+  - port: 8081
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app: skyflo-ai-mcp
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: skyflo-ai-mcp-policy
+  namespace: skyflo-ai
+spec:
+  podSelector:
+    matchLabels:
+      app: skyflo-ai-mcp
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: skyflo-ai-engine
+  egress:
+  - {}
