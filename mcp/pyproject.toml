@@ -1,0 +1,93 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "skyflo-mcp"
+dynamic = ["version"]
+description = 'Skyflo.ai MCP Server - Open Source AI Agent for Cloud Native'
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+keywords = ["ai", "agent", "cloud native", "open source"]
+authors = [
+    { name = "Karan Jagtiani", email = "karan@skyflo.ai" },
+]
+
+dependencies = [
+    "autogen-agentchat>=0.4.9.2",
+    "autogen-core>=0.4.9.2",
+    "autogen-ext[mcp,openai]>=0.4.9.2",
+    "autogenstudio>=0.4.2",
+    "langgraph>=0.3.18",
+    "mcp>=1.5.0",
+    "pydantic>=2.10.6",
+    "python-decouple>=3.8",
+    "uvicorn>=0.27.1",
+    "typer>=0.9.0",
+    "tiktoken>=0.6.0",
+    "fastapi>=0.115.11",
+    "fastapi-users[tortoise-orm]>=14.0.1",
+    "casbin>=1.41.0",
+    "tortoise-orm>=0.24.2",
+    "aerich>=0.8.2",
+    "broadcaster>=0.3.1",
+    "fastapi-limiter>=0.1.6",
+    "fastapi-websocket-pubsub>=0.3.9",
+]
+
+[project.optional-dependencies]
+default = [
+    "pytest>=8.0.2",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.5",
+    "mypy>=1.8.0",
+    "pyyaml>=6.0.1",
+]
+
+[project.scripts]
+skyflo-mcp = "mcp.main:run"
+
+[project.urls]
+Documentation = "https://github.com/skyflo-ai/skyflo#readme"
+Issues = "https://github.com/skyflo-ai/skyflo/issues"
+Source = "https://github.com/skyflo-ai/skyflo"
+
+[tool.hatch.version]
+path = "src/mcp_server/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_server"]
+
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest>=8.0.2",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.5",
+    "mypy>=1.8.0",
+    "pyyaml>=6.0.1",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests}"
+test-cov = "pytest --cov {args:src/mcp_server}"
+type-check = "mypy --install-types --non-interactive {args:src/mcp_server tests}"
+
+[tool.coverage.run]
+source_pkgs = ["mcp", "tests"]
+branch = true
+parallel = true
+omit = [
+    "src/mcp_server/__about__.py",
+]
+
+[tool.coverage.paths]
+mcp = ["src/mcp_server", "*/mcp/src/mcp_server"]
+tests = ["tests", "*/mcp/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
