@@ -66,6 +66,9 @@ Configure environment variables:
 ```bash
 # Create .env file from example
 cp .env.example .env
+
+# Edit the .env file
+NODE_ENV=development
 ```
 
 Start the development server:

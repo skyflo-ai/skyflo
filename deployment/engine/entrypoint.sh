@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Wait for 45 seconds for the database to be ready
+sleep 45
+
 # Initialize Aerich if not already initialized
 if [ ! -d "migrations" ]; then
   echo "Initializing Aerich..."

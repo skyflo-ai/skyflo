@@ -139,13 +139,13 @@ case $choice in  # Modified case statement without bash-specific lowercase conve
             print_colored "green" "✓ Found existing skyflo-ai cluster"
         else
             print_colored "yellow" "Creating new skyflo-ai cluster..."
-            curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/local.kind.yaml" | kind create cluster --config -
+            curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/v0.1.1/deployment/local.kind.yaml" | kind create cluster --config -
             print_colored "green" "✓ Created KinD cluster"
         fi
 
         # Download and modify the installation yaml
         TMP_INSTALL_FILE=$(mktemp)
-        curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/local.install.yaml" > "$TMP_INSTALL_FILE"
+        curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/v0.1.1/deployment/local.install.yaml" > "$TMP_INSTALL_FILE"
 
 
         # Replace image names and pull policies
@@ -161,7 +161,7 @@ case $choice in  # Modified case statement without bash-specific lowercase conve
             print_colored "red" "Error: OPENAI_API_KEY environment variable is required."
             print_colored "yellow" "Please run the installer with your OpenAI API key:"
             echo "export OPENAI_API_KEY='your-openai-api-key'"
-            echo "curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh | bash"
+            echo "curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/v0.1.1/deployment/install.sh | bash"
             exit 1
         fi
 
@@ -216,7 +216,7 @@ Your services are directly accessible through NodePorts:
 - API: http://localhost:30081
 
 For production setup and more information, visit:
-  https://github.com/skyflo-ai/skyflo/blob/main/docs/install.md
+  https://github.com/skyflo-ai/skyflo/blob/v0.1.1/docs/install.md
 "
         ;;
     2|"2"|"2)"|"prod"|"production"|"p")
@@ -232,7 +232,7 @@ For production setup and more information, visit:
             print_colored "red" "Error: OPENAI_API_KEY environment variable is required."
             print_colored "yellow" "Please run the installer with your OpenAI API key:"
             echo "export OPENAI_API_KEY='your-openai-api-key'"
-            echo "curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh | bash"
+            echo "curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/v0.1.1/deployment/install.sh | bash"
             exit 1
         fi
 
@@ -263,7 +263,7 @@ For production setup and more information, visit:
 
         # Download and modify the installation yaml
         TMP_INSTALL_FILE=$(mktemp)
-        curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.yaml" > "$TMP_INSTALL_FILE"
+        curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/v0.1.1/deployment/install.yaml" > "$TMP_INSTALL_FILE"
 
         cat "$TMP_INSTALL_FILE" | envsubst | kubectl apply -f - || {
             print_colored "red" "❌ Installation failed"
@@ -284,7 +284,7 @@ Your Skyflo.ai instance is being deployed. To check the status, run:
   kubectl get pods -n skyflo-ai
 
 Create your Ingress controller and expose the \"skyflo-ui\" NodePort Service. Refer to our documentation:
-  https://github.com/skyflo-ai/skyflo/blob/main/docs/install.md
+  https://github.com/skyflo-ai/skyflo/blob/v0.1.1/docs/install.md
 "
         ;;
     *)

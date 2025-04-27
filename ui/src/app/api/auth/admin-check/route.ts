@@ -7,9 +7,7 @@ export async function GET() {
     const headers = await getAuthHeaders();
 
     // Make the API call to check admin status with explicit IPv4
-    const apiUrl =
-      process.env.API_URL?.replace("localhost", "127.0.0.1") ||
-      "http://127.0.0.1:8080/api/v1";
+    const apiUrl = process.env.API_URL;
     const response = await fetch(`${apiUrl}/auth/is_admin_user`, {
       method: "GET",
       headers: {

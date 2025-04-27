@@ -17,8 +17,11 @@ Skyflo.ai is your AI-powered companion for cloud native operations, enabling sea
 
 ## How to Install
 
+Skyflo.ai offers flexible deployment options, accommodating both production and local Kubernetes environments:
+
 ```bash
-curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh | OPENAI_API_KEY='your-openai-api-key' bash
+export OPENAI_API_KEY='your-openai-api-key'
+curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh -o install.sh && chmod +x install.sh && ./install.sh
 ```
 
 For more details, see the [Installation Guide](docs/install.md).
@@ -26,6 +29,8 @@ For more details, see the [Installation Guide](docs/install.md).
 ## Architecture
 
 Read more about the architecture of Skyflo.ai in the [Architecture](docs/architecture.md) documentation.
+
+Skyflo.ai's multi-agent architecture leverages [Microsoft's AutoGen](https://github.com/microsoft/autogen) for agent orchestration and [LangGraph](https://github.com/langchain-ai/langgraph) for graph-based execution flows.
 
 ## Roadmap
 
