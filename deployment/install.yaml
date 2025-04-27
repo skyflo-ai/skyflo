@@ -321,7 +321,7 @@ spec:
       serviceAccountName: skyflo-ai-controller
       containers:
       - name: manager
-        image: skyfloaiagent/k8s-controller:v0.1.0
+        image: skyfloaiagent/k8s-controller:${VERSION}
         imagePullPolicy: Always
         args:
         - --leader-elect=false
@@ -562,7 +562,7 @@ spec:
     spec:
       containers:
       - name: ui
-        image: skyfloaiagent/ui:v0.1.0
+        image: skyfloaiagent/ui:${VERSION}
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
@@ -582,7 +582,7 @@ spec:
             drop:
             - ALL
       - name: proxy
-        image: skyfloaiagent/proxy:v0.1.0
+        image: skyfloaiagent/proxy:${VERSION}
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -634,7 +634,7 @@ spec:
     spec:
       containers:
       - name: engine
-        image: skyfloaiagent/engine:v0.1.0
+        image: skyfloaiagent/engine:${VERSION}
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -718,7 +718,7 @@ spec:
       serviceAccountName: skyflo-ai-mcp
       containers:
       - name: mcp
-        image: skyfloaiagent/mcp:v0.1.0
+        image: skyfloaiagent/mcp:${VERSION}
         imagePullPolicy: Always
         ports:
         - containerPort: 8081

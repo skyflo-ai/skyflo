@@ -28,6 +28,9 @@ docker buildx build -f deployment/ui/Dockerfile -t skyfloai/ui:latest .
 
 # Build the Kubernetes Controller image
 docker buildx build -f deployment/kubernetes-controller/Dockerfile -t skyfloai/controller:latest .
+
+# Build the Proxy image
+docker buildx build -f deployment/proxy/Dockerfile -t skyfloai/proxy:latest .
 ```
 
 ## Load the built images into the KinD cluster
@@ -39,6 +42,8 @@ kind load docker-image --name skyfloai skyfloai/engine:latest
 kind load docker-image --name skyfloai skyfloai/mcp:latest
 
 kind load docker-image --name skyfloai skyfloai/controller:latest
+
+kind load docker-image --name skyfloai skyfloai/proxy:latest
 ```
 
 ## Install the Controller and Resources

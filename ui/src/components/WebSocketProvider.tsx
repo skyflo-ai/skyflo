@@ -67,7 +67,11 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       setConnectionStatus("connecting");
 
       // Configure Socket.IO client with proper settings
-      const newSocket = io("", {
+      const isProduction = process.env.NODE_ENV === "production";
+      const socketPath = isProduction ? "/api/ws/socket.io" : "/socket.io";
+      const socketURL = isProduction ? "" : "http://localhost:8080";
+
+      const newSocket = io(socketURL, {
         transports: ["websocket", "polling"],
         reconnection: true,
         reconnectionAttempts: 5,
@@ -76,7 +80,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
         timeout: 20000,
         autoConnect: true,
         forceNew: true,
-        path: "/api/ws/socket.io",
+        path: socketPath,
         withCredentials: true,
       });
 

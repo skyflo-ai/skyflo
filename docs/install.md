@@ -2,35 +2,61 @@
 
 Welcome to the future of cloud orchestration. This guide will help you deploy Skyflo.ai in minutes, whether you're experimenting locally or deploying in production.
 
-## What You'll Need
+## Prerequisites
 
-- Kubernetes cluster (v1.19+)
+### For Local Development
+- Docker
+- KinD (Kubernetes in Docker)
+- kubectl command-line tool
+- gettext (for envsubst)
+- curl
+
+### For Production
+- Access to a Kubernetes cluster (v1.19+)
 - kubectl command-line tool
 - An OpenAI API key
+- gettext (for envsubst)
+- curl
 
-## Zero-to-Cloud Deployment
+## Installation Options
 
-Transform your infrastructure with a single command:
+Skyflo.ai offers two deployment options:
 
-```bash
-curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh | OPENAI_API_KEY='your-openai-api-key' bash
-```
+### 1. Local Development with KinD
 
-### Experience the Interface
-
-#### Development Mode
-
-Quick access for local innovation:
+Perfect for development, testing, and exploring Skyflo.ai features in a local environment:
 
 ```bash
-# UI access
-kubectl port-forward -n skyflo-ai svc/skyflo-ai-ui 3000:3000
-
-# API access
-kubectl port-forward -n skyflo-ai svc/skyflo-ai-engine 8080:8080
+export OPENAI_API_KEY='your-openai-api-key'
+curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh | bash
 ```
 
-Navigate to `http://localhost:3000` and dive in.
+This will:
+- Create a new KinD cluster using our optimized configuration
+- Deploy Skyflo.ai components using local images
+- Set up necessary services (Redis, PostgreSQL)
+- Configure networking for local access
+
+Access your local installation:
+- UI: http://localhost:30080
+- API: http://localhost:30081
+
+### 2. Production Deployment
+
+For deploying Skyflo.ai in a production environment:
+
+```bash
+export OPENAI_API_KEY='your-openai-api-key'
+curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh -o install.sh && chmod +x install.sh && ./install.sh
+# Select option 2 when prompted
+```
+
+Optional environment variables for production:
+```bash
+export JWT_SECRET='your-custom-jwt-secret'  # Auto-generated if not provided
+export POSTGRES_DATABASE_URL='your-postgres-url'  # Default: postgres://skyflo:skyflo@skyflo-ai-postgres:5432/skyflo
+export REDIS_HOST='your-redis-host:port'  # Default: skyflo-ai-redis:6379
+```
 
 #### Production Setup - AWS
 
@@ -76,29 +102,61 @@ spec:
 ```
 
 Apply the configuration:
-
 ```bash
 kubectl apply -f skyflo-ingress.yaml
 ```
 
-2. After applying the configuration, the AWS Load Balancer Controller will provision an Application Load Balancer. You can get the ALB DNS name using:
-
+2. After applying the configuration, the AWS Load Balancer Controller will provision an Application Load Balancer. Get the ALB DNS name:
 ```bash
 kubectl get ingress -n skyflo-ai
 ```
 
 3. Configure your DNS provider to point your domain to the ALB DNS name using a CNAME record.
 
-## Clean Slate
+## Verifying the Installation
 
+Check the status of your deployment:
+```bash
+kubectl get pods -n skyflo-ai
+```
+
+### Accessing the Services
+
+#### For Local KinD Deployment
+Your services are directly accessible through NodePorts:
+- UI: http://localhost:30080
+- API: http://localhost:30081
+
+## Uninstalling
+
+To remove Skyflo.ai and all its components:
 ```bash
 kubectl delete namespace skyflo-ai
 ```
 
-## Local Sandbox with KinD
+For local KinD cluster:
+```bash
+kind delete cluster --name skyflo-ai
+```
 
-Want to explore Skyflo.ai in your development environment? Our KinD setup gives you a full-featured playground in minutes. Check out [deployment/README.md](../deployment/README.md) for the streamlined process of spinning up clusters, building images, and deploying components locally.
+## Troubleshooting
 
-## Join the Movement
+1. Check pod status:
+```bash
+kubectl get pods -n skyflo-ai
+kubectl describe pod <pod-name> -n skyflo-ai
+```
 
-We're building something different. Connect with fellow innovators through our [GitHub Issues](https://github.com/skyflo-ai/skyflo/issues).
+2. View logs:
+```bash
+kubectl logs <pod-name> -n skyflo-ai
+```
+
+3. Common issues:
+- If pods are stuck in "Pending" state, check your cluster's resources
+- For "ImagePullBackOff", verify your container registry access
+- For connection issues, ensure all services are running and properly configured
+
+## Need Help?
+
+Join our [Discord community](https://discord.gg/kCFNavMund) for support and discussions.
