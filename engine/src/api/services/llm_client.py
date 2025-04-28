@@ -10,8 +10,9 @@ from datetime import datetime
 
 from litellm import acompletion
 from litellm.exceptions import RateLimitError
-from openai.types.chat import ChatCompletion, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
+
+from api.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,32 +31,48 @@ class LLMClient:
 
     def __init__(
         self,
-        api_key: str,
-        model: str = "gpt-4-turbo-preview",
+        api_key: Optional[str] = None,
+        model: str = "gpt-4o",
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
-        provider: str = "openai",
+        provider: Optional[str] = None,
         max_retries: int = 3,
-        initial_retry_delay: float = 1.0,
+        initial_retry_delay: float = 5.0,
         exponential_base: float = 2.0,
     ):
         """Initialize the LLM client.
 
         Args:
-            api_key: API key for the LLM provider
-            model: Model to use for completions
+            api_key: API key for the LLM provider (optional, will be auto-detected if not provided)
+            model: Model to use for completions (can include provider prefix, e.g., "groq/llama-3")
             temperature: Temperature for response generation
             max_tokens: Maximum tokens in response
-            provider: Provider prefix for litellm
+            provider: Provider prefix for litellm (optional, will be extracted from model if not provided)
             max_retries: Maximum number of retries for rate limit errors
             initial_retry_delay: Initial delay for retry in seconds
             exponential_base: Base for exponential backoff calculation
         """
+        # Extract provider from model if it contains a slash
+        if "/" in model and not provider:
+            provider, model_name = model.split("/", 1)
+            self.provider = provider
+            self.model_name = model_name
+        else:
+            self.provider = provider or "openai"
+            self.model_name = model
+
+        # Auto-detect API key based on provider if not provided
+        if not api_key:
+            api_key = settings.get_api_key_for_provider(self.provider)
+
         self.api_key = api_key
-        self.model = f"{provider}/{model}" if not model.startswith(f"{provider}/") else model
+        self.model = (
+            f"{self.provider}/{self.model_name}"
+            if not self.model_name.startswith(f"{self.provider}/")
+            else self.model_name
+        )
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.provider = provider
         self.max_retries = max_retries
         self.initial_retry_delay = initial_retry_delay
         self.exponential_base = exponential_base
