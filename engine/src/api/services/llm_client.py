@@ -3,10 +3,13 @@
 from typing import Dict, Any, List, Optional, Callable, Awaitable
 import logging
 import json
+import asyncio
+import random
 from dataclasses import dataclass
 from datetime import datetime
 
-from openai import AsyncOpenAI
+from litellm import acompletion
+from litellm.exceptions import RateLimitError
 from openai.types.chat import ChatCompletion, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
 
@@ -31,19 +34,103 @@ class LLMClient:
         model: str = "gpt-4-turbo-preview",
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        provider: str = "openai",
+        max_retries: int = 3,
+        initial_retry_delay: float = 1.0,
+        exponential_base: float = 2.0,
     ):
         """Initialize the LLM client.
 
         Args:
-            api_key: OpenAI API key
+            api_key: API key for the LLM provider
             model: Model to use for completions
             temperature: Temperature for response generation
             max_tokens: Maximum tokens in response
+            provider: Provider prefix for litellm
+            max_retries: Maximum number of retries for rate limit errors
+            initial_retry_delay: Initial delay for retry in seconds
+            exponential_base: Base for exponential backoff calculation
         """
-        self.client = AsyncOpenAI(api_key=api_key)
-        self.model = model
+        self.api_key = api_key
+        self.model = f"{provider}/{model}" if not model.startswith(f"{provider}/") else model
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.provider = provider
+        self.max_retries = max_retries
+        self.initial_retry_delay = initial_retry_delay
+        self.exponential_base = exponential_base
+
+    async def _execute_with_retry(self, operation_func, *args, **kwargs):
+        """Execute an operation with exponential backoff retry for rate limit errors.
+
+        Args:
+            operation_func: Async function to execute
+            *args: Arguments to pass to the function
+            **kwargs: Keyword arguments to pass to the function
+
+        Returns:
+            The result of the function call
+
+        Raises:
+            The last exception encountered if all retries fail
+        """
+        retry_count = 0
+
+        while True:
+            try:
+                return await operation_func(*args, **kwargs)
+            except RateLimitError as e:
+                retry_count += 1
+
+                if retry_count > self.max_retries:
+                    logger.error(
+                        f"Max retries ({self.max_retries}) exceeded for {self.provider} operation"
+                    )
+                    raise
+
+                # Calculate backoff time using exponential backoff
+                retry_delay = self.initial_retry_delay * (
+                    self.exponential_base ** (retry_count - 1)
+                )
+
+                # Add jitter (between 80-120% of calculated delay)
+                retry_delay = retry_delay * (0.8 + 0.4 * random.random())
+
+                logger.warning(
+                    f"Rate limit hit for {self.provider} model {self.model}. "
+                    f"Retrying in {retry_delay:.2f}s (attempt {retry_count}/{self.max_retries})"
+                )
+
+                await asyncio.sleep(retry_delay)
+            except Exception as e:
+                # For non-rate-limit errors, don't retry
+                logger.error(f"Error in {self.provider} operation: {str(e)}")
+                raise
+
+    async def _make_completion_call(
+        self, messages, temperature=None, max_tokens=None, response_format=None, tools=None
+    ):
+        """Make a completion call to the LLM provider with common parameters.
+
+        Args:
+            messages: The messages to send to the LLM
+            temperature: Optional temperature override
+            max_tokens: Optional max tokens override
+            response_format: Optional response format specification
+            tools: Optional tools/functions for function calling
+
+        Returns:
+            The response from the LLM
+        """
+        return await acompletion(
+            model=self.model,
+            messages=messages,
+            temperature=temperature or self.temperature,
+            max_tokens=max_tokens or self.max_tokens,
+            api_key=self.api_key,
+            response_format=response_format,
+            tools=tools,
+        )
 
     async def chat_completion(
         self,
@@ -71,12 +158,9 @@ class LLMClient:
                 f"Messages: {json.dumps(messages, indent=2)}"
             )
 
-            # Make the API call
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=temperature or self.temperature,
-                max_tokens=max_tokens or self.max_tokens,
+            # Make the API call with retry
+            response = await self._execute_with_retry(
+                self._make_completion_call, messages, temperature, max_tokens
             )
 
             # Log the response
@@ -119,26 +203,24 @@ class LLMClient:
                 f"Messages: {json.dumps(messages, indent=2)}"
             )
 
-            # Make the API call
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                functions=functions,
-                temperature=temperature or self.temperature,
+            # Make the API call with retry
+            response = await self._execute_with_retry(
+                self._make_completion_call, messages, temperature, None, None, functions
             )
 
             # Log the response
             logger.debug(
                 f"Received function call response:\n"
                 f"Usage: {response.usage}\n"
-                f"Function call: {response.choices[0].message.function_call if response.choices else 'No function call'}"
+                f"Function call: {response.choices[0].message.tool_calls if response.choices else 'No function call'}"
             )
 
             # Return the function call details
-            if response.choices and response.choices[0].message.function_call:
+            if response.choices and response.choices[0].message.tool_calls:
+                tool_call = response.choices[0].message.tool_calls[0]
                 return {
-                    "name": response.choices[0].message.function_call.name,
-                    "arguments": json.loads(response.choices[0].message.function_call.arguments),
+                    "name": tool_call.function.name,
+                    "arguments": json.loads(tool_call.function.arguments),
                 }
             else:
                 return {"name": None, "arguments": None}
@@ -239,12 +321,13 @@ Return ONLY the JSON data structure of the summarized context without any explan
                 },
             ]
 
-            # Make the summarization API call
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=summarization_prompt,
-                temperature=0.1,  # Low temperature for consistent summaries
-                response_format={"type": "json_object"},
+            # Make the summarization API call with retry
+            response = await self._execute_with_retry(
+                self._make_completion_call,
+                summarization_prompt,
+                0.1,  # Low temperature for consistent summaries
+                None,
+                {"type": "json_object"},
             )
 
             # Extract and parse the summary
