@@ -309,6 +309,10 @@ class ExecutorAgent(BaseAgent):
 
             steps = plan.get("steps", [])
             logger.debug(f"Found {len(steps)} steps to execute")
+
+            # Normalize steps to ensure parameters are in dictionary format
+            steps = self._normalize_steps(steps)
+
             results = []
             steps_executed = 0
             steps_total = len(steps)
@@ -329,7 +333,9 @@ class ExecutorAgent(BaseAgent):
 
                     # Check token count before executing step
                     current_token_count = self._estimate_token_count(execution_state)
-                    logger.debug(f"Current token count before step {step_id}: {current_token_count}")
+                    logger.debug(
+                        f"Current token count before step {step_id}: {current_token_count}"
+                    )
                     self._state.token_count = current_token_count
 
                     # If token count exceeds limit, summarize and clear context
@@ -1317,7 +1323,9 @@ Return a JSON array of tool calls that follow the same structure as the current 
                     ):
                         pod_output = step_result.get("output", "")
 
-            logger.debug(f"Context info in _extract_pod_names_from_previous_results: {context_info}")
+            logger.debug(
+                f"Context info in _extract_pod_names_from_previous_results: {context_info}"
+            )
             last_tool_used = context_info[-1]["tool"] if context_info else "None"
             last_namespace = context_info[-1]["parameters"].get("namespace", "default")
 
@@ -1439,7 +1447,9 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         f"Interpreted '{original_type}' as pod name pattern: {original_type}"
                     )
 
-            logger.debug(f"Corrected resource_type from '{original_type}' to 'pods' for log request")
+            logger.debug(
+                f"Corrected resource_type from '{original_type}' to 'pods' for log request"
+            )
 
         # Ensure namespace is set for log requests
         if "namespace" not in processed_params:
@@ -1463,3 +1473,28 @@ Return a JSON array of tool calls that follow the same structure as the current 
                 logger.debug("Using default namespace for log request")
 
         return processed_params
+
+    def _normalize_steps(self, steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Normalize steps to ensure parameters are in dictionary format.
+
+        Converts parameters from the new list format [{"name": "key", "value": "val"}]
+        to the old dictionary format {"key": "val"}.
+
+        Args:
+            steps: List of steps with parameters in either format
+
+        Returns:
+            List of steps with parameters in dictionary format
+        """
+        normalized_steps = []
+        for step in steps:
+            normalized_step = step.copy()
+            if isinstance(normalized_step.get("parameters"), list):
+                # Convert from [{"name": "key", "value": "val"}] to {"key": "val"}
+                normalized_step["parameters"] = {
+                    param.get("name"): param.get("value")
+                    for param in normalized_step["parameters"]
+                    if isinstance(param, dict) and "name" in param and "value" in param
+                }
+            normalized_steps.append(normalized_step)
+        return normalized_steps

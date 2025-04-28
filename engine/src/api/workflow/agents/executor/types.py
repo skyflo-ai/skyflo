@@ -28,6 +28,13 @@ class ToolMetrics(BaseModel):
     last_failure: Optional[datetime] = None
 
 
+class ParameterItem(BaseModel):
+    """Represents a single parameter with a fixed name and value."""
+
+    name: str = Field(description="The name of the parameter")
+    value: Any = Field(description="The value of the parameter")
+
+
 class ExecutorState(BaseAgentState):
     """State for executor agent."""
 

@@ -49,6 +49,37 @@ class PlannerAgent(BaseAgent):
         self._config = PlannerConfig()
         self.event_callback = event_callback
 
+    def _normalize_plan_format(self, plan: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize plan format by converting parameters from list to dictionary format.
+
+        This ensures backward compatibility with code expecting the old format.
+
+        Args:
+            plan: The plan with parameters in list format
+
+        Returns:
+            The plan with parameters converted to dictionary format
+        """
+        if not isinstance(plan, dict):
+            return plan
+
+        normalized_plan = plan.copy()
+
+        # Convert parameters in steps
+        if "steps" in normalized_plan and isinstance(normalized_plan["steps"], list):
+            for step in normalized_plan["steps"]:
+                if isinstance(step, dict) and "parameters" in step:
+                    params = step["parameters"]
+                    if isinstance(params, list):
+                        # Convert from [{"name": "key", "value": "val"}] to {"key": "val"}
+                        step["parameters"] = {
+                            param.get("name"): param.get("value")
+                            for param in params
+                            if isinstance(param, dict) and "name" in param and "value" in param
+                        }
+
+        return normalized_plan
+
     async def _build_tool_dependency_graph(self) -> Dict[str, ToolDependency]:
         """Build a graph of tool dependencies."""
         tools_response = await self.mcp_client.get_tools()
@@ -263,6 +294,9 @@ class PlannerAgent(BaseAgent):
                     f"Failed to parse discovery plan JSON: {str(e)}", query, response_text
                 )
 
+            # Normalize the plan format (convert parameters from list to dict)
+            discovery_plan = self._normalize_plan_format(discovery_plan)
+
             # Add plan metadata
             discovery_plan["plan_id"] = str(uuid.uuid4())
 
@@ -431,6 +465,9 @@ class PlannerAgent(BaseAgent):
                 return await self._handle_planning_error(
                     f"Failed to parse plan JSON: {str(e)}", query, response_text
                 )
+
+            # Normalize the plan format (convert parameters from list to dict)
+            plan = self._normalize_plan_format(plan)
 
             # Add plan metadata
             plan["plan_id"] = str(uuid.uuid4())
