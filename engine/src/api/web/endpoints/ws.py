@@ -43,6 +43,10 @@ active_connections: Dict[str, List[str]] = {}
 
 async def socket_event_callback(event: Dict[str, Any]):
     """Callback for Socket.IO events."""
+    # Events can have conversation_id in different locations depending on event type:
+    # 1. Directly in the event object for most events
+    # 2. Inside 'details' field for agent events
+    # 3. Inside 'data' field for tool_call events
     room = None
     if "conversation_id" in event:
         room = f"conversation:{event['conversation_id']}"
@@ -52,11 +56,14 @@ async def socket_event_callback(event: Dict[str, Any]):
         and "conversation_id" in event["details"]
     ):
         room = f"conversation:{event['details']['conversation_id']}"
+    elif "data" in event and isinstance(event["data"], dict) and "conversation_id" in event["data"]:
+        room = f"conversation:{event['data']['conversation_id']}"
 
     if room:
         await socket_io_agent_event(room, event)
     else:
         logger.warning(f"No room found for event: {event.get('type', 'unknown')}")
+        logger.warning(f"Event without room: {str(event)[:200]}...")
 
 
 register_global_callback(socket_event_callback)
@@ -368,6 +375,7 @@ async def disconnect(sid):
         f"Connection count after disconnect: {sum(len(clients) for clients in active_connections.values())}"
     )
     logger.debug(f"Active connections remaining: {active_connections}")
+
 
 async def socket_io_agent_event(room: str, event: Dict[str, Any]):
     """Emit agent events to Socket.IO clients in a room.
@@ -722,4 +730,3 @@ async def emit_terminal_output(room: str, step_data: Dict[str, Any]):
 @router.get("/socket.io/{path_params:path}")
 async def socketio_endpoint(path_params: str):
     return sio_app
-
