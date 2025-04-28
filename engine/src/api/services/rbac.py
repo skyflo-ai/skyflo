@@ -81,13 +81,21 @@ async def init_enforcer() -> None:
         # Create adapter
         adapter = TortoiseAdapter()
 
-        # Create enforcer
-        _enforcer = casbin.Enforcer(model, adapter)
+        # Create enforcer without auto-loading policies
+        _enforcer = casbin.Enforcer(model, None)  # Initialize with no adapter first
+        _enforcer.enable_auto_save(False)  # Disable auto-save to prevent unexpected sync calls
+        _enforcer.enable_auto_build_role_links(False)  # Disable auto role link building
 
-        # Load policies
-        await adapter.load_policy(model)
+        # Set the adapter
+        _enforcer.adapter = adapter
 
-        logger.info("PyCasbin enforcer initialized")
+        # Manually load policies using the async method
+        await adapter.load_policy(_enforcer.get_model())
+
+        # Build role links after loading policies
+        _enforcer.build_role_links()
+
+        logger.info("PyCasbin enforcer initialized with async policy loading")
 
 
 async def get_enforcer() -> Enforcer:
@@ -120,6 +128,9 @@ async def assign_role(
         # Global role
         enforcer.add_grouping_policy(str(user_id), role)
 
+    # Rebuild role links after modifying policies
+    enforcer.build_role_links()
+
     logger.debug(f"Assigned role {role} to user {user_id}")
 
 
@@ -136,6 +147,9 @@ async def remove_role(
     else:
         # Global role
         enforcer.remove_grouping_policy(str(user_id), role)
+
+    # Rebuild role links after modifying policies
+    enforcer.build_role_links()
 
     logger.debug(f"Removed role {role} from user {user_id}")
 
