@@ -63,7 +63,7 @@ export REDIS_HOST='your-redis-host:port'  # Default: skyflo-ai-redis:6379
 1. Apply the following Ingress configuration (adjust the values according to your AWS setup):
 
 ```yaml
-# skyflo-ingress.yaml
+# skyflo-ai-ingress.yaml
 
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -91,14 +91,7 @@ spec:
           service:
             name: skyflo-ai-ui
             port:
-              number: 3000
-      - path: /api/*
-        pathType: ImplementationSpecific
-        backend:
-          service:
-            name: skyflo-ai-engine
-            port:
-              number: 8080
+              number: 80
 ```
 
 Apply the configuration:
