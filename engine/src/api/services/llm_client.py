@@ -32,7 +32,7 @@ class LLMClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str = None,
         model: str = "gpt-4o",
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
@@ -44,7 +44,7 @@ class LLMClient:
         """Initialize the LLM client.
 
         Args:
-            api_key: API key for the LLM provider (optional, will be auto-detected if not provided)
+            api_key: API key for the LLM provider
             model: Model to use for completions (can include provider prefix, e.g., "groq/llama-3")
             temperature: Temperature for response generation
             max_tokens: Maximum tokens in response
@@ -247,8 +247,8 @@ class LLMClient:
             if not self._model_supports_response_format():
                 raise ValueError(f"Model {self.model} does not support response_format parameter")
 
-            if not self._model_supports_json_schema():
-                raise ValueError(f"Model {self.model} does not support json_schema formatting")
+            # if not self._model_supports_json_schema():
+            #     raise ValueError(f"Model {self.model} does not support json_schema formatting")
 
             # Generate a schema name (required by OpenAI)
             schema_name = "response_schema"

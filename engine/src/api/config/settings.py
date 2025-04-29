@@ -93,9 +93,7 @@ class Settings(BaseSettings):
 
         # Convert SQLAlchemy URL format to Tortoise ORM format if needed
         if self.POSTGRES_DATABASE_URL and "postgresql+" in self.POSTGRES_DATABASE_URL:
-            self.POSTGRES_DATABASE_URL = self.POSTGRES_DATABASE_URL.replace(
-                "postgresql+psycopg://", "postgres://"
-            )
+            self.POSTGRES_DATABASE_URL = self.POSTGRES_DATABASE_URL.replace("postgresql+psycopg://", "postgres://")
 
     def get_api_key_for_provider(self, provider: str) -> str:
         """Get API key for a specific provider.
@@ -110,10 +108,6 @@ class Settings(BaseSettings):
             ValueError: If no API key is found for the provider
         """
         provider = provider.lower()
-
-        # Special case for OpenAI since it's explicitly defined
-        if provider == "openai":
-            return self.OPENAI_API_KEY
 
         # Check in our dynamic dictionary
         api_key = self.llm_api_keys.get(provider)

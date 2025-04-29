@@ -44,7 +44,7 @@ active_connections: Dict[str, List[str]] = {}
 async def socket_event_callback(event: Dict[str, Any]):
     """Callback for Socket.IO events."""
     room = None
-    if "conversation_id" in event and event["conversation_id"]:
+    if "conversation_id" in event:
         room = f"conversation:{event['conversation_id']}"
 
     if room:
@@ -97,7 +97,7 @@ async def handle_ping(sid, data=None):
 async def handle_tool_call_approval_message(sid, data=None):
     logger.debug(f"Received tool call approval from client {sid}")
     logger.debug(f"Tool call approval data: {data}")
-    handle_tool_call_approval(data["step_id"])
+    await handle_tool_call_approval(data["step_id"])
 
 
 @sio.on("tool_call_rejected")
