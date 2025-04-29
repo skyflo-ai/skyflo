@@ -324,7 +324,6 @@ Return a JSON array of validation criteria as strings.""",
             else "No step results available"
         )
 
-        # Update the prompt to explicitly state we want an object with a validations array
         prompt_messages = [
             {"role": "system", "content": CRITERION_VALIDATION_SYSTEM_PROMPT},
             {
@@ -337,7 +336,6 @@ Return a JSON array of validation criteria as strings.""",
             },
         ]
 
-        # Get structured response using the wrapper class instead of List type
         validation_result = await self._get_structured_llm_response(
             prompt_messages, MultiCriterionValidationList, settings.OPENAI_VERIFIER_TEMPERATURE
         )

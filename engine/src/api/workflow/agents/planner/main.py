@@ -53,8 +53,6 @@ class PlannerAgent(BaseAgent):
     def _normalize_plan_format(self, plan: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize plan format by converting parameters from list to dictionary format.
 
-        This ensures backward compatibility with code expecting the old format.
-
         Args:
             plan: The plan with parameters in list format
 
