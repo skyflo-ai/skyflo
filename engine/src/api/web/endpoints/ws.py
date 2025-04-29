@@ -43,21 +43,9 @@ active_connections: Dict[str, List[str]] = {}
 
 async def socket_event_callback(event: Dict[str, Any]):
     """Callback for Socket.IO events."""
-    # Events can have conversation_id in different locations depending on event type:
-    # 1. Directly in the event object for most events
-    # 2. Inside 'details' field for agent events
-    # 3. Inside 'data' field for tool_call events
     room = None
-    if "conversation_id" in event:
+    if "conversation_id" in event and event["conversation_id"]:
         room = f"conversation:{event['conversation_id']}"
-    elif (
-        "details" in event
-        and isinstance(event["details"], dict)
-        and "conversation_id" in event["details"]
-    ):
-        room = f"conversation:{event['details']['conversation_id']}"
-    elif "data" in event and isinstance(event["data"], dict) and "conversation_id" in event["data"]:
-        room = f"conversation:{event['data']['conversation_id']}"
 
     if room:
         await socket_io_agent_event(room, event)

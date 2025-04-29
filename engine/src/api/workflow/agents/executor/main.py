@@ -756,13 +756,13 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         "message": f"About to execute {tool} {action}",
                         "phase": "executing",
                         "state": "execute",
+                        "conversation_id": conversation_id,
                         "details": {
                             "step_id": step_id,
                             "tool": tool,
                             "action": action,
                             "parameters": parameters,
                             "status": "pending",
-                            "conversation_id": conversation_id,
                             "approval_required": approval_required,
                         },
                     }
@@ -781,13 +781,13 @@ Return a JSON array of tool calls that follow the same structure as the current 
                             "message": f"Approval required for {tool} {action}",
                             "phase": "executing",
                             "state": "waiting_approval",
+                            "conversation_id": conversation_id,
                             "details": {
                                 "step_id": step_id,
                                 "tool": tool,
                                 "action": action,
                                 "parameters": parameters,
                                 "status": "waiting_approval",
-                                "conversation_id": conversation_id,
                             },
                         }
                     )
@@ -799,6 +799,7 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         await self.event_callback(
                             {
                                 "type": "step_rejected",
+                                "conversation_id": conversation_id,
                                 "details": {
                                     "step_id": step_id,
                                     "message": "Step was rejected by user or timed out",
@@ -857,13 +858,13 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         "message": f"Executing {tool} {action}",
                         "phase": "executing",
                         "state": "execute",
+                        "conversation_id": conversation_id,
                         "details": {
                             "step_id": step_id,
                             "tool": tool,
                             "action": action,
                             "parameters": parameters,
                             "status": "executing",
-                            "conversation_id": conversation_id,
                         },
                     }
                 )
@@ -913,6 +914,7 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         "message": f"Step {step_id} completed successfully",
                         "phase": "executing",
                         "state": "execute",
+                        "conversation_id": conversation_id,
                         "details": {
                             "step_id": step_id,
                             "tool": tool,
@@ -920,7 +922,6 @@ Return a JSON array of tool calls that follow the same structure as the current 
                             "parameters": parameters,
                             "status": "completed",
                             "output": result.get("result", {}),
-                            "conversation_id": conversation_id,
                         },
                     }
                 )
@@ -956,6 +957,7 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         "message": f"Step {step_id} failed: {str(e)}",
                         "phase": "executing",
                         "state": "execute",
+                        "conversation_id": conversation_id,
                         "details": {
                             "step_id": step_id,
                             "tool": tool,
@@ -963,7 +965,6 @@ Return a JSON array of tool calls that follow the same structure as the current 
                             "parameters": parameters,
                             "status": "failed",
                             "error": str(e),
-                            "conversation_id": conversation_id,
                         },
                     }
                 )
