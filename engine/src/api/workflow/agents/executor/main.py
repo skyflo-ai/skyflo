@@ -35,6 +35,7 @@ from api.workflow.agents.base import BaseAgent
 from api.services.mcp_client import MCPClient
 from api.services.llm_client import LLMClient
 from api.config import settings
+from api.utils.helpers import normalize_steps_list
 
 logger = logging.getLogger(__name__)
 
@@ -310,7 +311,7 @@ class ExecutorAgent(BaseAgent):
             logger.debug(f"Found {len(steps)} steps to execute")
 
             # Normalize steps to ensure parameters are in dictionary format
-            steps = self._normalize_steps(steps)
+            steps = normalize_steps_list(steps)
 
             results = []
             steps_executed = 0
@@ -1473,28 +1474,3 @@ Return a JSON array of tool calls that follow the same structure as the current 
                 logger.debug("Using default namespace for log request")
 
         return processed_params
-
-    def _normalize_steps(self, steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Normalize steps to ensure parameters are in dictionary format.
-
-        Converts parameters from the new list format [{"name": "key", "value": "val"}]
-        to the old dictionary format {"key": "val"}.
-
-        Args:
-            steps: List of steps with parameters in either format
-
-        Returns:
-            List of steps with parameters in dictionary format
-        """
-        normalized_steps = []
-        for step in steps:
-            normalized_step = step.copy()
-            if isinstance(normalized_step.get("parameters"), list):
-                # Convert from [{"name": "key", "value": "val"}] to {"key": "val"}
-                normalized_step["parameters"] = {
-                    param.get("name"): param.get("value")
-                    for param in normalized_step["parameters"]
-                    if isinstance(param, dict) and "name" in param and "value" in param
-                }
-            normalized_steps.append(normalized_step)
-        return normalized_steps

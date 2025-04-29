@@ -137,3 +137,62 @@ def clear_conversation_history(reason: str) -> Dict[str, Any]:
         "reason": reason,
         "timestamp": get_timestamp(),
     }
+
+
+def normalize_step_parameters(step: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalize the 'parameters' field within a single plan step.
+
+    Converts parameters from the list format [{"name": "key", "value": "val"}]
+    to the dictionary format {"key": "val"}.
+
+    If the parameters are already a dictionary or not present, the step is returned unchanged.
+
+    Args:
+        step: A dictionary representing a single step in a plan.
+
+    Returns:
+        The step dictionary with normalized parameters, or the original step if no normalization is needed.
+    """
+    parameters = step.get("parameters")
+
+    if isinstance(parameters, list):
+        try:
+            normalized_params = {
+                param.get("name"): param.get("value")
+                for param in parameters
+                if isinstance(param, dict) and "name" in param  # Ensure 'name' key exists
+            }
+            # Create a copy of the step to avoid modifying the original dict in place
+            normalized_step = step.copy()
+            normalized_step["parameters"] = normalized_params
+            return normalized_step
+        except Exception as e:
+            logger.error(
+                f"Error normalizing parameters for step {step.get('step_id', 'unknown')}: {e}"
+            )
+            # Return the original step if normalization fails
+            return step
+    # If parameters are already a dict or None/missing, return the step as is
+    elif isinstance(parameters, dict) or parameters is None:
+        return step
+    else:
+        logger.warning(
+            f"Unexpected type for parameters in step {step.get('step_id', 'unknown')}: {type(parameters)}. Skipping normalization."
+        )
+        return step
+
+
+def normalize_steps_list(steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Normalize the parameters for all steps in a list.
+
+    Applies normalize_step_parameters to each step in the list.
+
+    Args:
+        steps: A list of step dictionaries.
+
+    Returns:
+        A new list containing steps with normalized parameters.
+    """
+    return [normalize_step_parameters(step) for step in steps]

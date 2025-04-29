@@ -18,6 +18,7 @@ from api.workflow.agents.planner.prompt_templates import (
     DISCOVERY_QUERY_PROMPT,
 )
 from api.llm_schemas import DiscoveryPlan, ExecutionPlan
+from api.utils.helpers import normalize_step_parameters
 
 logger = logging.getLogger(__name__)
 
@@ -51,21 +52,26 @@ class PlannerAgent(BaseAgent):
         self.event_callback = event_callback
 
     def _normalize_plan_format(self, plan: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize plan format by converting parameters from list to dictionary format.
+        """Normalize plan format and step parameters.
+
+        Ensures default step properties exist and converts step parameters
+        from list format to dictionary format using the helper function.
 
         Args:
-            plan: The plan with parameters in list format
+            plan: The plan dictionary.
 
         Returns:
-            The plan with parameters converted to dictionary format
+            The plan with normalized steps.
         """
         if not isinstance(plan, dict):
+            logger.warning(f"Expected dict for plan, got {type(plan)}. Skipping normalization.")
             return plan
 
         normalized_plan = plan.copy()
 
-        # Convert parameters in steps
+        # Normalize parameters in steps and set defaults
         if "steps" in normalized_plan and isinstance(normalized_plan["steps"], list):
+            normalized_steps = []
             for step in normalized_plan["steps"]:
                 if isinstance(step, dict):
                     # Set default values for step properties if not present
@@ -76,16 +82,15 @@ class PlannerAgent(BaseAgent):
                     if "discovery_step" not in step:
                         step["discovery_step"] = False
 
-                    # Convert parameters if needed
-                    if "parameters" in step:
-                        params = step["parameters"]
-                        if isinstance(params, list):
-                            # Convert from [{"name": "key", "value": "val"}] to {"key": "val"}
-                            step["parameters"] = {
-                                param.get("name"): param.get("value")
-                                for param in params
-                                if isinstance(param, dict) and "name" in param and "value" in param
-                            }
+                    # Normalize parameters using the helper function
+                    normalized_step = normalize_step_parameters(step)
+                    normalized_steps.append(normalized_step)
+                else:
+                    # If a step is not a dict, keep it as is but log a warning
+                    logger.warning(f"Found non-dict step in plan: {step}")
+                    normalized_steps.append(step)
+
+            normalized_plan["steps"] = normalized_steps
 
         return normalized_plan
 
