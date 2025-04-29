@@ -105,7 +105,6 @@ class ExecutorAgent(BaseAgent):
         self._state = ExecutorState()
         self._config = ExecutorConfig()
         self.llm_client = LLMClient(
-            api_key=settings.OPENAI_API_KEY,
             model=settings.OPENAI_MODEL,
             temperature=settings.OPENAI_EXECUTOR_TEMPERATURE,
         )

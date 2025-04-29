@@ -61,7 +61,6 @@ class WorkflowManager:
         self.executor = ExecutorAgent(event_callback=event_callback)
         self.verifier = VerifierAgent(event_callback=event_callback)
         self.llm_client = LLMClient(
-            api_key=settings.OPENAI_API_KEY,
             model=settings.OPENAI_MODEL,
             temperature=settings.MANAGER_OPENAI_TEMPERATURE,
         )
@@ -475,7 +474,9 @@ Generate formatted markdown:""",
             logger.debug("Verification successful, proceeding to response generation")
             return "verified"
         else:
-            logger.debug("Verification didn't succeed, but proceeding to response generation anyway")
+            logger.debug(
+                "Verification didn't succeed, but proceeding to response generation anyway"
+            )
             return "failed"
 
     def _detect_infinite_loop(self, state: WorkflowState) -> bool:

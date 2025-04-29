@@ -69,7 +69,6 @@ class BaseAgent(ComponentBase):
         self.description = description or "Base Skyflo agent"
         self.config = settings
         self.llm_client = LLMClient(
-            api_key=settings.OPENAI_API_KEY,
             model=settings.OPENAI_MODEL,
         )
         # Event callback for real-time updates
