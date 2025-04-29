@@ -344,38 +344,19 @@ Return a JSON array of validation criteria as strings.""",
         logger.debug(f"LLM structured batch verification response: {validation_result}")
 
         # Extract the validations list from the response
-        if hasattr(validation_result, "model_dump"):
-            result_dict = validation_result.model_dump()
-            criteria_results = result_dict.get("validations", [])
-        else:
-            criteria_results = validation_result.get("validations", [])
+        criteria_results = validation_result.get("validations", [])
 
         # Convert to the standard format used by the verification process
         validation_results = []
         for result in criteria_results:
-            # If it's a nested dict, extract properties directly
-            if isinstance(result, dict):
-                validation_results.append(
-                    {
-                        "criterion": result.get("criterion", "Unknown criterion"),
-                        "status": ("success" if result.get("criterion_met", False) else "failure"),
-                        "details": result.get("reasoning", "No reasoning provided"),
-                        "confidence": result.get("confidence", 0.5),
-                    }
-                )
-            # If it's a Pydantic model or has model_dump method
-            elif hasattr(result, "model_dump"):
-                result_dict = result.model_dump()
-                validation_results.append(
-                    {
-                        "criterion": result_dict.get("criterion", "Unknown criterion"),
-                        "status": (
-                            "success" if result_dict.get("criterion_met", False) else "failure"
-                        ),
-                        "details": result_dict.get("reasoning", "No reasoning provided"),
-                        "confidence": result_dict.get("confidence", 0.5),
-                    }
-                )
+            validation_results.append(
+                {
+                    "criterion": result.get("criterion", "Unknown criterion"),
+                    "status": ("success" if result.get("criterion_met", False) else "failure"),
+                    "details": result.get("reasoning", "No reasoning provided"),
+                    "confidence": result.get("confidence", 0.5),
+                }
+            )
 
         return validation_results
 
@@ -435,16 +416,10 @@ Return a JSON array of validation criteria as strings.""",
         ]
 
         # Get structured response using CriterionValidation schema
-        validation_result = await self._get_structured_llm_response(
+        result = await self._get_structured_llm_response(
             prompt_messages, CriterionValidation, settings.OPENAI_VERIFIER_TEMPERATURE
         )
-        logger.debug(f"LLM structured criterion validation response: {validation_result}")
-
-        # Convert to dict if it's a Pydantic model
-        if hasattr(validation_result, "model_dump"):
-            result = validation_result.model_dump()
-        else:
-            result = validation_result
+        logger.debug(f"LLM structured criterion validation response: {result}")
 
         # Ensure all required fields are present
         if "criterion_met" not in result:
@@ -493,16 +468,10 @@ Return a JSON array of validation criteria as strings.""",
             ]
 
             # Get structured response using VerificationSummary schema
-            summary_result = await self._get_structured_llm_response(
+            summary = await self._get_structured_llm_response(
                 prompt_messages, VerificationSummary, settings.OPENAI_VERIFIER_TEMPERATURE
             )
-            logger.debug(f"LLM structured verification summary response: {summary_result}")
-
-            # Convert to dict if it's a Pydantic model
-            if hasattr(summary_result, "model_dump"):
-                summary = summary_result.model_dump()
-            else:
-                summary = summary_result
+            logger.debug(f"LLM structured verification summary response: {summary}")
 
             return summary
 

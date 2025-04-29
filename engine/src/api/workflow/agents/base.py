@@ -247,7 +247,7 @@ class BaseAgent(ComponentBase):
         messages: List[Dict[str, Any]],
         schema: Union[Dict[str, Any], Type[BaseModel]],
         temperature: float = 0.2,
-    ) -> Any:
+    ) -> Dict[str, Any]:
         """Get structured response from the LLM using a schema.
 
         Args:
@@ -256,7 +256,7 @@ class BaseAgent(ComponentBase):
             temperature: Optional temperature override
 
         Returns:
-            Structured response as dict or Pydantic model instance
+            Structured response as a dictionary
         """
         try:
             # Use structured_chat_completion to get a formatted response

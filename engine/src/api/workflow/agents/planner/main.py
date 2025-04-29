@@ -284,17 +284,10 @@ class PlannerAgent(BaseAgent):
             ]
 
             # Get structured response from the LLM using the DiscoveryPlan schema
-            discovery_plan_data = await self._get_structured_llm_response(
+            discovery_plan = await self._get_structured_llm_response(
                 prompt_messages, DiscoveryPlan, settings.OPENAI_PLANNER_TEMPERATURE
             )
-            logger.debug(f"LLM structured discovery response: {discovery_plan_data}")
-
-            # Convert to dictionary
-            if isinstance(discovery_plan_data, dict):
-                discovery_plan = discovery_plan_data
-            else:
-                # If it's a Pydantic model instance, convert to dict
-                discovery_plan = discovery_plan_data.model_dump()
+            logger.debug(f"LLM structured discovery response: {discovery_plan}")
 
             # Normalize the plan format (convert parameters from list to dict)
             discovery_plan = self._normalize_plan_format(discovery_plan)
@@ -447,17 +440,10 @@ class PlannerAgent(BaseAgent):
             ]
 
             # Get structured response from the LLM using the ExecutionPlan schema
-            execution_plan_data = await self._get_structured_llm_response(
+            plan = await self._get_structured_llm_response(
                 prompt_messages, ExecutionPlan, settings.OPENAI_PLANNER_TEMPERATURE
             )
-            logger.debug(f"LLM structured execution plan response: {execution_plan_data}")
-
-            # Convert to dictionary
-            if isinstance(execution_plan_data, dict):
-                plan = execution_plan_data
-            else:
-                # If it's a Pydantic model instance, convert to dict
-                plan = execution_plan_data.model_dump()
+            logger.debug(f"LLM structured execution plan response: {plan}")
 
             # Normalize the plan format (convert parameters from list to dict)
             plan = self._normalize_plan_format(plan)

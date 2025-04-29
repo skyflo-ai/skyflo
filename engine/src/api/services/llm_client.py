@@ -230,7 +230,7 @@ class LLMClient:
         schema: Union[Dict[str, Any], Type[BaseModel]],
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
-    ) -> Any:
+    ) -> Dict[str, Any]:
         """Get a structured chat completion from the LLM using JSON schema.
 
         Args:
@@ -240,7 +240,7 @@ class LLMClient:
             max_tokens: Optional override for max_tokens
 
         Returns:
-            The structured response from the LLM as a dict or Pydantic model instance
+            The structured response from the LLM as a dict
         """
         try:
             # Check if the model supports structured output
@@ -351,19 +351,32 @@ class LLMClient:
             # Parse the response based on the output type
             if response.choices and response.choices[0].message.content:
                 content = response.choices[0].message.content
+                result = None
+
+                # Handle different response types
                 if isinstance(content, dict):
                     # Some models might return a parsed dict directly
-                    return content
+                    result = content
                 elif isinstance(content, str):
                     try:
                         # Parse JSON response
-                        parsed_content = json.loads(content)
-                        return parsed_content
+                        result = json.loads(content)
                     except json.JSONDecodeError as e:
                         logger.error(f"Error parsing JSON response: {str(e)}")
                         raise ValueError(f"LLM returned invalid JSON: {content}")
                 else:
                     raise ValueError(f"Unexpected response format: {type(content)}")
+
+                # Handle Pydantic model conversion if needed
+                if hasattr(result, "model_dump"):
+                    # If it's a Pydantic model instance, convert to dict
+                    return result.model_dump()
+
+                # Ensure we're returning a dictionary
+                if not isinstance(result, dict) and not isinstance(result, list):
+                    raise ValueError(f"Expected dict or list response, got: {type(result)}")
+
+                return result
             else:
                 raise ValueError("LLM response contained no content")
 
