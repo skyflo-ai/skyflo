@@ -6,10 +6,10 @@
 
 <div align="center">
 
-  [![Website](https://img.shields.io/badge/Website-Visit-blue.svg)](https://skyflo.ai)
-  [![Discord](https://img.shields.io/badge/Discord-Join-blue.svg)](https://discord.gg/kCFNavMund)
-  [![Twitter/X Follow](https://img.shields.io/twitter/follow/skyflo_ai?style=social)](https://x.com/skyflo_ai)
-  [![YouTube Channel](https://img.shields.io/badge/YouTube-Subscribe-red.svg)](https://www.youtube.com/@SkyfloAI)
+[![Website](https://img.shields.io/badge/Website-Visit-blue.svg)](https://skyflo.ai)
+[![Discord](https://img.shields.io/badge/Discord-Join-blue.svg)](https://discord.gg/kCFNavMund)
+[![Twitter/X Follow](https://img.shields.io/twitter/follow/skyflo_ai?style=social)](https://x.com/skyflo_ai)
+[![YouTube Channel](https://img.shields.io/badge/YouTube-Subscribe-red.svg)](https://www.youtube.com/@SkyfloAI)
 
 </div>
 
@@ -25,6 +25,10 @@ curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/inst
 ```
 
 For more details, see the [Installation Guide](docs/install.md).
+
+## Configuration
+
+By default, Skyflo is configured to use OpenAI. If you wish to use a different provider (like Groq, Anthropic, Cohere, etc.), or need detailed instructions on setting API keys, selecting models, understanding model requirements, and troubleshooting, please refer to the comprehensive **[Switching LLM Models Guide](engine/docs/switching_llm_models.md)**.
 
 ## Architecture
 
