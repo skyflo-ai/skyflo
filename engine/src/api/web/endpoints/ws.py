@@ -109,7 +109,7 @@ async def handle_ping(sid, data=None):
 async def handle_tool_call_approval_message(sid, data=None):
     logger.debug(f"Received tool call approval from client {sid}")
     logger.debug(f"Tool call approval data: {data}")
-    await handle_tool_call_approval(data["step_id"])
+    handle_tool_call_approval(data["step_id"])
 
 
 @sio.on("tool_call_rejected")
