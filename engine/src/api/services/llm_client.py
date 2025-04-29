@@ -1,6 +1,6 @@
 """LLM client service for OpenAI API interactions."""
 
-from typing import Dict, Any, List, Optional, Callable, Awaitable
+from typing import Dict, Any, List, Optional, Callable, Awaitable, Type, Union
 import logging
 import json
 import asyncio
@@ -8,9 +8,10 @@ import random
 from dataclasses import dataclass
 from datetime import datetime
 
-from litellm import acompletion
+from litellm import acompletion, get_supported_openai_params, supports_response_schema
 from litellm.exceptions import RateLimitError
 from openai.types.chat.chat_completion import Choice
+from pydantic import BaseModel
 
 from api.config.settings import settings
 
@@ -76,6 +77,35 @@ class LLMClient:
         self.max_retries = max_retries
         self.initial_retry_delay = initial_retry_delay
         self.exponential_base = exponential_base
+
+    def _model_supports_response_format(self) -> bool:
+        """Check if the model supports response_format parameter.
+
+        Returns:
+            bool: True if response_format is supported, False otherwise
+        """
+        try:
+            params = get_supported_openai_params(
+                model=self.model_name, custom_llm_provider=self.provider
+            )
+            return "response_format" in params
+        except Exception as e:
+            logger.warning(f"Error checking response_format support: {str(e)}")
+            return False
+
+    def _model_supports_json_schema(self) -> bool:
+        """Check if the model supports json_schema response format.
+
+        Returns:
+            bool: True if json_schema is supported, False otherwise
+        """
+        try:
+            return supports_response_schema(
+                model=self.model_name, custom_llm_provider=self.provider
+            )
+        except Exception as e:
+            logger.warning(f"Error checking json_schema support: {str(e)}")
+            return False
 
     async def _execute_with_retry(self, operation_func, *args, **kwargs):
         """Execute an operation with exponential backoff retry for rate limit errors.
@@ -192,6 +222,153 @@ class LLMClient:
 
         except Exception as e:
             logger.error(f"Error in chat completion: {str(e)}")
+            raise
+
+    async def structured_chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        schema: Union[Dict[str, Any], Type[BaseModel]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> Any:
+        """Get a structured chat completion from the LLM using JSON schema.
+
+        Args:
+            messages: List of messages for the conversation
+            schema: JSON schema or Pydantic model to format response
+            temperature: Optional override for temperature
+            max_tokens: Optional override for max_tokens
+
+        Returns:
+            The structured response from the LLM as a dict or Pydantic model instance
+        """
+        try:
+            # Check if the model supports structured output
+            if not self._model_supports_response_format():
+                raise ValueError(f"Model {self.model} does not support response_format parameter")
+
+            if not self._model_supports_json_schema():
+                raise ValueError(f"Model {self.model} does not support json_schema formatting")
+
+            # Handle List[Type] schema specially
+            is_list_type = False
+            inner_type = None
+            if (
+                hasattr(schema, "__origin__")
+                and schema.__origin__ is list
+                and hasattr(schema, "__args__")
+            ):
+                is_list_type = True
+                inner_type = schema.__args__[0]
+                # Replace the schema with the inner type
+                schema = inner_type
+
+            # Generate a schema name (required by OpenAI)
+            schema_name = "response_schema"
+            if isinstance(schema, type) and hasattr(schema, "__name__"):
+                schema_name = schema.__name__.lower()
+
+            # Prepare response format parameter
+            if isinstance(schema, type) and issubclass(schema, BaseModel):
+                # Use the model's schema with additionalProperties=false
+                json_schema_content = schema.model_json_schema()
+
+                # Ensure additionalProperties is set to false for all object definitions
+                for prop_name, prop_schema in json_schema_content.get("properties", {}).items():
+                    if (
+                        prop_schema.get("type") == "object"
+                        and "additionalProperties" not in prop_schema
+                    ):
+                        prop_schema["additionalProperties"] = False
+
+                # Also ensure it's set at the top level
+                if "additionalProperties" not in json_schema_content:
+                    json_schema_content["additionalProperties"] = False
+
+                # Wrap the schema in an array if needed
+                if is_list_type:
+                    json_schema_content = {
+                        "type": "array",
+                        "items": json_schema_content,
+                        "additionalProperties": False,
+                    }
+
+                # Format according to OpenAI's requirements
+                response_format = {
+                    "type": "json_schema",
+                    "json_schema": {"name": schema_name, "schema": json_schema_content},
+                }
+            else:
+                # Direct schema provided - ensure additionalProperties is set
+                if isinstance(schema, dict):
+                    # Clone schema to avoid modifying the original
+                    schema_copy = schema.copy()
+                    if "additionalProperties" not in schema_copy:
+                        schema_copy["additionalProperties"] = False
+
+                    # Wrap the schema in an array if needed
+                    if is_list_type:
+                        schema_copy = {
+                            "type": "array",
+                            "items": schema_copy,
+                            "additionalProperties": False,
+                        }
+
+                    # Format according to OpenAI's requirements
+                    response_format = {
+                        "type": "json_schema",
+                        "json_schema": {"name": schema_name, "schema": schema_copy},
+                    }
+                else:
+                    # This case should be rare, but handle it just in case
+                    response_format = {
+                        "type": "json_schema",
+                        "json_schema": {"name": schema_name, "schema": schema},
+                    }
+
+            # Log the request
+            logger.debug(
+                f"Sending structured chat completion request:\n"
+                f"Model: {self.model}\n"
+                f"Temperature: {temperature or self.temperature}\n"
+                f"Max tokens: {max_tokens or self.max_tokens}\n"
+                f"Schema: {response_format['json_schema']['schema']}\n"
+                f"Messages: {json.dumps(messages, indent=2)}"
+            )
+
+            # Make the API call with retry
+            response = await self._execute_with_retry(
+                self._make_completion_call, messages, temperature, max_tokens, response_format
+            )
+
+            # Log the response
+            logger.debug(
+                f"Received structured chat completion response:\n"
+                f"Usage: {response.usage}\n"
+                f"Content: {response.choices[0].message.content if response.choices else 'No content'}"
+            )
+
+            # Parse the response based on the output type
+            if response.choices and response.choices[0].message.content:
+                content = response.choices[0].message.content
+                if isinstance(content, dict):
+                    # Some models might return a parsed dict directly
+                    return content
+                elif isinstance(content, str):
+                    try:
+                        # Parse JSON response
+                        parsed_content = json.loads(content)
+                        return parsed_content
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Error parsing JSON response: {str(e)}")
+                        raise ValueError(f"LLM returned invalid JSON: {content}")
+                else:
+                    raise ValueError(f"Unexpected response format: {type(content)}")
+            else:
+                raise ValueError("LLM response contained no content")
+
+        except Exception as e:
+            logger.error(f"Error in structured chat completion: {str(e)}")
             raise
 
     async def function_call(

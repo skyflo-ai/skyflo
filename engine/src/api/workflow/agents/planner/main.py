@@ -17,6 +17,7 @@ from api.workflow.agents.planner.prompt_templates import (
     DISCOVERY_SYSTEM_PROMPT,
     DISCOVERY_QUERY_PROMPT,
 )
+from api.llm_schemas import DiscoveryPlan, ExecutionPlan
 
 logger = logging.getLogger(__name__)
 
@@ -68,15 +69,25 @@ class PlannerAgent(BaseAgent):
         # Convert parameters in steps
         if "steps" in normalized_plan and isinstance(normalized_plan["steps"], list):
             for step in normalized_plan["steps"]:
-                if isinstance(step, dict) and "parameters" in step:
-                    params = step["parameters"]
-                    if isinstance(params, list):
-                        # Convert from [{"name": "key", "value": "val"}] to {"key": "val"}
-                        step["parameters"] = {
-                            param.get("name"): param.get("value")
-                            for param in params
-                            if isinstance(param, dict) and "name" in param and "value" in param
-                        }
+                if isinstance(step, dict):
+                    # Set default values for step properties if not present
+                    if "required" not in step:
+                        step["required"] = True
+                    if "recursive" not in step:
+                        step["recursive"] = False
+                    if "discovery_step" not in step:
+                        step["discovery_step"] = False
+
+                    # Convert parameters if needed
+                    if "parameters" in step:
+                        params = step["parameters"]
+                        if isinstance(params, list):
+                            # Convert from [{"name": "key", "value": "val"}] to {"key": "val"}
+                            step["parameters"] = {
+                                param.get("name"): param.get("value")
+                                for param in params
+                                if isinstance(param, dict) and "name" in param and "value" in param
+                            }
 
         return normalized_plan
 
@@ -272,27 +283,18 @@ class PlannerAgent(BaseAgent):
                 },
             ]
 
-            # Get response from the LLM
-            response_text = await self._get_llm_response(
-                prompt_messages, settings.OPENAI_PLANNER_TEMPERATURE
+            # Get structured response from the LLM using the DiscoveryPlan schema
+            discovery_plan_data = await self._get_structured_llm_response(
+                prompt_messages, DiscoveryPlan, settings.OPENAI_PLANNER_TEMPERATURE
             )
-            logger.debug(f"LLM discovery response: {response_text}")
+            logger.debug(f"LLM structured discovery response: {discovery_plan_data}")
 
-            # Extract and parse JSON
-            json_start = response_text.find("{")
-            json_end = response_text.rfind("}") + 1
-
-            if json_start == -1 or json_end == 0:
-                return await self._handle_planning_error(
-                    "Failed to generate a valid discovery plan", query, response_text
-                )
-
-            try:
-                discovery_plan = json.loads(response_text[json_start:json_end])
-            except json.JSONDecodeError as e:
-                return await self._handle_planning_error(
-                    f"Failed to parse discovery plan JSON: {str(e)}", query, response_text
-                )
+            # Convert to dictionary
+            if isinstance(discovery_plan_data, dict):
+                discovery_plan = discovery_plan_data
+            else:
+                # If it's a Pydantic model instance, convert to dict
+                discovery_plan = discovery_plan_data.model_dump()
 
             # Normalize the plan format (convert parameters from list to dict)
             discovery_plan = self._normalize_plan_format(discovery_plan)
@@ -444,27 +446,18 @@ class PlannerAgent(BaseAgent):
                 },
             ]
 
-            # Get response from the LLM
-            response_text = await self._get_llm_response(
-                prompt_messages, settings.OPENAI_PLANNER_TEMPERATURE
+            # Get structured response from the LLM using the ExecutionPlan schema
+            execution_plan_data = await self._get_structured_llm_response(
+                prompt_messages, ExecutionPlan, settings.OPENAI_PLANNER_TEMPERATURE
             )
-            logger.debug(f"Planner LLM response: {response_text}")
+            logger.debug(f"LLM structured execution plan response: {execution_plan_data}")
 
-            # Extract and parse JSON
-            json_start = response_text.find("{")
-            json_end = response_text.rfind("}") + 1
-
-            if json_start == -1 or json_end == 0:
-                return await self._handle_planning_error(
-                    "Failed to generate a valid plan", query, response_text
-                )
-
-            try:
-                plan = json.loads(response_text[json_start:json_end])
-            except json.JSONDecodeError as e:
-                return await self._handle_planning_error(
-                    f"Failed to parse plan JSON: {str(e)}", query, response_text
-                )
+            # Convert to dictionary
+            if isinstance(execution_plan_data, dict):
+                plan = execution_plan_data
+            else:
+                # If it's a Pydantic model instance, convert to dict
+                plan = execution_plan_data.model_dump()
 
             # Normalize the plan format (convert parameters from list to dict)
             plan = self._normalize_plan_format(plan)

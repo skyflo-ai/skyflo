@@ -1,6 +1,6 @@
 """Base agent class for Skyflo.ai API workflow."""
 
-from typing import Dict, Any, Optional, AsyncGenerator, List, Mapping, Sequence
+from typing import Dict, Any, Optional, AsyncGenerator, List, Mapping, Sequence, Type, Union
 from pydantic import BaseModel, Field
 import logging
 
@@ -230,6 +230,7 @@ class BaseAgent(ComponentBase):
 
         Args:
             messages: List of messages to send to the LLM
+            temperature: Optional temperature override
 
         Returns:
             LLM response text
@@ -239,6 +240,31 @@ class BaseAgent(ComponentBase):
             return await self.llm_client.chat_completion(messages=messages, temperature=temperature)
         except Exception as e:
             logger.error(f"Error getting LLM response: {str(e)}")
+            raise
+
+    async def _get_structured_llm_response(
+        self,
+        messages: List[Dict[str, Any]],
+        schema: Union[Dict[str, Any], Type[BaseModel]],
+        temperature: float = 0.2,
+    ) -> Any:
+        """Get structured response from the LLM using a schema.
+
+        Args:
+            messages: List of messages to send to the LLM
+            schema: JSON schema or Pydantic model to format the response
+            temperature: Optional temperature override
+
+        Returns:
+            Structured response as dict or Pydantic model instance
+        """
+        try:
+            # Use structured_chat_completion to get a formatted response
+            return await self.llm_client.structured_chat_completion(
+                messages=messages, schema=schema, temperature=temperature
+            )
+        except Exception as e:
+            logger.error(f"Error getting structured LLM response: {str(e)}")
             raise
 
     def __repr__(self) -> str:
