@@ -108,6 +108,7 @@ class ExecutorAgent(BaseAgent):
         self.llm_client = LLMClient(
             model=settings.LLM_MODEL,
             temperature=settings.OPENAI_EXECUTOR_TEMPERATURE,
+            host=settings.LLM_HOST,
         )
         self.event_callback = event_callback
 

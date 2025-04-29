@@ -16,6 +16,7 @@ from openai.types.chat.chat_completion import Choice
 from pydantic import BaseModel
 
 from api.config.settings import settings
+from api.utils.helpers import get_api_key_for_provider
 
 logger = logging.getLogger(__name__)
 
@@ -30,16 +31,16 @@ class LLMResponse:
 
 
 class LLMClient:
-    """Client for interacting with OpenAI's LLM API."""
+    """Client for interacting with LLM APIs via LiteLLM."""
 
     def __init__(
         self,
-        api_key: str = None,
+        api_key: Optional[str] = None,
         model: str = "gpt-4o",
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         provider: Optional[str] = None,
-        host: Optional[str] = None,
+        host: Optional[str] = None, # API Base for self-hosted/alternative endpoints
         max_retries: int = 3,
         initial_retry_delay: float = 5.0,
         exponential_base: float = 2.0,
@@ -47,45 +48,70 @@ class LLMClient:
         """Initialize the LLM client.
 
         Args:
-            api_key: API key for the LLM provider
-            model: Model identifier (e.g., "openai/gpt-4o" or "groq/llama-3-70b-versatile")
-            temperature: Sampling temperature
-            max_tokens: Maximum tokens to generate
-            provider: Optional provider override
-            host: Optional host URL for self-hosted models
-            max_retries: Maximum number of retries on failure
-            initial_retry_delay: Initial delay between retries in seconds
-            exponential_base: Base for exponential backoff
+            api_key: API key for the LLM provider. If None, attempts to load from env var (e.g., OPENAI_API_KEY).
+            model: Model identifier (e.g., "openai/gpt-4o", "groq/llama-3-70b-versatile", or just "gpt-4o" if provider is specified).
+            temperature: Sampling temperature.
+            max_tokens: Maximum tokens to generate.
+            provider: Optional provider override (e.g., "openai", "groq"). If not set, derived from the model string.
+            host: Optional host URL (API base) for self-hosted or alternative endpoints.
+            max_retries: Maximum number of retries on failure.
+            initial_retry_delay: Initial delay between retries in seconds.
+            exponential_base: Base for exponential backoff.
         """
-        self.api_key = api_key
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_retries = max_retries
         self.initial_retry_delay = initial_retry_delay
         self.exponential_base = exponential_base
+        self.host = host
 
-        # Extract provider and model name from the model string
-        # Format should always be "provider/model_name"
-        if "/" in model:
-            self.llm_provider, self.llm_model_name = model.split("/", 1)
-        elif provider:
-            self.llm_provider = provider
+        # Determine provider and model name
+        if provider:
+            self.llm_provider = provider.lower()
             self.llm_model_name = model
+        elif "/" in model:
+            self.llm_provider, self.llm_model_name = model.split("/", 1)
+            self.llm_provider = self.llm_provider.lower()
         else:
-            # If no provider specified and no slash in model, raise an error
-            raise ValueError(
-                "Model must be in format 'provider/model_name' (e.g., 'openai/gpt-4o') "
-                "or a provider must be explicitly specified."
+            # Assume OpenAI if no provider/slash, but log a warning
+            logger.warning(
+                f"Model string '{model}' doesn't specify provider. Assuming 'openai'. "
+                f"Use format 'provider/model_name' (e.g., 'openai/gpt-4o') for clarity."
             )
+            self.llm_provider = "openai"
+            self.llm_model_name = model
 
-        # Configure host for self-hosted models
-        if host:
+        # Get API key if not provided
+        if api_key:
+            self.api_key = api_key
+        else:
+            self.api_key = get_api_key_for_provider(self.llm_provider)
+
+        # Validate API key presence if no host is provided
+        # When using a local host (e.g., for Ollama), API key may be optional
+        if not self.host and not self.api_key:
+            if self.llm_provider in ["ollama", "local"]: #TODO: generalize this
+                logger.warning(
+                    f"No API key provided for {self.llm_provider}, but this provider may not require one. "
+                    f"Continuing without an API key."
+                )
+                self.api_key = ""  # Set to empty string for compatibility
+            else:
+                raise ValueError(
+                    f"API key for provider '{self.llm_provider}' not found. "
+                    f"Please provide it directly or set the {self.llm_provider.upper()}_API_KEY environment variable."
+                )
+
+        # Configure host and API key for self-hosted/alternative endpoints via LiteLLM
+        if self.host:
             try:
-                litellm.set_api_key(api_key, self.llm_provider)
-                litellm.api_base = host
+                if self.api_key:
+                     litellm.set_api_key(self.api_key, self.llm_provider) # Set key if available
+                litellm.api_base = self.host
+                logger.info(f"Configured LiteLLM API base for {self.llm_provider} to: {self.host}")
             except Exception as e:
-                logger.error(f"Failed to configure self-hosted model: {str(e)}")
-                sys.exit(1)
+                logger.error(f"Failed to configure self-hosted model API base: {str(e)}")
+
 
     def _model_supports_response_format(self) -> bool:
         """Check if the model supports response_format parameter.
@@ -166,27 +192,22 @@ class LLMClient:
     async def _make_completion_call(
         self, messages, temperature=None, max_tokens=None, response_format=None, tools=None
     ):
-        """Make a completion call to the LLM provider with common parameters.
+        """Make a completion call to the LLM provider with common parameters."""
+        # Pass self.api_key and potentially self.host (as api_base)
+        call_kwargs = {
+            "model": f"{self.llm_provider}/{self.llm_model_name}",
+            "messages": messages,
+            "temperature": temperature or self.temperature,
+            "max_tokens": max_tokens or self.max_tokens,
+            "api_key": self.api_key,
+            "response_format": response_format,
+            "tools": tools,
+        }
+        # Add api_base if a host is configured for this client instance
+        if self.host:
+            call_kwargs["api_base"] = self.host
 
-        Args:
-            messages: The messages to send to the LLM
-            temperature: Optional temperature override
-            max_tokens: Optional max tokens override
-            response_format: Optional response format specification
-            tools: Optional tools/functions for function calling
-
-        Returns:
-            The response from the LLM
-        """
-        return await acompletion(
-            model=f"{self.llm_provider}/{self.llm_model_name}",
-            messages=messages,
-            temperature=temperature or self.temperature,
-            max_tokens=max_tokens or self.max_tokens,
-            api_key=self.api_key,
-            response_format=response_format,
-            tools=tools,
-        )
+        return await acompletion(**call_kwargs)
 
     async def chat_completion(
         self,
@@ -205,12 +226,12 @@ class LLMClient:
             The text response from the LLM
         """
         try:
-            # Log the request
             logger.debug(
                 f"Sending chat completion request:\n"
                 f"Model: {f'{self.llm_provider}/{self.llm_model_name}'}\n"
                 f"Temperature: {temperature or self.temperature}\n"
                 f"Max tokens: {max_tokens or self.max_tokens}\n"
+                f"Host: {self.host or 'Default'}\n" # Log host
                 f"Messages: {json.dumps(messages, indent=2)}"
             )
 
@@ -252,7 +273,6 @@ class LLMClient:
             The structured response from the LLM as a dict
         """
         try:
-            # Check if the model supports structured output
             if not self._model_supports_response_format():
                 raise ValueError(
                     f"Model {f'{self.llm_provider}/{self.llm_model_name}'} does not support response_format parameter"
@@ -315,27 +335,23 @@ class LLMClient:
                 f"Temperature: {temperature or self.temperature}\n"
                 f"Max tokens: {max_tokens or self.max_tokens}\n"
                 f"Schema: {response_format['json_schema']['schema']}\n"
+                f"Host: {self.host or 'Default'}\n" # Log host
                 f"Messages: {json.dumps(messages, indent=2)}"
             )
 
-            # Make the API call with retry
             response = await self._execute_with_retry(
                 self._make_completion_call, messages, temperature, max_tokens, response_format
             )
 
-            # Log the response
             logger.debug(
                 f"Received structured chat completion response:\n"
                 f"Usage: {response.usage}\n"
                 f"Content: {response.choices[0].message.content if response.choices else 'No content'}"
             )
 
-            # Parse the response based on the output type
             if response.choices and response.choices[0].message.content:
                 content = response.choices[0].message.content
                 result = None
-
-                # Handle different response types
                 if isinstance(content, dict):
                     # Some models might return a parsed dict directly
                     result = content
@@ -352,7 +368,6 @@ class LLMClient:
                 # Ensure we're returning a dictionary
                 if not isinstance(result, dict):
                     raise ValueError(f"Expected dict response, got: {type(result)}")
-
                 return result
             else:
                 raise ValueError("LLM response contained no content")
@@ -384,10 +399,10 @@ class LLMClient:
                 f"Model: {f'{self.llm_provider}/{self.llm_model_name}'}\n"
                 f"Temperature: {temperature or self.temperature}\n"
                 f"Functions: {json.dumps(functions, indent=2)}\n"
+                f"Host: {self.host or 'Default'}\n" # Log host
                 f"Messages: {json.dumps(messages, indent=2)}"
             )
 
-            # Make the API call with retry
             response = await self._execute_with_retry(
                 self._make_completion_call, messages, temperature, None, None, functions
             )

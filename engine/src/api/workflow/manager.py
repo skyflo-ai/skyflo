@@ -63,6 +63,7 @@ class WorkflowManager:
         self.llm_client = LLMClient(
             model=settings.LLM_MODEL,
             temperature=settings.MANAGER_OPENAI_TEMPERATURE,
+            host=settings.LLM_HOST,
         )
         self.graph = self._build_graph()
         self.compiled_graph = self.graph.compile()

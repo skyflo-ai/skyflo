@@ -2,7 +2,10 @@
 
 import logging
 import time
-from typing import Dict, Any, List
+import os
+import re
+from typing import Dict, Any, List, Optional
+from decouple import config, UndefinedValueError
 
 import tiktoken
 
@@ -196,3 +199,35 @@ def normalize_steps_list(steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         A new list containing steps with normalized parameters.
     """
     return [normalize_step_parameters(step) for step in steps]
+
+
+def get_api_key_for_provider(provider: str) -> Optional[str]:
+    """Get API key for a specific LLM provider from environment variables.
+
+    Args:
+        provider: Provider name (e.g., 'openai', 'groq'). Case-insensitive.
+
+    Returns:
+        API key for the provider if found, otherwise None.
+    """
+    provider = provider.strip().upper()
+    env_var_name = f"{provider}_API_KEY"
+    try:
+        # Use default=None to return None if the variable is not set
+        api_key = config(env_var_name, default=None)
+        if api_key:
+            logger.debug(f"Found API key for provider '{provider}' via env var {env_var_name}")
+            return api_key
+        else:
+            logger.warning(f"Environment variable {env_var_name} is set but empty.")
+            return None
+    except UndefinedValueError:
+        logger.warning(f"API key environment variable {env_var_name} not found for provider '{provider}'.")
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching API key for provider {provider}: {e}")
+        return None
+
+
+## move get_api_key_for_provider to helper file no logic in settings
+## remove python-dotenv package

@@ -40,7 +40,7 @@ dependencies = [
     "tiktoken>=0.9.0",
     "fastapi-users-tortoise>=0.2.0",
     "python-socketio>=5.12.1",
-    "python-dotenv>=1.1.0",
+    "python-decouple>=3.8",
     "litellm>=1.67.4",
 ]
 

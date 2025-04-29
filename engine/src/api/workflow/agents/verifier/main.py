@@ -22,6 +22,7 @@ from api.llm_schemas import (
     VerificationSummary,
     MultiCriterionValidationList,
 )
+from api.services.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,11 @@ class VerifierAgent(BaseAgent):
         self.mcp_client = MCPClient(event_callback=event_callback)
         self._state = VerifierState()
         self._config = VerifierConfig()
+        self.llm_client = LLMClient(
+            model=settings.LLM_MODEL,
+            temperature=settings.OPENAI_VERIFIER_TEMPERATURE,
+            host=settings.LLM_HOST,
+        )
         self.event_callback = event_callback
 
     async def verify_execution(

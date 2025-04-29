@@ -5,9 +5,6 @@ import os
 import re
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
-from dotenv import load_dotenv
-
-load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -63,9 +60,6 @@ class Settings(BaseSettings):
     AGENT_TYPE: str = "assistant"
     TEMPERATURE: float = 0.2
 
-    # Generic storage for LLM provider API keys - populated dynamically
-    llm_api_keys: Dict[str, str] = {}
-
     class Config:
         """Pydantic settings configuration."""
 
@@ -74,20 +68,6 @@ class Settings(BaseSettings):
         case_sensitive = True
         extra = "ignore"  # Allow extra fields from env vars
 
-    @model_validator(mode="after")
-    def load_llm_api_keys(self):
-        """Load all LLM provider API keys from environment variables."""
-        api_key_pattern = re.compile(r"^(.+)_API_KEY$")
-
-        # Scan environment for *_API_KEY variables
-        for env_var, value in os.environ.items():
-            match = api_key_pattern.match(env_var)
-            if match and value:  # Only store non-empty keys
-                provider = match.group(1).lower()
-                self.llm_api_keys[provider] = value
-
-        return self
-
     def __init__(self, **kwargs):
         """Initialize settings and ensure POSTGRES_DATABASE_URL is in the right format."""
         super().__init__(**kwargs)
@@ -95,27 +75,6 @@ class Settings(BaseSettings):
         # Convert SQLAlchemy URL format to Tortoise ORM format if needed
         if self.POSTGRES_DATABASE_URL and "postgresql+" in self.POSTGRES_DATABASE_URL:
             self.POSTGRES_DATABASE_URL = self.POSTGRES_DATABASE_URL.replace("postgresql+psycopg://", "postgres://")
-
-    def get_api_key_for_provider(self, provider: str) -> str:
-        """Get API key for a specific provider.
-
-        Args:
-            provider: Provider name (e.g., 'openai', 'groq')
-
-        Returns:
-            API key for the provider if found
-
-        Raises:
-            ValueError: If no API key is found for the provider
-        """
-        provider = provider.lower()
-
-        # Check in our dynamic dictionary
-        api_key = self.llm_api_keys.get(provider)
-        if not api_key:
-            raise ValueError(f"No API key found for provider '{provider}'")
-
-        return api_key
 
 
 # Global settings instance to be imported by other modules
