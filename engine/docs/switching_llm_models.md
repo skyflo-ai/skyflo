@@ -23,9 +23,9 @@ ANTHROPIC_API_KEY=sk-ant-...
 # Add keys for other providers as needed (COHERE_API_KEY, AZURE_API_KEY, etc.)
 ```
 
-### 2. Set Active Model (`OPENAI_MODEL`)
+### 2. Set Active Model (`LLM_MODEL`)
 
-Use the `OPENAI_MODEL` variable to specify the _single_ model Skyflo should use. Only one `OPENAI_MODEL` line should be active (uncommented). Any LLM should be added under the `OPENAI_MODEL` key only.
+Use the `LLM_MODEL` variable to specify the _single_ model Skyflo should use. Only one `LLM_MODEL` line should be active (uncommented).
 
 **Naming Convention:**
 
@@ -34,23 +34,23 @@ Use the `OPENAI_MODEL` variable to specify the _single_ model Skyflo should use.
 
 ```env
 # Example: Activate OpenAI's GPT-4o
-OPENAI_MODEL=gpt-4o
+LLM_MODEL=gpt-4o
 
 # Example: Activate Groq's Llama 3 (ensure the line above is commented out)
-# OPENAI_MODEL=groq/llama-3-70b-versatile
+# LLM_MODEL=groq/llama-3-70b-versatile
 ```
 
-> **Note:** Despite the variable name `OPENAI_MODEL`, it controls model selection for _all_ providers.
+> **Note:** This variable (`LLM_MODEL`) controls model selection for _all_ providers.
 
 ### 3. How it Works (Automatic Key Selection)
 
-Skyflo automatically uses the correct API key based on your `OPENAI_MODEL` setting:
+Skyflo automatically uses the correct API key based on your `LLM_MODEL` setting:
 
-1.  It reads the `OPENAI_MODEL` value (e.g., `groq/llama-3-70b-versatile`).
+1.  It reads the `LLM_MODEL` value (e.g., `groq/llama-3-70b-versatile`).
 2.  It extracts the provider (`groq`). If no `/` is found, it defaults to `openai`.
 3.  It looks for and uses the corresponding API key variable (`GROQ_API_KEY` or `OPENAI_API_KEY`).
 
-This allows easy switching just by changing the `OPENAI_MODEL` value and restarting the application.
+This allows easy switching just by changing the `LLM_MODEL` value and restarting the application.
 
 ### 4. Restart Application
 
@@ -72,6 +72,6 @@ Skyflo supports providers available through LiteLLM, including OpenAI, Groq, Ant
 ## Troubleshooting
 
 - **API Key Errors**: Ensure the correct `{PROVIDER}_API_KEY` variable exists and the key value is valid in `.env`.
-- **Model Not Found Errors**: Double-check `OPENAI_MODEL` presence. Ensure correct prefix usage (present for non-OpenAI, absent for OpenAI). Verify model access/support with the provider.
+- **Model Not Found Errors**: Double-check `LLM_MODEL` presence. Ensure correct prefix usage (present for non-OpenAI, absent for OpenAI). Verify model access/support with the provider.
 - **Rate Limiting**: Provider-specific issue; consult their documentation.
 - **Changes Not Taking Effect**: Ensure the Skyflo application was restarted after saving `.env` changes.

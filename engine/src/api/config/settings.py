@@ -53,7 +53,7 @@ class Settings(BaseSettings):
 
     # AI Agent Settings
     OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o"
+    LLM_MODEL: str = "gpt-4o"
     MANAGER_OPENAI_TEMPERATURE: float = 0.2
     OPENAI_PLANNER_TEMPERATURE: float = 0.3
     OPENAI_EXECUTOR_TEMPERATURE: float = 0.0

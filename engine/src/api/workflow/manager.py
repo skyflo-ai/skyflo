@@ -61,7 +61,7 @@ class WorkflowManager:
         self.executor = ExecutorAgent(event_callback=event_callback)
         self.verifier = VerifierAgent(event_callback=event_callback)
         self.llm_client = LLMClient(
-            model=settings.OPENAI_MODEL,
+            model=settings.LLM_MODEL,
             temperature=settings.MANAGER_OPENAI_TEMPERATURE,
         )
         self.graph = self._build_graph()
