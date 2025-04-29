@@ -14,9 +14,35 @@ Welcome to the future of cloud orchestration. This guide will help you deploy Sk
 ### For Production
 - Access to a Kubernetes cluster (v1.19+)
 - kubectl command-line tool
-- An OpenAI API key
 - gettext (for envsubst)
 - curl
+
+Skyflo supports multiple LLM providers through environment variables:
+
+1. **API Keys**: Set provider-specific API keys:
+
+```env
+OPENAI_API_KEY=sk-...     # For OpenAI models
+GROQ_API_KEY=gsk-...      # For Groq models
+ANTHROPIC_API_KEY=sk-...  # For Anthropic models
+```
+
+2. **Model Selection**: Set `LLM_MODEL` to specify the model:
+
+```env
+LLM_MODEL=gpt-4o  # OpenAI (default)
+# Or for other providers:
+# LLM_MODEL=groq/llama-3-70b-versatile
+# LLM_MODEL=anthropic/claude-3-sonnet
+```
+
+3. **Self-hosted Models**: For Ollama or other self-hosted models, set:
+
+```env
+LLM_HOST=http://your-model-host:port
+```
+
+> _We recommend using `gpt-4o` by OpenAI as the LLM provider_ ##refine this section, refer to engine/docs/switching_llm_models.md for info and once done, delete engine/docs/switching_llm_models.md
 
 ## Installation Options
 

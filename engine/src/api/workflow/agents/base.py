@@ -259,9 +259,20 @@ class BaseAgent(ComponentBase):
         """
         try:
             # Use structured_chat_completion to get a formatted response
-            return await self.llm_client.structured_chat_completion(
+            raw = await self.llm_client.structured_chat_completion(
                 messages=messages, schema=schema, temperature=temperature
             )
+
+            # If the caller passed a Pydantic model, validate here
+            if isinstance(schema, type) and issubclass(schema, BaseModel):
+                try:
+                    # Validate and convert to dict
+                    return schema.model_validate(raw).model_dump()
+                except Exception as e:
+                    logger.error(f"Error validating LLM response against schema: {str(e)}")
+                    raise ValueError(f"LLM response failed schema validation: {str(e)}")
+
+            return raw
         except Exception as e:
             logger.error(f"Error getting structured LLM response: {str(e)}")
             raise

@@ -7,8 +7,10 @@ import asyncio
 import random
 from dataclasses import dataclass
 from datetime import datetime
+import sys
 
 from litellm import acompletion, get_supported_openai_params, supports_response_schema
+import litellm
 from litellm.exceptions import RateLimitError
 from openai.types.chat.chat_completion import Choice
 from pydantic import BaseModel
@@ -37,6 +39,7 @@ class LLMClient:
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         provider: Optional[str] = None,
+        host: Optional[str] = None,
         max_retries: int = 3,
         initial_retry_delay: float = 5.0,
         exponential_base: float = 2.0,
@@ -45,38 +48,44 @@ class LLMClient:
 
         Args:
             api_key: API key for the LLM provider
-            model: Model to use for completions (can include provider prefix, e.g., "groq/llama-3")
-            temperature: Temperature for response generation
-            max_tokens: Maximum tokens in response
-            provider: Provider prefix for litellm (optional, will be extracted from model if not provided)
-            max_retries: Maximum number of retries for rate limit errors
-            initial_retry_delay: Initial delay for retry in seconds
-            exponential_base: Base for exponential backoff calculation
+            model: Model identifier (e.g., "openai/gpt-4o" or "groq/llama-3-70b-versatile")
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            provider: Optional provider override
+            host: Optional host URL for self-hosted models
+            max_retries: Maximum number of retries on failure
+            initial_retry_delay: Initial delay between retries in seconds
+            exponential_base: Base for exponential backoff
         """
-        # Extract provider from model if it contains a slash
-        if "/" in model and not provider:
-            provider, model_name = model.split("/", 1)
-            self.provider = provider
-            self.model_name = model_name
-        else:
-            self.provider = provider or "openai"
-            self.model_name = model
-
-        # Auto-detect API key based on provider if not provided
-        if not api_key:
-            api_key = settings.get_api_key_for_provider(self.provider)
-
         self.api_key = api_key
-        self.model = (
-            f"{self.provider}/{self.model_name}"
-            if not self.model_name.startswith(f"{self.provider}/")
-            else self.model_name
-        )
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_retries = max_retries
         self.initial_retry_delay = initial_retry_delay
         self.exponential_base = exponential_base
+
+        # Extract provider and model name from the model string
+        # Format should always be "provider/model_name"
+        if "/" in model:
+            self.llm_provider, self.llm_model_name = model.split("/", 1)
+        elif provider:
+            self.llm_provider = provider
+            self.llm_model_name = model
+        else:
+            # If no provider specified and no slash in model, raise an error
+            raise ValueError(
+                "Model must be in format 'provider/model_name' (e.g., 'openai/gpt-4o') "
+                "or a provider must be explicitly specified."
+            )
+
+        # Configure host for self-hosted models
+        if host:
+            try:
+                litellm.set_api_key(api_key, self.llm_provider)
+                litellm.api_base = host
+            except Exception as e:
+                logger.error(f"Failed to configure self-hosted model: {str(e)}")
+                sys.exit(1)
 
     def _model_supports_response_format(self) -> bool:
         """Check if the model supports response_format parameter.
@@ -86,7 +95,7 @@ class LLMClient:
         """
         try:
             params = get_supported_openai_params(
-                model=self.model_name, custom_llm_provider=self.provider
+                model=self.llm_model_name, custom_llm_provider=self.llm_provider
             )
             return "response_format" in params
         except Exception as e:
@@ -101,7 +110,7 @@ class LLMClient:
         """
         try:
             return supports_response_schema(
-                model=self.model_name, custom_llm_provider=self.provider
+                model=self.llm_model_name, custom_llm_provider=self.llm_provider
             )
         except Exception as e:
             logger.warning(f"Error checking json_schema support: {str(e)}")
@@ -131,7 +140,7 @@ class LLMClient:
 
                 if retry_count > self.max_retries:
                     logger.error(
-                        f"Max retries ({self.max_retries}) exceeded for {self.provider} operation"
+                        f"Max retries ({self.max_retries}) exceeded for {self.llm_provider} operation"
                     )
                     raise
 
@@ -144,14 +153,14 @@ class LLMClient:
                 retry_delay = retry_delay * (0.8 + 0.4 * random.random())
 
                 logger.warning(
-                    f"Rate limit hit for {self.provider} model {self.model}. "
+                    f"Rate limit hit for {self.llm_provider} model {self.llm_model_name}. "
                     f"Retrying in {retry_delay:.2f}s (attempt {retry_count}/{self.max_retries})"
                 )
 
                 await asyncio.sleep(retry_delay)
             except Exception as e:
                 # For non-rate-limit errors, don't retry
-                logger.error(f"Error in {self.provider} operation: {str(e)}")
+                logger.error(f"Error in {self.llm_provider} operation: {str(e)}")
                 raise
 
     async def _make_completion_call(
@@ -170,7 +179,7 @@ class LLMClient:
             The response from the LLM
         """
         return await acompletion(
-            model=self.model,
+            model=f"{self.llm_provider}/{self.llm_model_name}",
             messages=messages,
             temperature=temperature or self.temperature,
             max_tokens=max_tokens or self.max_tokens,
@@ -199,7 +208,7 @@ class LLMClient:
             # Log the request
             logger.debug(
                 f"Sending chat completion request:\n"
-                f"Model: {self.model}\n"
+                f"Model: {f'{self.llm_provider}/{self.llm_model_name}'}\n"
                 f"Temperature: {temperature or self.temperature}\n"
                 f"Max tokens: {max_tokens or self.max_tokens}\n"
                 f"Messages: {json.dumps(messages, indent=2)}"
@@ -245,7 +254,9 @@ class LLMClient:
         try:
             # Check if the model supports structured output
             if not self._model_supports_response_format():
-                raise ValueError(f"Model {self.model} does not support response_format parameter")
+                raise ValueError(
+                    f"Model {f'{self.llm_provider}/{self.llm_model_name}'} does not support response_format parameter"
+                )
 
             # if not self._model_supports_json_schema():
             #     raise ValueError(f"Model {self.model} does not support json_schema formatting")
@@ -300,7 +311,7 @@ class LLMClient:
             # Log the request
             logger.debug(
                 f"Sending structured chat completion request:\n"
-                f"Model: {self.model}\n"
+                f"Model: {f'{self.llm_provider}/{self.llm_model_name}'}\n"
                 f"Temperature: {temperature or self.temperature}\n"
                 f"Max tokens: {max_tokens or self.max_tokens}\n"
                 f"Schema: {response_format['json_schema']['schema']}\n"
@@ -370,7 +381,7 @@ class LLMClient:
             # Log the request
             logger.debug(
                 f"Sending function call request:\n"
-                f"Model: {self.model}\n"
+                f"Model: {f'{self.llm_provider}/{self.llm_model_name}'}\n"
                 f"Temperature: {temperature or self.temperature}\n"
                 f"Functions: {json.dumps(functions, indent=2)}\n"
                 f"Messages: {json.dumps(messages, indent=2)}"

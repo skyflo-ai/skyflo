@@ -1,6 +1,6 @@
 """Configuration settings for the API service."""
 
-from typing import Dict
+from typing import Dict, Optional
 import os
 import re
 from pydantic import Field, model_validator
@@ -53,7 +53,8 @@ class Settings(BaseSettings):
 
     # AI Agent Settings
     OPENAI_API_KEY: str = ""
-    LLM_MODEL: str = "gpt-4o"
+    LLM_MODEL: str = "openai/gpt-4o"  ## Recommended model
+    LLM_HOST: Optional[str] = None
     MANAGER_OPENAI_TEMPERATURE: float = 0.2
     OPENAI_PLANNER_TEMPERATURE: float = 0.3
     OPENAI_EXECUTOR_TEMPERATURE: float = 0.0

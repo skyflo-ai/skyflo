@@ -28,7 +28,7 @@ For more details, see the [Installation Guide](docs/install.md).
 
 ## Configuration
 
-By default, Skyflo is configured to use OpenAI. If you wish to use a different provider (like Groq, Anthropic, Cohere, etc.), or need detailed instructions on setting API keys, selecting models, understanding model requirements, and troubleshooting, please refer to the comprehensive **[Switching LLM Models Guide](engine/docs/switching_llm_models.md)**.
+By default, Skyflo is configured to use OpenAI's GPT-4o model. For instructions on using different LLM providers (like Groq, Anthropic, Cohere, etc.) or configuring API keys, please refer to the [Installation Guide](docs/install.md).
 
 ## Architecture
 
