@@ -235,7 +235,7 @@ class LLMClient:
 
         Args:
             messages: List of messages for the conversation
-            schema: JSON schema or Pydantic model to format response
+            schema: JSON schema or Pydantic model representing an OBJECT to format response
             temperature: Optional override for temperature
             max_tokens: Optional override for max_tokens
 
@@ -249,19 +249,6 @@ class LLMClient:
 
             if not self._model_supports_json_schema():
                 raise ValueError(f"Model {self.model} does not support json_schema formatting")
-
-            # Handle List[Type] schema specially
-            is_list_type = False
-            inner_type = None
-            if (
-                hasattr(schema, "__origin__")
-                and schema.__origin__ is list
-                and hasattr(schema, "__args__")
-            ):
-                is_list_type = True
-                inner_type = schema.__args__[0]
-                # Replace the schema with the inner type
-                schema = inner_type
 
             # Generate a schema name (required by OpenAI)
             schema_name = "response_schema"
@@ -285,14 +272,6 @@ class LLMClient:
                 if "additionalProperties" not in json_schema_content:
                     json_schema_content["additionalProperties"] = False
 
-                # Wrap the schema in an array if needed
-                if is_list_type:
-                    json_schema_content = {
-                        "type": "array",
-                        "items": json_schema_content,
-                        "additionalProperties": False,
-                    }
-
                 # Format according to OpenAI's requirements
                 response_format = {
                     "type": "json_schema",
@@ -305,14 +284,6 @@ class LLMClient:
                     schema_copy = schema.copy()
                     if "additionalProperties" not in schema_copy:
                         schema_copy["additionalProperties"] = False
-
-                    # Wrap the schema in an array if needed
-                    if is_list_type:
-                        schema_copy = {
-                            "type": "array",
-                            "items": schema_copy,
-                            "additionalProperties": False,
-                        }
 
                     # Format according to OpenAI's requirements
                     response_format = {
@@ -367,14 +338,9 @@ class LLMClient:
                 else:
                     raise ValueError(f"Unexpected response format: {type(content)}")
 
-                # Handle Pydantic model conversion if needed
-                if hasattr(result, "model_dump"):
-                    # If it's a Pydantic model instance, convert to dict
-                    return result.model_dump()
-
                 # Ensure we're returning a dictionary
-                if not isinstance(result, dict) and not isinstance(result, list):
-                    raise ValueError(f"Expected dict or list response, got: {type(result)}")
+                if not isinstance(result, dict):
+                    raise ValueError(f"Expected dict response, got: {type(result)}")
 
                 return result
             else:
