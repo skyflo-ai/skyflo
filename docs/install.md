@@ -68,7 +68,7 @@ export REDIS_HOST='your-redis-host:port'  # Default: skyflo-ai-redis:6379
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: skyflo-ingress
+  name: skyflo-ai-ingress
   namespace: skyflo-ai
   annotations:
     alb.ingress.kubernetes.io/scheme: internal
@@ -96,7 +96,7 @@ spec:
 
 Apply the configuration:
 ```bash
-kubectl apply -f skyflo-ingress.yaml
+kubectl apply -f skyflo-ai-ingress.yaml
 ```
 
 2. After applying the configuration, the AWS Load Balancer Controller will provision an Application Load Balancer. Get the ALB DNS name:
