@@ -87,19 +87,21 @@ class LLMClient:
         else:
             self.api_key = get_api_key_for_provider(self.llm_provider)
 
-        # Validate API key presence if no host is provided
-        # When using a local host (e.g., for Ollama), API key may be optional
-        if not self.host and not self.api_key:
-            if self.llm_provider in ["ollama", "local"]: #TODO: generalize this
-                logger.warning(
-                    f"No API key provided for {self.llm_provider}, but this provider may not require one. "
-                    f"Continuing without an API key."
+        # API key validation logic:
+        # 1. If host is provided, API key is optional for ANY provider
+        # 2. If no host, then API key is required
+        if not self.api_key:
+            if self.host:
+                logger.info(
+                    f"No API key provided for {self.llm_provider} but a host is configured ({self.host}). "
+                    f"Continuing with empty API key which may be valid for self-hosted models."
                 )
                 self.api_key = ""  # Set to empty string for compatibility
             else:
                 raise ValueError(
-                    f"API key for provider '{self.llm_provider}' not found. "
-                    f"Please provide it directly or set the {self.llm_provider.upper()}_API_KEY environment variable."
+                    f"API key for provider '{self.llm_provider}' not found and no host provided. "
+                    f"Please provide an API key directly, set the {self.llm_provider.upper()}_API_KEY environment variable, "
+                    f"or specify a host for self-hosted models."
                 )
 
         # Configure host and API key for self-hosted/alternative endpoints via LiteLLM
