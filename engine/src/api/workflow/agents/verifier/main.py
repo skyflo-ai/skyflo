@@ -17,6 +17,12 @@ from api.workflow.agents.verifier.prompt_templates import (
     VERIFY_MULTIPLE_CRITERIA_PROMPT,
 )
 from api.config.settings import settings
+from api.llm_schemas import (
+    CriterionValidation,
+    VerificationSummary,
+    MultiCriterionValidationList,
+)
+from api.services.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +53,11 @@ class VerifierAgent(BaseAgent):
         self.mcp_client = MCPClient(event_callback=event_callback)
         self._state = VerifierState()
         self._config = VerifierConfig()
+        self.llm_client = LLMClient(
+            model=settings.LLM_MODEL,
+            temperature=settings.OPENAI_VERIFIER_TEMPERATURE,
+            host=settings.LLM_HOST,
+        )
         self.event_callback = event_callback
 
     async def verify_execution(
@@ -319,7 +330,6 @@ Return a JSON array of validation criteria as strings.""",
             else "No step results available"
         )
 
-        # Build prompt for LLM using the new multiple criteria template
         prompt_messages = [
             {"role": "system", "content": CRITERION_VALIDATION_SYSTEM_PROMPT},
             {
@@ -332,64 +342,27 @@ Return a JSON array of validation criteria as strings.""",
             },
         ]
 
-        # Get response from LLM
-        response_text = await self._get_llm_response(
-            prompt_messages, settings.OPENAI_VERIFIER_TEMPERATURE
+        validation_result = await self._get_structured_llm_response(
+            prompt_messages, MultiCriterionValidationList, settings.OPENAI_VERIFIER_TEMPERATURE
         )
-        logger.debug(f"LLM response for batch criteria validation: {response_text}")
+        logger.debug(f"LLM structured batch verification response: {validation_result}")
 
-        try:
-            # Extract and parse JSON
-            json_start = response_text.find("[")
-            json_end = response_text.rfind("]") + 1
+        # Extract the validations list from the response
+        criteria_results = validation_result.get("validations", [])
 
-            if json_start == -1 or json_end == 0:
-                logger.warning(f"Failed to extract JSON array from LLM response: {response_text}")
-                # Fallback: verify each criterion individually
-                results = []
-                for criterion in criteria:
-                    result = await self._validate_criterion_llm(criterion, execution_state)
-                    results.append(
-                        {
-                            "criterion": criterion,
-                            "status": "success" if result["criterion_met"] else "failure",
-                            "details": result["reasoning"],
-                            "confidence": result["confidence"],
-                        }
-                    )
-                return results
+        # Convert to the standard format used by the verification process
+        validation_results = []
+        for result in criteria_results:
+            validation_results.append(
+                {
+                    "criterion": result.get("criterion", "Unknown criterion"),
+                    "status": ("success" if result.get("criterion_met", False) else "failure"),
+                    "details": result.get("reasoning", "No reasoning provided"),
+                    "confidence": result.get("confidence", 0.5),
+                }
+            )
 
-            criteria_results = json.loads(response_text[json_start:json_end])
-
-            # Convert to the standard format used by the verification process
-            validation_results = []
-            for result in criteria_results:
-                validation_results.append(
-                    {
-                        "criterion": result.get("criterion", "Unknown criterion"),
-                        "status": "success" if result.get("criterion_met", False) else "failure",
-                        "details": result.get("reasoning", "No reasoning provided"),
-                        "confidence": result.get("confidence", 0.5),
-                    }
-                )
-
-            return validation_results
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse batch verification results: {str(e)}")
-            # Fallback: verify each criterion individually
-            results = []
-            for criterion in criteria:
-                result = await self._validate_criterion_llm(criterion, execution_state)
-                results.append(
-                    {
-                        "criterion": criterion,
-                        "status": "success" if result["criterion_met"] else "failure",
-                        "details": result["reasoning"],
-                        "confidence": result["confidence"],
-                    }
-                )
-            return results
+        return validation_results
 
     async def _validate_criterion_llm(
         self, criterion: str, execution_state: Dict[str, Any]
@@ -446,44 +419,21 @@ Return a JSON array of validation criteria as strings.""",
             },
         ]
 
-        # Get response from LLM
-        response_text = await self._get_llm_response(
-            prompt_messages, settings.OPENAI_VERIFIER_TEMPERATURE
+        # Get structured response using CriterionValidation schema
+        result = await self._get_structured_llm_response(
+            prompt_messages, CriterionValidation, settings.OPENAI_VERIFIER_TEMPERATURE
         )
-        logger.debug(f"LLM response for criterion validation: {response_text}")
+        logger.debug(f"LLM structured criterion validation response: {result}")
 
-        # Extract and parse JSON
-        try:
-            json_start = response_text.find("{")
-            json_end = response_text.rfind("}") + 1
+        # Ensure all required fields are present
+        if "criterion_met" not in result:
+            result["criterion_met"] = False
+        if "confidence" not in result:
+            result["confidence"] = 0.5
+        if "reasoning" not in result:
+            result["reasoning"] = "No reasoning provided by LLM"
 
-            if json_start == -1 or json_end == 0:
-                logger.warning(f"Failed to extract JSON from LLM response: {response_text}")
-                return {
-                    "criterion_met": False,
-                    "confidence": 0.0,
-                    "reasoning": "Failed to parse LLM verification response",
-                }
-
-            result = json.loads(response_text[json_start:json_end])
-
-            # Ensure all required fields are present
-            if "criterion_met" not in result:
-                result["criterion_met"] = False
-            if "confidence" not in result:
-                result["confidence"] = 0.5
-            if "reasoning" not in result:
-                result["reasoning"] = "No reasoning provided by LLM"
-
-            return result
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse LLM response JSON: {str(e)}")
-            return {
-                "criterion_met": False,
-                "confidence": 0.0,
-                "reasoning": f"Failed to parse verification response: {str(e)}",
-            }
+        return result
 
     async def _generate_verification_summary(
         self,
@@ -521,24 +471,12 @@ Return a JSON array of validation criteria as strings.""",
                 },
             ]
 
-            # Get response from LLM
-            response_text = await self._get_llm_response(
-                prompt_messages, settings.OPENAI_VERIFIER_TEMPERATURE
+            # Get structured response using VerificationSummary schema
+            summary = await self._get_structured_llm_response(
+                prompt_messages, VerificationSummary, settings.OPENAI_VERIFIER_TEMPERATURE
             )
-            logger.debug(f"LLM response for verification summary: {response_text}")
+            logger.debug(f"LLM structured verification summary response: {summary}")
 
-            # Extract and parse JSON
-            json_start = response_text.find("{")
-            json_end = response_text.rfind("}") + 1
-
-            if json_start == -1 or json_end == 0:
-                logger.warning(f"Failed to extract JSON from summary response: {response_text}")
-                return {
-                    "overall_success": all(r["status"] == "success" for r in validation_results),
-                    "summary": "Failed to generate detailed summary",
-                }
-
-            summary = json.loads(response_text[json_start:json_end])
             return summary
 
         except Exception as e:

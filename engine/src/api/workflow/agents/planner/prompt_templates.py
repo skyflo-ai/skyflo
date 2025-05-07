@@ -93,10 +93,16 @@ Your response should be in JSON format with the following structure:
             "step_id": "1",
             "tool": "tool_name",
             "action": "specific_action",
-            "parameters": {{
-                "param1": "value1",
-                "param2": "value2"
-            }},
+            "parameters": [
+                {{
+                    "name": "param1",
+                    "value": "value1"
+                }},
+                {{
+                    "name": "param2",
+                    "value": "value2"
+                }}
+            ],
             "description": "What information this step gathers",
             "discovery_step": true
         }}
@@ -235,10 +241,16 @@ Your response should be in JSON format with the following structure:
             "step_id": "1",
             "tool": "tool_name",
             "action": "specific_action",
-            "parameters": {{
-                "param1": "value1",
-                "param2": "value2"
-            }},
+            "parameters": [
+                {{
+                    "name": "param1",
+                    "value": "value1"
+                }},
+                {{
+                    "name": "param2",
+                    "value": "value2"
+                }}
+            ],
             "description": "What this step accomplishes",
             "required": true,
             "recursive": false,

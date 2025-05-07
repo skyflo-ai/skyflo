@@ -50,22 +50,24 @@ STEP RESULTS:
 
 Analyze the outputs carefully and determine if each criterion has been met.
 
-Your response must be a JSON array of objects, one for each criterion, with the following structure:
-[
-  {{
-    "criterion": "The exact text of the first criterion",
-    "criterion_met": true/false,
-    "confidence": 0.0-1.0,
-    "reasoning": "A brief explanation of why the criterion was met or not met"
-  }},
-  {{
-    "criterion": "The exact text of the second criterion",
-    "criterion_met": true/false,
-    "confidence": 0.0-1.0,
-    "reasoning": "A brief explanation of why the criterion was met or not met"
-  }},
-  ...
-]
+Your response must be a JSON object with a single key "validations" containing an array of objects, one for each criterion, with the following structure:
+{{
+  "validations": [
+    {{
+      "criterion": "The exact text of the first criterion",
+      "criterion_met": true/false,
+      "confidence": 0.0-1.0,
+      "reasoning": "A brief explanation of why the criterion was met or not met"
+    }},
+    {{
+      "criterion": "The exact text of the second criterion",
+      "criterion_met": true/false,
+      "confidence": 0.0-1.0,
+      "reasoning": "A brief explanation of why the criterion was met or not met"
+    }},
+    ...
+  ]
+}}
 
 Base your judgment on facts and evidence present in the outputs. Be objective and thorough in your assessment.
 For each criterion, if the outputs clearly demonstrate it is met, mark it as true. If not, mark it as false.

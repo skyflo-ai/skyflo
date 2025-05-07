@@ -35,6 +35,7 @@ from api.workflow.agents.base import BaseAgent
 from api.services.mcp_client import MCPClient
 from api.services.llm_client import LLMClient
 from api.config import settings
+from api.utils.helpers import normalize_steps_list
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +106,9 @@ class ExecutorAgent(BaseAgent):
         self._state = ExecutorState()
         self._config = ExecutorConfig()
         self.llm_client = LLMClient(
-            api_key=settings.OPENAI_API_KEY,
-            model=settings.OPENAI_MODEL,
+            model=settings.LLM_MODEL,
             temperature=settings.OPENAI_EXECUTOR_TEMPERATURE,
+            host=settings.LLM_HOST,
         )
         self.event_callback = event_callback
 
@@ -309,6 +310,10 @@ class ExecutorAgent(BaseAgent):
 
             steps = plan.get("steps", [])
             logger.debug(f"Found {len(steps)} steps to execute")
+
+            # Normalize steps to ensure parameters are in dictionary format
+            steps = normalize_steps_list(steps)
+
             results = []
             steps_executed = 0
             steps_total = len(steps)
@@ -329,7 +334,9 @@ class ExecutorAgent(BaseAgent):
 
                     # Check token count before executing step
                     current_token_count = self._estimate_token_count(execution_state)
-                    logger.debug(f"Current token count before step {step_id}: {current_token_count}")
+                    logger.debug(
+                        f"Current token count before step {step_id}: {current_token_count}"
+                    )
                     self._state.token_count = current_token_count
 
                     # If token count exceeds limit, summarize and clear context
@@ -751,13 +758,13 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         "message": f"About to execute {tool} {action}",
                         "phase": "executing",
                         "state": "execute",
+                        "conversation_id": conversation_id,
                         "details": {
                             "step_id": step_id,
                             "tool": tool,
                             "action": action,
                             "parameters": parameters,
                             "status": "pending",
-                            "conversation_id": conversation_id,
                             "approval_required": approval_required,
                         },
                     }
@@ -776,13 +783,13 @@ Return a JSON array of tool calls that follow the same structure as the current 
                             "message": f"Approval required for {tool} {action}",
                             "phase": "executing",
                             "state": "waiting_approval",
+                            "conversation_id": conversation_id,
                             "details": {
                                 "step_id": step_id,
                                 "tool": tool,
                                 "action": action,
                                 "parameters": parameters,
                                 "status": "waiting_approval",
-                                "conversation_id": conversation_id,
                             },
                         }
                     )
@@ -794,6 +801,7 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         await self.event_callback(
                             {
                                 "type": "step_rejected",
+                                "conversation_id": conversation_id,
                                 "details": {
                                     "step_id": step_id,
                                     "message": "Step was rejected by user or timed out",
@@ -852,13 +860,13 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         "message": f"Executing {tool} {action}",
                         "phase": "executing",
                         "state": "execute",
+                        "conversation_id": conversation_id,
                         "details": {
                             "step_id": step_id,
                             "tool": tool,
                             "action": action,
                             "parameters": parameters,
                             "status": "executing",
-                            "conversation_id": conversation_id,
                         },
                     }
                 )
@@ -908,6 +916,7 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         "message": f"Step {step_id} completed successfully",
                         "phase": "executing",
                         "state": "execute",
+                        "conversation_id": conversation_id,
                         "details": {
                             "step_id": step_id,
                             "tool": tool,
@@ -915,7 +924,6 @@ Return a JSON array of tool calls that follow the same structure as the current 
                             "parameters": parameters,
                             "status": "completed",
                             "output": result.get("result", {}),
-                            "conversation_id": conversation_id,
                         },
                     }
                 )
@@ -951,6 +959,7 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         "message": f"Step {step_id} failed: {str(e)}",
                         "phase": "executing",
                         "state": "execute",
+                        "conversation_id": conversation_id,
                         "details": {
                             "step_id": step_id,
                             "tool": tool,
@@ -958,7 +967,6 @@ Return a JSON array of tool calls that follow the same structure as the current 
                             "parameters": parameters,
                             "status": "failed",
                             "error": str(e),
-                            "conversation_id": conversation_id,
                         },
                     }
                 )
@@ -1317,7 +1325,9 @@ Return a JSON array of tool calls that follow the same structure as the current 
                     ):
                         pod_output = step_result.get("output", "")
 
-            logger.debug(f"Context info in _extract_pod_names_from_previous_results: {context_info}")
+            logger.debug(
+                f"Context info in _extract_pod_names_from_previous_results: {context_info}"
+            )
             last_tool_used = context_info[-1]["tool"] if context_info else "None"
             last_namespace = context_info[-1]["parameters"].get("namespace", "default")
 
@@ -1439,7 +1449,9 @@ Return a JSON array of tool calls that follow the same structure as the current 
                         f"Interpreted '{original_type}' as pod name pattern: {original_type}"
                     )
 
-            logger.debug(f"Corrected resource_type from '{original_type}' to 'pods' for log request")
+            logger.debug(
+                f"Corrected resource_type from '{original_type}' to 'pods' for log request"
+            )
 
         # Ensure namespace is set for log requests
         if "namespace" not in processed_params:
