@@ -42,7 +42,7 @@ LLM_MODEL=gpt-4o  # OpenAI (default)
 LLM_HOST=http://your-model-host:port
 ```
 
-> _We recommend using `gpt-4o` by OpenAI as the LLM provider_ ##refine this section, refer to engine/docs/switching_llm_models.md for info and once done, delete engine/docs/switching_llm_models.md
+> _We recommend using `gpt-4o` by OpenAI as the LLM provider_
 
 ## Installation Options
 

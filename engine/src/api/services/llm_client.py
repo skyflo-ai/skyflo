@@ -7,7 +7,6 @@ import asyncio
 import random
 from dataclasses import dataclass
 from datetime import datetime
-import sys
 
 from litellm import acompletion, get_supported_openai_params, supports_response_schema
 import litellm
@@ -15,7 +14,6 @@ from litellm.exceptions import RateLimitError
 from openai.types.chat.chat_completion import Choice
 from pydantic import BaseModel
 
-from api.config.settings import settings
 from api.utils.helpers import get_api_key_for_provider
 
 logger = logging.getLogger(__name__)
@@ -113,6 +111,7 @@ class LLMClient:
                 logger.info(f"Configured LiteLLM API base for {self.llm_provider} to: {self.host}")
             except Exception as e:
                 logger.error(f"Failed to configure self-hosted model API base: {str(e)}")
+                raise RuntimeError(f"Failed to configure self-hosted model API base: {str(e)}") from e
 
 
     def _model_supports_response_format(self) -> bool:
@@ -294,7 +293,7 @@ class LLMClient:
                 json_schema_content = schema.model_json_schema()
 
                 # Ensure additionalProperties is set to false for all object definitions
-                for prop_name, prop_schema in json_schema_content.get("properties", {}).items():
+                for _, prop_schema in json_schema_content.get("properties", {}).items():
                     if (
                         prop_schema.get("type") == "object"
                         and "additionalProperties" not in prop_schema
@@ -363,7 +362,7 @@ class LLMClient:
                         result = json.loads(content)
                     except json.JSONDecodeError as e:
                         logger.error(f"Error parsing JSON response: {str(e)}")
-                        raise ValueError(f"LLM returned invalid JSON: {content}")
+                        raise ValueError(f"LLM returned invalid JSON: {content}") from e
                 else:
                     raise ValueError(f"Unexpected response format: {type(content)}")
 

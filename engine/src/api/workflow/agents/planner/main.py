@@ -1,6 +1,7 @@
 """Core implementation of the planner agent."""
 
 import asyncio
+import copy
 import json
 import uuid
 import logging
@@ -67,8 +68,7 @@ class PlannerAgent(BaseAgent):
             logger.warning(f"Expected dict for plan, got {type(plan)}. Skipping normalization.")
             return plan
 
-        normalized_plan = plan.copy()
-
+        normalized_plan = copy.deepcopy(plan)
         # Normalize parameters in steps and set defaults
         if "steps" in normalized_plan and isinstance(normalized_plan["steps"], list):
             normalized_steps = []

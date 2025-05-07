@@ -1,9 +1,7 @@
 """Configuration settings for the API service."""
 
-from typing import Dict, Optional
-import os
-import re
-from pydantic import Field, model_validator
+from typing import Optional
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 

@@ -272,7 +272,7 @@ class BaseAgent(ComponentBase):
                     return schema.model_validate(raw).model_dump()
                 except Exception as e:
                     logger.error(f"Error validating LLM response against schema: {str(e)}")
-                    raise ValueError(f"LLM response failed schema validation: {str(e)}")
+                    raise ValueError(f"LLM response failed schema validation: {str(e)}") from e
 
             return raw
         except Exception as e:
