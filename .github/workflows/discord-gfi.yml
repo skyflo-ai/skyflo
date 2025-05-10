@@ -1,0 +1,52 @@
+name: Update good-first-issues list
+
+on:
+  # Re-build when labels or state change
+  issues:
+    types: [opened, reopened, edited, labeled, unlabeled, closed]
+  # …and every day as a safety net
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC daily
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Build embed text (top-20)
+        id: make
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+            const q = `repo:${owner}/${repo} label:"good first issue" state:open`;
+            const { data } = await github.rest.search.issuesAndPullRequests({ q, per_page: 20, sort: "created", order: "asc" });
+
+            const lines = data.items.map(i => `• [#${i.number} ${i.title}](${i.html_url}) — _${i.user.login}_`);
+            const embed = {
+              embeds: [{
+                title: "🆕 RecentGood-first-issues",
+                url: `https://github.com/${owner}/${repo}/issues?q=label%3A%22good+first+issue%22+is%3Aopen`,
+                description: lines.join("\n"),
+                color: 504575,
+                footer: { text: "Last updated" },
+                timestamp: new Date().toISOString()
+              }]
+            };
+            return Buffer.from(JSON.stringify(embed)).toString('base64');
+
+      - name: Push embed to Discord (replace old msg)
+        env:
+          HOOK: ${{ secrets.DISCORD_GFI_WEBHOOK }}
+          PAYLOAD_B64: ${{ steps.make.outputs.result }}
+        run: |
+          set -e
+          payload="$(echo "$PAYLOAD_B64" | base64 -d)"
+
+          # Get last 50 messages; find one authored by this webhook
+          last=$(curl -s "$HOOK/messages?limit=50" | jq -r 'map(select(.author.bot==true))[0].id // empty')
+          [[ -n "$last" ]] && curl -s -X DELETE "$HOOK/messages/$last" >/dev/null
+
+          # Replace the old message with the new one
+          curl -s -H "Content-Type: application/json" -d "$payload" "$HOOK" >/dev/null
