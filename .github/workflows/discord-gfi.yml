@@ -1,10 +1,10 @@
 name: Update good-first-issues list
 
 on:
-  # Re-build when labels or state change
+    # Re-build when labels or state change
   issues:
     types: [opened, reopened, edited, labeled, unlabeled, closed]
-  # …and every day as a safety net
+      # …and every day as a safety net
   schedule:
     - cron: '0 3 * * *'   # 03:00 UTC daily
 
@@ -13,40 +13,71 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Build embed text (top-20)
-        id: make
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo  = context.repo.repo;
-            const q = `repo:${owner}/${repo} label:"good first issue" state:open`;
-            const { data } = await github.rest.search.issuesAndPullRequests({ q, per_page: 20, sort: "created", order: "asc" });
+    # ---------- Build the embed ----------
+    - name: Build embed JSON (top-20)
+      id: build
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const [owner, repo] = ['skyflo-ai', 'skyflo'];
 
-            const lines = data.items.map(i => `• [#${i.number} ${i.title}](${i.html_url}) — _${i.user.login}_`);
-            const embed = {
-              embeds: [{
-                title: "🆕 RecentGood-first-issues",
-                url: `https://github.com/${owner}/${repo}/issues?q=label%3A%22good+first+issue%22+is%3Aopen`,
-                description: lines.join("\n"),
-                color: 504575,
-                footer: { text: "Last updated" },
-                timestamp: new Date().toISOString()
-              }]
-            };
-            return Buffer.from(JSON.stringify(embed)).toString('base64');
+          // pull first 20 open issues with that label
+          const { data: issues } = await github.rest.issues.listForRepo({
+            owner, repo,
+            state: 'open',
+            labels: 'good first issue',
+            per_page: 20
+          });
 
-      - name: Push embed to Discord (replace old msg)
-        env:
-          HOOK: ${{ secrets.DISCORD_GFI_WEBHOOK }}
-          PAYLOAD_B64: ${{ steps.make.outputs.result }}
-        run: |
-          set -e
-          payload="$(echo "$PAYLOAD_B64" | base64 -d)"
+          const lines = issues.map(
+            i => `• [#${i.number}  ${i.title.replace(/\n/g,' ')}](${i.html_url}) — _${i.user.login}_`
+          );
 
-          # Get last 50 messages; find one authored by this webhook
-          last=$(curl -s "$HOOK/messages?limit=50" | jq -r 'map(select(.author.bot==true))[0].id // empty')
-          [[ -n "$last" ]] && curl -s -X DELETE "$HOOK/messages/$last" >/dev/null
+          const desc = lines.length
+            ? lines.join('\n')
+            : '🎉 **No open _good first issue_ tickets right now!**';
 
-          # Replace the old message with the new one
-          curl -s -H "Content-Type: application/json" -d "$payload" "$HOOK" >/dev/null
+          const embed = {
+            embeds: [{
+              title: '🆕 Good-first-issues',
+              url:   `https://github.com/${owner}/${repo}/issues?q=is%3Aissue+state%3Aopen+label%3A%22good+first+issue%22`,
+              description: desc.slice(0, 4000),   // Discord limit
+              color: 504575,
+              timestamp: new Date().toISOString()
+            }]
+          };
+
+          // expose as a base-64 string
+          core.setOutput(
+            'b64',
+            Buffer.from(JSON.stringify(embed)).toString('base64')
+          );
+
+    # ---------- Post via bot ----------
+    - name: Push embed (replace old message)
+      env:
+        BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        BOT_ID:    ${{ secrets.DISCORD_BOT_ID }}
+        CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID_GOOD_FIRST_ISSUES }}
+        PAYLOAD_B64: ${{ steps.build.outputs.b64 }}
+      run: |
+        set -euo pipefail
+        payload=$(printf '%s' "$PAYLOAD_B64" | base64 --decode)
+        AUTH="Authorization: Bot ${BOT_TOKEN}"
+
+        # 1) delete last bot message (if any)
+        last=$(curl -sf -H "$AUTH" \
+                "https://discord.com/api/channels/${CHANNEL_ID}/messages?limit=50" |
+              jq -r --arg BID "$BOT_ID" '
+                    map(select(.author.id==$BID))[0].id // empty')
+        if [ -n "$last" ]; then
+          curl -s -X DELETE -H "$AUTH" \
+              "https://discord.com/api/channels/${CHANNEL_ID}/messages/${last}" >/dev/null
+        fi
+
+        # 2) post fresh embed
+        curl -s -H "$AUTH" -H "Content-Type: application/json" \
+            -d "$payload" \
+            "https://discord.com/api/channels/${CHANNEL_ID}/messages" >/dev/null
+
+
