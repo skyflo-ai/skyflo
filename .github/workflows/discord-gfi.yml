@@ -1,10 +1,11 @@
 name: Update good-first-issues list
 
 on:
-    # Re-build when labels or state change
+  workflow_dispatch:
+  # Re-build when labels or state change
   issues:
     types: [opened, reopened, edited, labeled, unlabeled, closed]
-      # …and every day as a safety net
+  # …and every day as a safety net
   schedule:
     - cron: '0 3 * * *'   # 03:00 UTC daily
 
