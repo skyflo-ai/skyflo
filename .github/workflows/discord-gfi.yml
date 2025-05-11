@@ -30,19 +30,22 @@ jobs:
             per_page: 20
           });
 
-          const lines = issues.map(
-            i => `• [#${i.number}  ${i.title.replace(/\n/g,' ')}](${i.html_url}) — _${i.user.login}_`
-          );
-
-          const desc = lines.length
-            ? lines.join('\n')
-            : '🎉 **No open _good first issue_ tickets right now!**';
+          // map to bullets: show other labels comma-separated after a hyphen
+          const lines = issues.map(i => {
+            const extras = i.labels
+              .filter(l => l.name !== 'good first issue')
+              .map(l => `\`${l.name}\``);
+            const base = `• [#${i.number}](${i.html_url}) ${i.title}`;
+            return extras.length
+              ? `${base} - ${extras.join(', ')}`
+              : base;
+          });
 
           const embed = {
             embeds: [{
               title: '🆕 Good-first-issues',
               url:   `https://github.com/${owner}/${repo}/issues?q=is%3Aissue+state%3Aopen+label%3A%22good+first+issue%22`,
-              description: desc.slice(0, 4000),   // Discord limit
+              description: lines.join('\n'),
               color: 504575,
               timestamp: new Date().toISOString()
             }]
