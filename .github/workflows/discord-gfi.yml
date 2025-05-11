@@ -20,7 +20,7 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
-          const [owner, repo] = ['skyflo-ai', 'skyflo'];
+          const { owner, repo } = context.repo;
 
           // pull first 20 open issues with that label
           const { data: issues } = await github.rest.issues.listForRepo({
