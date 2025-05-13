@@ -2,7 +2,8 @@
 
 import logging
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+from decouple import config, UndefinedValueError
 
 import tiktoken
 
@@ -137,3 +138,94 @@ def clear_conversation_history(reason: str) -> Dict[str, Any]:
         "reason": reason,
         "timestamp": get_timestamp(),
     }
+
+
+def normalize_step_parameters(step: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalize the 'parameters' field within a single plan step.
+
+    Converts parameters from the list format [{"name": "key", "value": "val"}]
+    to the dictionary format {"key": "val"}.
+
+    If the parameters are already a dictionary or not present, the step is returned unchanged.
+
+    Args:
+        step: A dictionary representing a single step in a plan.
+
+    Returns:
+        The step dictionary with normalized parameters, or the original step if no normalization is needed.
+    """
+    parameters = step.get("parameters")
+
+    if isinstance(parameters, list):
+        try:
+            normalized_params = {
+                param.get("name"): param.get("value")
+                for param in parameters
+                if isinstance(param, dict) and "name" in param  # Ensure 'name' key exists
+            }
+            # Create a copy of the step to avoid modifying the original dict in place
+            normalized_step = step.copy()
+            normalized_step["parameters"] = normalized_params
+            return normalized_step
+        except Exception as e:
+            logger.error(
+                f"Error normalizing parameters for step {step.get('step_id', 'unknown')}: {e}"
+            )
+            # Return the original step if normalization fails
+            return step
+    # If parameters are already a dict or None/missing, return the step as is
+    elif isinstance(parameters, dict) or parameters is None:
+        return step
+    else:
+        logger.warning(
+            f"Unexpected type for parameters in step {step.get('step_id', 'unknown')}: {type(parameters)}. Skipping normalization."
+        )
+        return step
+
+
+def normalize_steps_list(steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Normalize the parameters for all steps in a list.
+
+    Applies normalize_step_parameters to each step in the list.
+
+    Args:
+        steps: A list of step dictionaries.
+
+    Returns:
+        A new list containing steps with normalized parameters.
+    """
+    return [normalize_step_parameters(step) for step in steps]
+
+
+def get_api_key_for_provider(provider: str) -> Optional[str]:
+    """Get API key for a specific LLM provider from environment variables.
+
+    Args:
+        provider: Provider name (e.g., 'openai', 'groq'). Case-insensitive.
+
+    Returns:
+        API key for the provider if found, otherwise None.
+    """
+    provider = provider.strip().upper()
+    env_var_name = f"{provider}_API_KEY"
+    try:
+        # Use default=None to return None if the variable is not set
+        api_key = config(env_var_name, default=None)
+        if api_key:
+            logger.debug(f"Found API key for provider '{provider}' via env var {env_var_name}")
+            return api_key
+        else:
+            logger.warning(f"Environment variable {env_var_name} is set but empty.")
+            return None
+    except UndefinedValueError:
+        logger.warning(f"API key environment variable {env_var_name} not found for provider '{provider}'.")
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching API key for provider {provider}: {e}")
+        return None
+
+
+## move get_api_key_for_provider to helper file no logic in settings
+## remove python-dotenv package

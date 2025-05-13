@@ -350,12 +350,12 @@ class MCPClient:
             # Emit the tool_call_initiated event via WebSocket
             tool_call_event = {
                 "type": "tool_call_initiated",
+                "conversation_id": conversation_id,
                 "data": {
                     "tool": tool_name,
                     "action": action,
                     "category": tool_def.category,
                     "parameters": mapped_parameters,
-                    "conversation_id": conversation_id,
                     "timestamp": time.time(),
                 },
             }
@@ -390,12 +390,12 @@ class MCPClient:
                 # Emit the tool_call_completed event via WebSocket
                 tool_call_event = {
                     "type": "tool_call_completed",
+                    "conversation_id": conversation_id,
                     "data": {
                         "tool": tool_name,
                         "action": action,
                         "category": tool_def.category,
                         "parameters": mapped_parameters,
-                        "conversation_id": conversation_id,
                         "result": result,
                         "timestamp": time.time(),
                     },
@@ -423,6 +423,7 @@ class MCPClient:
             # Emit error event
             tool_call_event = {
                 "type": "tool_call_error",
+                "conversation_id": conversation_id,
                 "data": {
                     "tool": tool_name,
                     "action": action,
@@ -430,7 +431,6 @@ class MCPClient:
                     "parameters": (
                         mapped_parameters if "mapped_parameters" in locals() else parameters
                     ),
-                    "conversation_id": conversation_id,
                     "error": str(e),
                     "timestamp": time.time(),
                 },
@@ -454,6 +454,7 @@ class MCPClient:
             # Emit error event
             tool_call_event = {
                 "type": "tool_call_error",
+                "conversation_id": conversation_id,
                 "data": {
                     "tool": tool_name,
                     "action": action,
@@ -461,7 +462,6 @@ class MCPClient:
                     "parameters": (
                         mapped_parameters if "mapped_parameters" in locals() else parameters
                     ),
-                    "conversation_id": conversation_id,
                     "error": str(e),
                     "timestamp": time.time(),
                 },

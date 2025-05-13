@@ -1,6 +1,7 @@
 """Core implementation of the planner agent."""
 
 import asyncio
+import copy
 import json
 import uuid
 import logging
@@ -17,6 +18,8 @@ from api.workflow.agents.planner.prompt_templates import (
     DISCOVERY_SYSTEM_PROMPT,
     DISCOVERY_QUERY_PROMPT,
 )
+from api.llm_schemas import DiscoveryPlan, ExecutionPlan
+from api.utils.helpers import normalize_step_parameters
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,48 @@ class PlannerAgent(BaseAgent):
         self._state = PlannerState()
         self._config = PlannerConfig()
         self.event_callback = event_callback
+
+    def _normalize_plan_format(self, plan: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize plan format and step parameters.
+
+        Ensures default step properties exist and converts step parameters
+        from list format to dictionary format using the helper function.
+
+        Args:
+            plan: The plan dictionary.
+
+        Returns:
+            The plan with normalized steps.
+        """
+        if not isinstance(plan, dict):
+            logger.warning(f"Expected dict for plan, got {type(plan)}. Skipping normalization.")
+            return plan
+
+        normalized_plan = copy.deepcopy(plan)
+        # Normalize parameters in steps and set defaults
+        if "steps" in normalized_plan and isinstance(normalized_plan["steps"], list):
+            normalized_steps = []
+            for step in normalized_plan["steps"]:
+                if isinstance(step, dict):
+                    # Set default values for step properties if not present
+                    if "required" not in step:
+                        step["required"] = True
+                    if "recursive" not in step:
+                        step["recursive"] = False
+                    if "discovery_step" not in step:
+                        step["discovery_step"] = False
+
+                    # Normalize parameters using the helper function
+                    normalized_step = normalize_step_parameters(step)
+                    normalized_steps.append(normalized_step)
+                else:
+                    # If a step is not a dict, keep it as is but log a warning
+                    logger.warning(f"Found non-dict step in plan: {step}")
+                    normalized_steps.append(step)
+
+            normalized_plan["steps"] = normalized_steps
+
+        return normalized_plan
 
     async def _build_tool_dependency_graph(self) -> Dict[str, ToolDependency]:
         """Build a graph of tool dependencies."""
@@ -241,27 +286,14 @@ class PlannerAgent(BaseAgent):
                 },
             ]
 
-            # Get response from the LLM
-            response_text = await self._get_llm_response(
-                prompt_messages, settings.OPENAI_PLANNER_TEMPERATURE
+            # Get structured response from the LLM using the DiscoveryPlan schema
+            discovery_plan = await self._get_structured_llm_response(
+                prompt_messages, DiscoveryPlan, settings.OPENAI_PLANNER_TEMPERATURE
             )
-            logger.debug(f"LLM discovery response: {response_text}")
+            logger.debug(f"LLM structured discovery response: {discovery_plan}")
 
-            # Extract and parse JSON
-            json_start = response_text.find("{")
-            json_end = response_text.rfind("}") + 1
-
-            if json_start == -1 or json_end == 0:
-                return await self._handle_planning_error(
-                    "Failed to generate a valid discovery plan", query, response_text
-                )
-
-            try:
-                discovery_plan = json.loads(response_text[json_start:json_end])
-            except json.JSONDecodeError as e:
-                return await self._handle_planning_error(
-                    f"Failed to parse discovery plan JSON: {str(e)}", query, response_text
-                )
+            # Normalize the plan format (convert parameters from list to dict)
+            discovery_plan = self._normalize_plan_format(discovery_plan)
 
             # Add plan metadata
             discovery_plan["plan_id"] = str(uuid.uuid4())
@@ -410,27 +442,14 @@ class PlannerAgent(BaseAgent):
                 },
             ]
 
-            # Get response from the LLM
-            response_text = await self._get_llm_response(
-                prompt_messages, settings.OPENAI_PLANNER_TEMPERATURE
+            # Get structured response from the LLM using the ExecutionPlan schema
+            plan = await self._get_structured_llm_response(
+                prompt_messages, ExecutionPlan, settings.OPENAI_PLANNER_TEMPERATURE
             )
-            logger.debug(f"Planner LLM response: {response_text}")
+            logger.debug(f"LLM structured execution plan response: {plan}")
 
-            # Extract and parse JSON
-            json_start = response_text.find("{")
-            json_end = response_text.rfind("}") + 1
-
-            if json_start == -1 or json_end == 0:
-                return await self._handle_planning_error(
-                    "Failed to generate a valid plan", query, response_text
-                )
-
-            try:
-                plan = json.loads(response_text[json_start:json_end])
-            except json.JSONDecodeError as e:
-                return await self._handle_planning_error(
-                    f"Failed to parse plan JSON: {str(e)}", query, response_text
-                )
+            # Normalize the plan format (convert parameters from list to dict)
+            plan = self._normalize_plan_format(plan)
 
             # Add plan metadata
             plan["plan_id"] = str(uuid.uuid4())

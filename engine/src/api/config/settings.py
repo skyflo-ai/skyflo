@@ -1,7 +1,7 @@
 """Configuration settings for the API service."""
 
-from typing import List
-from pydantic import Field, validator
+from typing import Optional
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -43,12 +43,9 @@ class Settings(BaseSettings):
     # Workflow Settings
     WORKFLOW_EXECUTION_TIMEOUT: int = 300
 
-    # Logging Settings
-    LOG_LEVEL: str = "INFO"
+    LLM_MODEL: Optional[str] = Field(default="openai/gpt-4o", env="LLM_MODEL") # Format: provider/model_name
+    LLM_HOST: Optional[str] = Field(default=None, env="LLM_HOST") # Generic host for any provider
 
-    # AI Agent Settings
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o"
     MANAGER_OPENAI_TEMPERATURE: float = 0.2
     OPENAI_PLANNER_TEMPERATURE: float = 0.3
     OPENAI_EXECUTOR_TEMPERATURE: float = 0.0
@@ -56,12 +53,14 @@ class Settings(BaseSettings):
     MODEL_NAME: str = "gpt-4o"
     AGENT_TYPE: str = "assistant"
     TEMPERATURE: float = 0.2
+
     class Config:
         """Pydantic settings configuration."""
 
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+        extra = "ignore"  # Allow extra fields from env vars
 
     def __init__(self, **kwargs):
         """Initialize settings and ensure POSTGRES_DATABASE_URL is in the right format."""
