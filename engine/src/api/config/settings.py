@@ -43,13 +43,9 @@ class Settings(BaseSettings):
     # Workflow Settings
     WORKFLOW_EXECUTION_TIMEOUT: int = 300
 
-    # Logging Settings
-    LOG_LEVEL: str = "INFO"
+    LLM_MODEL: Optional[str] = Field(default="openai/gpt-4o", env="LLM_MODEL") # Format: provider/model_name
+    LLM_HOST: Optional[str] = Field(default=None, env="LLM_HOST") # Generic host for any provider
 
-    # AI Agent Settings
-    OPENAI_API_KEY: str = ""
-    LLM_MODEL: str = "openai/gpt-4o"  ## Recommended model
-    LLM_HOST: Optional[str] = None
     MANAGER_OPENAI_TEMPERATURE: float = 0.2
     OPENAI_PLANNER_TEMPERATURE: float = 0.3
     OPENAI_EXECUTOR_TEMPERATURE: float = 0.0

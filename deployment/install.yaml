@@ -12,6 +12,11 @@ metadata:
 type: Opaque
 stringData:
   openai-api-key: ${OPENAI_API_KEY}
+  anthropic-api-key: ${ANTHROPIC_API_KEY}
+  groq-api-key: ${GROQ_API_KEY}
+  ollama-api-key: ${OLLAMA_API_KEY}
+  llm-host: ${LLM_HOST}
+  llm-model: ${LLM_MODEL}
   jwt-secret: ${JWT_SECRET}
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -645,6 +650,37 @@ spec:
             secretKeyRef:
               name: skyflo-secrets
               key: openai-api-key
+              optional: true
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: anthropic-api-key
+              optional: true
+        - name: GROQ_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: groq-api-key
+              optional: true
+        - name: OLLAMA_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: ollama-api-key
+              optional: true
+        - name: LLM_HOST
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: llm-host
+              optional: true
+        - name: LLM_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: llm-model
+              optional: true
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:

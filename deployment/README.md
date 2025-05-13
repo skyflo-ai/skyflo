@@ -30,7 +30,7 @@ docker buildx build -f deployment/ui/Dockerfile -t skyfloai/ui:latest .
 docker buildx build -f deployment/kubernetes-controller/Dockerfile -t skyfloai/controller:latest .
 
 # Build the Proxy image
-docker buildx build -f deployment/proxy/Dockerfile -t skyfloai/proxy:latest .
+docker buildx build -f deployment/ui/proxy.Dockerfile -t skyfloai/proxy:latest .
 ```
 
 ## Load the built images into the KinD cluster
@@ -49,6 +49,7 @@ kind load docker-image --name skyfloai skyfloai/proxy:latest
 ## Install the Controller and Resources
 
 ```bash
+k delete -f local.install.yaml
 k apply -f local.install.yaml
 ```
 

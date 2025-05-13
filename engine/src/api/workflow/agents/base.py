@@ -82,7 +82,7 @@ class BaseAgent(ComponentBase):
         # Create the model client
         model_client = OpenAIChatCompletionClient(
             model=self.config.MODEL_NAME,
-            api_key=self.config.OPENAI_API_KEY,
+            api_key="",
             temperature=self.config.TEMPERATURE,
         )
 

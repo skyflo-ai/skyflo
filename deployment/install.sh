@@ -156,14 +156,53 @@ case $choice in  # Modified case statement without bash-specific lowercase conve
         sed -i '' "s|skyfloai/controller|skyfloaiagent/k8s-controller|g" "$TMP_INSTALL_FILE"
         sed -i '' "s|skyfloai/proxy|skyfloaiagent/proxy|g" "$TMP_INSTALL_FILE"
 
-        # Validate OpenAI API key
-        if [ -z "$OPENAI_API_KEY" ]; then
-            print_colored "red" "Error: OPENAI_API_KEY environment variable is required."
-            print_colored "yellow" "Please run the installer with your OpenAI API key:"
-            echo "export OPENAI_API_KEY='your-openai-api-key'"
-            echo "curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh | bash"
-            exit 1
+        # Prompt for LLM configuration
+        print_colored "yellow" "LLM Configuration:"
+        while true; do
+            read -p "Enter LLM_MODEL (format: provider/model_name, e.g., openai/gpt-4o, groq/meta-llama/Llama-3-70b-chat, ollama/llama3): " LLM_MODEL
+            if [ -z "$LLM_MODEL" ]; then
+                print_colored "red" "LLM_MODEL cannot be empty."
+            elif [[ ! "$LLM_MODEL" == *"/"* ]]; then
+                print_colored "red" "Invalid LLM_MODEL format. Please use provider/model_name."
+            else
+                break
+            fi
+        done
+
+        LLM_PROVIDER_RAW=$(echo "$LLM_MODEL" | cut -d'/' -f1)
+        LLM_PROVIDER_UPPER=$(echo "$LLM_PROVIDER_RAW" | tr '[:lower:]' '[:upper:]')
+        API_KEY_VAR_NAME="${LLM_PROVIDER_UPPER}_API_KEY"
+
+        print_colored "yellow" "Enter API key for $LLM_PROVIDER_RAW."
+        if [[ "$LLM_PROVIDER_RAW" == "openai" || "$LLM_PROVIDER_RAW" == "groq" || "$LLM_PROVIDER_RAW" == "anthropic" ]]; then
+            while true; do
+                read -s -p "Enter $API_KEY_VAR_NAME: " API_KEY_VALUE
+                echo "" # Newline after secret input
+                if [ -z "$API_KEY_VALUE" ]; then
+                    print_colored "red" "$API_KEY_VAR_NAME is required for $LLM_PROVIDER_RAW."
+                else
+                    break
+                fi
+            done
+        else
+            read -s -p "Enter $API_KEY_VAR_NAME (optional, press Enter to skip): " API_KEY_VALUE
+            echo "" # Newline after secret input
+            if [ -z "$API_KEY_VALUE" ]; then
+                API_KEY_VALUE=""
+                print_colored "yellow" "ℹ $API_KEY_VAR_NAME is not set (optional for $LLM_PROVIDER_RAW)."
+            fi
         fi
+        # Dynamically create and export the API key variable
+        export "$API_KEY_VAR_NAME"="$API_KEY_VALUE"
+
+        read -p "Enter LLM_HOST (optional, e.g., http://localhost:11434, leave empty if not using a self-hosted model): " LLM_HOST
+        if [ -z "$LLM_HOST" ]; then
+            LLM_HOST=""
+            print_colored "yellow" "ℹ LLM_HOST is not set."
+        fi
+        
+        export LLM_MODEL
+        export LLM_HOST
 
         # Generate secure JWT secret if not provided
         if [ -z "$JWT_SECRET" ]; then
@@ -182,7 +221,6 @@ case $choice in  # Modified case statement without bash-specific lowercase conve
         fi
 
         # Export variables for envsubst
-        export OPENAI_API_KEY
         export JWT_SECRET
         export POSTGRES_DATABASE_URL
         export REDIS_HOST
@@ -227,14 +265,53 @@ For production setup and more information, visit:
         check_command "openssl"
         check_command "curl"
 
-        # Validate OpenAI API key
-        if [ -z "$OPENAI_API_KEY" ]; then
-            print_colored "red" "Error: OPENAI_API_KEY environment variable is required."
-            print_colored "yellow" "Please run the installer with your OpenAI API key:"
-            echo "export OPENAI_API_KEY='your-openai-api-key'"
-            echo "curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh | bash"
-            exit 1
+        # Prompt for LLM configuration
+        print_colored "yellow" "LLM Configuration:"
+        while true; do
+            read -p "Enter LLM_MODEL (format: provider/model_name, e.g., openai/gpt-4o, groq/meta-llama/Llama-3-70b-chat, ollama/llama3): " LLM_MODEL
+            if [ -z "$LLM_MODEL" ]; then
+                print_colored "red" "LLM_MODEL cannot be empty."
+            elif [[ ! "$LLM_MODEL" == *"/"* ]]; then
+                print_colored "red" "Invalid LLM_MODEL format. Please use provider/model_name."
+            else
+                break
+            fi
+        done
+
+        LLM_PROVIDER_RAW=$(echo "$LLM_MODEL" | cut -d'/' -f1)
+        LLM_PROVIDER_UPPER=$(echo "$LLM_PROVIDER_RAW" | tr '[:lower:]' '[:upper:]')
+        API_KEY_VAR_NAME="${LLM_PROVIDER_UPPER}_API_KEY"
+
+        print_colored "yellow" "Enter API key for $LLM_PROVIDER_RAW."
+        if [[ "$LLM_PROVIDER_RAW" == "openai" || "$LLM_PROVIDER_RAW" == "groq" || "$LLM_PROVIDER_RAW" == "anthropic" ]]; then
+            while true; do
+                read -s -p "Enter $API_KEY_VAR_NAME: " API_KEY_VALUE
+                echo "" # Newline after secret input
+                if [ -z "$API_KEY_VALUE" ]; then
+                    print_colored "red" "$API_KEY_VAR_NAME is required for $LLM_PROVIDER_RAW."
+                else
+                    break
+                fi
+            done
+        else
+            read -s -p "Enter $API_KEY_VAR_NAME (optional, press Enter to skip): " API_KEY_VALUE
+            echo "" # Newline after secret input
+            if [ -z "$API_KEY_VALUE" ]; then
+                API_KEY_VALUE=""
+                print_colored "yellow" "ℹ $API_KEY_VAR_NAME is not set (optional for $LLM_PROVIDER_RAW)."
+            fi
         fi
+        # Dynamically create and export the API key variable
+        export "$API_KEY_VAR_NAME"="$API_KEY_VALUE"
+        
+        read -p "Enter LLM_HOST (optional, e.g., http://localhost:11434, leave empty if not using a self-hosted model): " LLM_HOST
+        if [ -z "$LLM_HOST" ]; then
+            LLM_HOST=""
+            print_colored "yellow" "ℹ LLM_HOST is not set."
+        fi
+
+        export LLM_MODEL
+        export LLM_HOST
 
         # Generate secure JWT secret if not provided
         if [ -z "$JWT_SECRET" ]; then
@@ -253,7 +330,6 @@ For production setup and more information, visit:
         fi
 
         # Export variables for envsubst
-        export OPENAI_API_KEY
         export JWT_SECRET
         export POSTGRES_DATABASE_URL
         export REDIS_HOST
