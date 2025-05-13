@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Version configuration
-VERSION="v0.1.1"
+VERSION="v0.1.2"
 
 # Export VERSION for envsubst
 export VERSION
