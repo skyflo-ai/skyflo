@@ -26,6 +26,10 @@ curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/inst
 
 For more details, see the [Installation Guide](docs/install.md).
 
+## Configuration
+
+By default, Skyflo is configured to use OpenAI's GPT-4o model. For instructions on using different LLM providers (like Groq, Anthropic, Cohere, etc.) or configuring API keys, please refer to the [Installation Guide](docs/install.md).
+
 ## Architecture
 
 Read more about the architecture of Skyflo.ai in the [Architecture](docs/architecture.md) documentation.
