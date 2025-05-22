@@ -147,7 +147,6 @@ case $choice in  # Modified case statement without bash-specific lowercase conve
         TMP_INSTALL_FILE=$(mktemp)
         curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/local.install.yaml" > "$TMP_INSTALL_FILE"
 
-
         # Replace image names and pull policies
         sed -i '' 's/imagePullPolicy: Never/imagePullPolicy: Always/g' "$TMP_INSTALL_FILE"
         sed -i '' "s|skyfloai/engine|skyfloaiagent/engine|g" "$TMP_INSTALL_FILE"
@@ -159,7 +158,7 @@ case $choice in  # Modified case statement without bash-specific lowercase conve
         # Prompt for LLM configuration
         print_colored "yellow" "LLM Configuration:"
         while true; do
-            read -p "Enter LLM_MODEL (format: provider/model_name, e.g., openai/gpt-4o, groq/meta-llama/llama-4-scout-17b-16e-instruct, ollama/llama3.1:8b): " LLM_MODEL
+            read -p "Enter LLM_MODEL (format: provider/model_name, e.g., openai/gpt-4o, groq/meta-llama/llama-4-scout-17b-16e-instruct, gemini/gemini-2.5-flash-preview-04-17, ollama/llama3.1:8b): " LLM_MODEL
             if [ -z "$LLM_MODEL" ]; then
                 print_colored "red" "LLM_MODEL cannot be empty."
             elif [[ ! "$LLM_MODEL" == *"/"* ]]; then
@@ -171,10 +170,65 @@ case $choice in  # Modified case statement without bash-specific lowercase conve
 
         LLM_PROVIDER_RAW=$(echo "$LLM_MODEL" | cut -d'/' -f1)
         LLM_PROVIDER_UPPER=$(echo "$LLM_PROVIDER_RAW" | tr '[:lower:]' '[:upper:]')
+        
+        # Determine the API key variable name based on provider
+        case "$LLM_PROVIDER_RAW" in
+            "huggingface")
+                API_KEY_VAR_NAME="HF_TOKEN"
+                ;;
+            "bedrock"|"aws")
+                print_colored "yellow" "AWS Bedrock requires AWS credentials."
+                read -s -p "Enter AWS_ACCESS_KEY_ID: " AWS_ACCESS_KEY_ID
+                echo ""
+                read -s -p "Enter AWS_SECRET_ACCESS_KEY: " AWS_SECRET_ACCESS_KEY
+                echo ""
+                read -p "Enter AWS_REGION_NAME (e.g., us-west-2): " AWS_REGION_NAME
+                
+                export AWS_ACCESS_KEY_ID
+                export AWS_SECRET_ACCESS_KEY
+                export AWS_REGION_NAME
+                
+                # Skip the regular API key prompt later
+                API_KEY_VAR_NAME=""
+                ;;
+            "databricks")
+                API_KEY_VAR_NAME="DATABRICKS_TOKEN"
+                ;;
+            "clarifai")
+                API_KEY_VAR_NAME="CLARIFAI_PAT"
+                ;;
+            "ibm"|"watsonx")
+                API_KEY_VAR_NAME="IBM_API_KEY"
+                ;;
+            "jina"|"jinaai")
+                API_KEY_VAR_NAME="JINAAI_API_KEY"
+                ;;
+            "perplexity"|"perplexityai")
+                API_KEY_VAR_NAME="PERPLEXITYAI_API_KEY"
+                ;;
+            "fireworks"|"fireworksai")
+                API_KEY_VAR_NAME="FIREWORKS_AI_API_KEY"
+                ;;
+            "together"|"togetherai")
+                API_KEY_VAR_NAME="TOGETHERAI_API_KEY"
+                ;;
+            "nvidia"|"nim")
+                API_KEY_VAR_NAME="NVIDIA_NGC_API_KEY"
+                ;;
+            "alephalpha")
+                API_KEY_VAR_NAME="ALEPHALPHA_API_KEY"
+                ;;
+            *)
+                # Default format: PROVIDER_API_KEY
         API_KEY_VAR_NAME="${LLM_PROVIDER_UPPER}_API_KEY"
+                ;;
+        esac
 
+        # Only prompt for API key if a variable name was set
+        if [ -n "$API_KEY_VAR_NAME" ]; then
         print_colored "yellow" "Enter API key for $LLM_PROVIDER_RAW."
-        if [[ "$LLM_PROVIDER_RAW" == "openai" || "$LLM_PROVIDER_RAW" == "groq" || "$LLM_PROVIDER_RAW" == "anthropic" ]]; then
+            if [[ "$LLM_PROVIDER_RAW" == "openai" || "$LLM_PROVIDER_RAW" == "groq" || "$LLM_PROVIDER_RAW" == "anthropic" || 
+                  "$LLM_PROVIDER_RAW" == "gemini" || "$LLM_PROVIDER_RAW" == "mistral" || "$LLM_PROVIDER_RAW" == "cohere" ]]; then
             while true; do
                 read -s -p "Enter $API_KEY_VAR_NAME: " API_KEY_VALUE
                 echo "" # Newline after secret input
@@ -194,6 +248,7 @@ case $choice in  # Modified case statement without bash-specific lowercase conve
         fi
         # Dynamically create and export the API key variable
         export "$API_KEY_VAR_NAME"="$API_KEY_VALUE"
+        fi
 
         read -p "Enter LLM_HOST (optional, e.g., http://localhost:11434, leave empty if not using a self-hosted model): " LLM_HOST
         if [ -z "$LLM_HOST" ]; then
@@ -268,7 +323,7 @@ For production setup and more information, visit:
         # Prompt for LLM configuration
         print_colored "yellow" "LLM Configuration:"
         while true; do
-            read -p "Enter LLM_MODEL (format: provider/model_name, e.g., openai/gpt-4o, groq/meta-llama/llama-4-scout-17b-16e-instruct, ollama/llama3.1:8b): " LLM_MODEL
+            read -p "Enter LLM_MODEL (format: provider/model_name, e.g., openai/gpt-4o, groq/meta-llama/Llama-3-70b-chat, ollama/llama3): " LLM_MODEL
             if [ -z "$LLM_MODEL" ]; then
                 print_colored "red" "LLM_MODEL cannot be empty."
             elif [[ ! "$LLM_MODEL" == *"/"* ]]; then
@@ -280,10 +335,65 @@ For production setup and more information, visit:
 
         LLM_PROVIDER_RAW=$(echo "$LLM_MODEL" | cut -d'/' -f1)
         LLM_PROVIDER_UPPER=$(echo "$LLM_PROVIDER_RAW" | tr '[:lower:]' '[:upper:]')
+        
+        # Determine the API key variable name based on provider
+        case "$LLM_PROVIDER_RAW" in
+            "huggingface")
+                API_KEY_VAR_NAME="HF_TOKEN"
+                ;;
+            "bedrock"|"aws")
+                print_colored "yellow" "AWS Bedrock requires AWS credentials."
+                read -s -p "Enter AWS_ACCESS_KEY_ID: " AWS_ACCESS_KEY_ID
+                echo ""
+                read -s -p "Enter AWS_SECRET_ACCESS_KEY: " AWS_SECRET_ACCESS_KEY
+                echo ""
+                read -p "Enter AWS_REGION_NAME (e.g., us-west-2): " AWS_REGION_NAME
+                
+                export AWS_ACCESS_KEY_ID
+                export AWS_SECRET_ACCESS_KEY
+                export AWS_REGION_NAME
+                
+                # Skip the regular API key prompt later
+                API_KEY_VAR_NAME=""
+                ;;
+            "databricks")
+                API_KEY_VAR_NAME="DATABRICKS_TOKEN"
+                ;;
+            "clarifai")
+                API_KEY_VAR_NAME="CLARIFAI_PAT"
+                ;;
+            "ibm"|"watsonx")
+                API_KEY_VAR_NAME="IBM_API_KEY"
+                ;;
+            "jina"|"jinaai")
+                API_KEY_VAR_NAME="JINAAI_API_KEY"
+                ;;
+            "perplexity"|"perplexityai")
+                API_KEY_VAR_NAME="PERPLEXITYAI_API_KEY"
+                ;;
+            "fireworks"|"fireworksai")
+                API_KEY_VAR_NAME="FIREWORKS_AI_API_KEY"
+                ;;
+            "together"|"togetherai")
+                API_KEY_VAR_NAME="TOGETHERAI_API_KEY"
+                ;;
+            "nvidia"|"nim")
+                API_KEY_VAR_NAME="NVIDIA_NGC_API_KEY"
+                ;;
+            "alephalpha")
+                API_KEY_VAR_NAME="ALEPHALPHA_API_KEY"
+                ;;
+            *)
+                # Default format: PROVIDER_API_KEY
         API_KEY_VAR_NAME="${LLM_PROVIDER_UPPER}_API_KEY"
+                ;;
+        esac
 
+        # Only prompt for API key if a variable name was set
+        if [ -n "$API_KEY_VAR_NAME" ]; then
         print_colored "yellow" "Enter API key for $LLM_PROVIDER_RAW."
-        if [[ "$LLM_PROVIDER_RAW" == "openai" || "$LLM_PROVIDER_RAW" == "groq" || "$LLM_PROVIDER_RAW" == "anthropic" ]]; then
+            if [[ "$LLM_PROVIDER_RAW" == "openai" || "$LLM_PROVIDER_RAW" == "groq" || "$LLM_PROVIDER_RAW" == "anthropic" || 
+                  "$LLM_PROVIDER_RAW" == "gemini" || "$LLM_PROVIDER_RAW" == "mistral" || "$LLM_PROVIDER_RAW" == "cohere" ]]; then
             while true; do
                 read -s -p "Enter $API_KEY_VAR_NAME: " API_KEY_VALUE
                 echo "" # Newline after secret input
@@ -303,6 +413,7 @@ For production setup and more information, visit:
         fi
         # Dynamically create and export the API key variable
         export "$API_KEY_VAR_NAME"="$API_KEY_VALUE"
+        fi
         
         read -p "Enter LLM_HOST (optional, e.g., http://localhost:11434, leave empty if not using a self-hosted model): " LLM_HOST
         if [ -z "$LLM_HOST" ]; then
