@@ -53,7 +53,6 @@ Skyflo.ai offers two deployment options:
 Perfect for development, testing, and exploring Skyflo.ai features in a local environment:
 
 ```bash
-export OPENAI_API_KEY='your-openai-api-key'
 curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh | bash
 ```
 
@@ -72,7 +71,6 @@ Access your local installation:
 For deploying Skyflo.ai in a production environment:
 
 ```bash
-export OPENAI_API_KEY='your-openai-api-key'
 curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh -o install.sh && chmod +x install.sh && ./install.sh
 # Select option 2 when prompted
 ```
