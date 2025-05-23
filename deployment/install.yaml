@@ -11,16 +11,17 @@ metadata:
   namespace: skyflo-ai
 type: Opaque
 stringData:
-  # Core cloud LLMs
+  # Major Cloud LLM Providers
   openai-api-key: ${OPENAI_API_KEY}
   anthropic-api-key: ${ANTHROPIC_API_KEY}
   azure-api-key: ${AZURE_API_KEY}
   gemini-api-key: ${GEMINI_API_KEY}
   cohere-api-key: ${COHERE_API_KEY}
   mistral-api-key: ${MISTRAL_API_KEY}
+
+  # Alternative LLM Providers
   groq-api-key: ${GROQ_API_KEY}
   anyscale-api-key: ${ANYSCALE_API_KEY}
-  openrouter-api-key: ${OPENROUTER_API_KEY}
   perplexity-api-key: ${PERPLEXITYAI_API_KEY}
   fireworks-ai-api-key: ${FIREWORKS_AI_API_KEY}
   togetherai-api-key: ${TOGETHERAI_API_KEY}
@@ -28,34 +29,31 @@ stringData:
   ai21-api-key: ${AI21_API_KEY}
   nlp-cloud-api-key: ${NLP_CLOUD_API_KEY}
   replicate-api-key: ${REPLICATE_API_KEY}
-  huggingface-token: ${HF_TOKEN}
-
-  # AWS / specialized back-ends
-  bedrock-aws-access-key-id: ${AWS_ACCESS_KEY_ID}
-  bedrock-aws-secret-access-key: ${AWS_SECRET_ACCESS_KEY}
-  bedrock-aws-region-name: ${AWS_REGION_NAME}
-
-  # Other providers
-  databricks-token: ${DATABRICKS_TOKEN}
-  clarifai-pat: ${CLARIFAI_PAT}
-  voyage-api-key: ${VOYAGE_API_KEY}
   jina-ai-api-key: ${JINAAI_API_KEY}
   alephalpha-api-key: ${ALEPHALPHA_API_KEY}
+  voyage-api-key: ${VOYAGE_API_KEY}
+
+  # Enterprise & Research Providers
+  databricks-token: ${DATABRICKS_TOKEN}
+  clarifai-pat: ${CLARIFAI_PAT}
   baseten-api-key: ${BASETEN_API_KEY}
   sambanova-api-key: ${SAMBANOVA_API_KEY}
-  snowflake-api-key: ${SNOWFLAKE_API_KEY}
-  featherless-api-key: ${FEATHERLESS_API_KEY}
-
-  # Local providers
-  ollama-api-key: ${OLLAMA_API_KEY}
-
-  # Audio/speech and misc endpoints
-  deepgram-api-key: ${DEEPGRAM_API_KEY}
+  featherless-api-key: ${FEATHERLESS_AI_API_KEY}
   ibm-watsonx-api-key: ${IBM_API_KEY}
   predibase-api-key: ${PREDIBASE_API_KEY}
   nvidia-nim-api-key: ${NVIDIA_NGC_API_KEY}
   xai-api-key: ${XAI_API_KEY}
   volcengine-api-key: ${VOLCENGINE_API_KEY}
+
+  # Infrastructure & Routing
+  openrouter-api-key: ${OPENROUTER_API_KEY}
+  huggingface-token: ${HF_TOKEN}
+  bedrock-aws-access-key-id: ${AWS_ACCESS_KEY_ID}
+  bedrock-aws-secret-access-key: ${AWS_SECRET_ACCESS_KEY}
+  bedrock-aws-region-name: ${AWS_REGION_NAME}
+
+  # Self-hosted / On-premise
+  ollama-api-key: ${OLLAMA_API_KEY}
 
   # System configuration
   llm-host: ${LLM_HOST}
@@ -850,13 +848,7 @@ spec:
               name: skyflo-secrets
               key: sambanova-api-key
               optional: true
-        - name: SNOWFLAKE_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: snowflake-api-key
-              optional: true
-        - name: FEATHERLESS_API_KEY
+        - name: FEATHERLESS_AI_API_KEY
           valueFrom:
             secretKeyRef:
               name: skyflo-secrets
@@ -867,12 +859,6 @@ spec:
             secretKeyRef:
               name: skyflo-secrets
               key: ollama-api-key
-              optional: true
-        - name: DEEPGRAM_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: deepgram-api-key
               optional: true
         - name: IBM_API_KEY
           valueFrom:

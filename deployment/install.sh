@@ -218,9 +218,27 @@ case $choice in  # Modified case statement without bash-specific lowercase conve
             "alephalpha")
                 API_KEY_VAR_NAME="ALEPHALPHA_API_KEY"
                 ;;
+            "featherless")
+                API_KEY_VAR_NAME="FEATHERLESS_AI_API_KEY"
+                ;;
+            "baseten")
+                API_KEY_VAR_NAME="BASETEN_API_KEY"
+                ;;
+            "sambanova")
+                API_KEY_VAR_NAME="SAMBANOVA_API_KEY"
+                ;;
+            "xai")
+                API_KEY_VAR_NAME="XAI_API_KEY"
+                ;;
+            "volcengine")
+                API_KEY_VAR_NAME="VOLCENGINE_API_KEY"
+                ;;
+            "predibase")
+                API_KEY_VAR_NAME="PREDIBASE_API_KEY"
+                ;;
             *)
                 # Default format: PROVIDER_API_KEY
-        API_KEY_VAR_NAME="${LLM_PROVIDER_UPPER}_API_KEY"
+                API_KEY_VAR_NAME="${LLM_PROVIDER_UPPER}_API_KEY"
                 ;;
         esac
 
@@ -383,9 +401,27 @@ For production setup and more information, visit:
             "alephalpha")
                 API_KEY_VAR_NAME="ALEPHALPHA_API_KEY"
                 ;;
+            "featherless")
+                API_KEY_VAR_NAME="FEATHERLESS_AI_API_KEY"
+                ;;
+            "baseten")
+                API_KEY_VAR_NAME="BASETEN_API_KEY"
+                ;;
+            "sambanova")
+                API_KEY_VAR_NAME="SAMBANOVA_API_KEY"
+                ;;
+            "xai")
+                API_KEY_VAR_NAME="XAI_API_KEY"
+                ;;
+            "volcengine")
+                API_KEY_VAR_NAME="VOLCENGINE_API_KEY"
+                ;;
+            "predibase")
+                API_KEY_VAR_NAME="PREDIBASE_API_KEY"
+                ;;
             *)
                 # Default format: PROVIDER_API_KEY
-        API_KEY_VAR_NAME="${LLM_PROVIDER_UPPER}_API_KEY"
+                API_KEY_VAR_NAME="${LLM_PROVIDER_UPPER}_API_KEY"
                 ;;
         esac
 
