@@ -20,7 +20,6 @@ Skyflo.ai is your AI-powered companion for cloud native operations, enabling sea
 Skyflo.ai offers flexible deployment options, accommodating both production and local Kubernetes environments:
 
 ```bash
-export OPENAI_API_KEY='your-openai-api-key'
 curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh -o install.sh && chmod +x install.sh && ./install.sh
 ```
 

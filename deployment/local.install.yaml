@@ -10,10 +10,51 @@ metadata:
   namespace: skyflo-ai
 type: Opaque
 stringData:
+  # Major Cloud LLM Providers
   openai-api-key: ${OPENAI_API_KEY}
   anthropic-api-key: ${ANTHROPIC_API_KEY}
+  azure-api-key: ${AZURE_API_KEY}
+  gemini-api-key: ${GEMINI_API_KEY}
+  cohere-api-key: ${COHERE_API_KEY}
+  mistral-api-key: ${MISTRAL_API_KEY}
+
+  # Alternative LLM Providers
   groq-api-key: ${GROQ_API_KEY}
+  anyscale-api-key: ${ANYSCALE_API_KEY}
+  perplexity-api-key: ${PERPLEXITYAI_API_KEY}
+  fireworks-ai-api-key: ${FIREWORKS_AI_API_KEY}
+  togetherai-api-key: ${TOGETHERAI_API_KEY}
+  deepinfra-api-key: ${DEEPINFRA_API_KEY}
+  ai21-api-key: ${AI21_API_KEY}
+  nlp-cloud-api-key: ${NLP_CLOUD_API_KEY}
+  replicate-api-key: ${REPLICATE_API_KEY}
+  jina-ai-api-key: ${JINAAI_API_KEY}
+  alephalpha-api-key: ${ALEPHALPHA_API_KEY}
+  voyage-api-key: ${VOYAGE_API_KEY}
+
+  # Enterprise & Research Providers
+  databricks-token: ${DATABRICKS_TOKEN}
+  clarifai-pat: ${CLARIFAI_PAT}
+  baseten-api-key: ${BASETEN_API_KEY}
+  sambanova-api-key: ${SAMBANOVA_API_KEY}
+  featherless-api-key: ${FEATHERLESS_AI_API_KEY}
+  ibm-watsonx-api-key: ${IBM_API_KEY}
+  predibase-api-key: ${PREDIBASE_API_KEY}
+  nvidia-nim-api-key: ${NVIDIA_NGC_API_KEY}
+  xai-api-key: ${XAI_API_KEY}
+  volcengine-api-key: ${VOLCENGINE_API_KEY}
+
+  # Infrastructure & Routing
+  openrouter-api-key: ${OPENROUTER_API_KEY}
+  huggingface-token: ${HF_TOKEN}
+  bedrock-aws-access-key-id: ${AWS_ACCESS_KEY_ID}
+  bedrock-aws-secret-access-key: ${AWS_SECRET_ACCESS_KEY}
+  bedrock-aws-region-name: ${AWS_REGION_NAME}
+
+  # Self-hosted / On-premise
   ollama-api-key: ${OLLAMA_API_KEY}
+
+  # System configuration
   llm-host: ${LLM_HOST}
   llm-model: ${LLM_MODEL}
   jwt-secret: ${JWT_SECRET}
@@ -673,17 +714,197 @@ spec:
               name: skyflo-secrets
               key: anthropic-api-key
               optional: true
+        - name: AZURE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: azure-api-key
+              optional: true
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: gemini-api-key
+              optional: true
+        - name: COHERE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: cohere-api-key
+              optional: true
+        - name: MISTRAL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: mistral-api-key
+              optional: true
         - name: GROQ_API_KEY
           valueFrom:
             secretKeyRef:
               name: skyflo-secrets
               key: groq-api-key
               optional: true
+        - name: ANYSCALE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: anyscale-api-key
+              optional: true
+        - name: OPENROUTER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: openrouter-api-key
+              optional: true
+        - name: PERPLEXITYAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: perplexity-api-key
+              optional: true
+        - name: FIREWORKS_AI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: fireworks-ai-api-key
+              optional: true
+        - name: TOGETHERAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: togetherai-api-key
+              optional: true
+        - name: DEEPINFRA_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: deepinfra-api-key
+              optional: true
+        - name: AI21_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: ai21-api-key
+              optional: true
+        - name: NLP_CLOUD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: nlp-cloud-api-key
+              optional: true
+        - name: REPLICATE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: replicate-api-key
+              optional: true
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: huggingface-token
+              optional: true
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: bedrock-aws-access-key-id
+              optional: true
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: bedrock-aws-secret-access-key
+              optional: true
+        - name: AWS_REGION_NAME
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: bedrock-aws-region-name
+              optional: true
+        - name: DATABRICKS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: databricks-token
+              optional: true
+        - name: CLARIFAI_PAT
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: clarifai-pat
+              optional: true
+        - name: VOYAGE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: voyage-api-key
+              optional: true
+        - name: JINAAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: jina-ai-api-key
+              optional: true
+        - name: ALEPHALPHA_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: alephalpha-api-key
+              optional: true
+        - name: BASETEN_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: baseten-api-key
+              optional: true
+        - name: SAMBANOVA_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: sambanova-api-key
+              optional: true
+        - name: FEATHERLESS_AI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: featherless-api-key
+              optional: true
         - name: OLLAMA_API_KEY
           valueFrom:
             secretKeyRef:
               name: skyflo-secrets
               key: ollama-api-key
+              optional: true
+        - name: IBM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: ibm-watsonx-api-key
+              optional: true
+        - name: PREDIBASE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: predibase-api-key
+              optional: true
+        - name: NVIDIA_NGC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: nvidia-nim-api-key
+              optional: true
+        - name: XAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: xai-api-key
+              optional: true
+        - name: VOLCENGINE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: volcengine-api-key
               optional: true
         - name: LLM_HOST
           valueFrom:
