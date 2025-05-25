@@ -341,7 +341,7 @@ For production setup and more information, visit:
         # Prompt for LLM configuration
         print_colored "yellow" "LLM Configuration:"
         while true; do
-            read -p "Enter LLM_MODEL (format: provider/model_name, e.g., openai/gpt-4o, groq/meta-llama/Llama-3-70b-chat, ollama/llama3): " LLM_MODEL
+            read -p "Enter LLM_MODEL (format: provider/model_name, e.g., openai/gpt-4o, groq/meta-llama/llama-4-scout-17b-16e-instruct, gemini/gemini-2.5-flash-preview-04-17, ollama/llama3.1:8b): " LLM_MODEL
             if [ -z "$LLM_MODEL" ]; then
                 print_colored "red" "LLM_MODEL cannot be empty."
             elif [[ ! "$LLM_MODEL" == *"/"* ]]; then
