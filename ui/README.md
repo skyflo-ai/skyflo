@@ -1,206 +1,158 @@
-# UI for Skyflo.ai
+# Skyflo.ai UI
 
-[![Next.js](https://img.shields.io/badge/Next.js-14%2B-black)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-3-blue)](https://tailwindcss.com/)
+The command center for the Skyflo.ai platform. It provides an intuitive and powerful interface for interacting with the Sky AI agent that manage Cloud Native resources through natural language.
 
+## How it fits with the backend
 
-## Overview
+- Engine (FastAPI) exposes `/api/v1` with:
+  - `POST /agent/chat` (SSE) for token/tool streaming
+  - `POST /agent/approvals/{call_id}` (SSE) for approve/deny
+  - `POST /agent/stop` for stopping a running turn
+  - Auth, Team, and Conversations endpoints
+- MCP server provides tool execution capabilities (kubectl, helm, argo) used by the Engine. The UI does not talk to MCP directly.
 
-This is the command center for the platform, providing an intuitive and powerful interface for interacting with the Sky AI agent that manage Cloud Native resources through natural language.
+The UI communicates with the Engine in two ways:
+- Client-side streaming via SSE to `NEXT_PUBLIC_API_URL/agent/*` using `ChatService`.
+- Server-side API routes (Next.js App Router) under `src/app/api/*` act as a lightweight BFF/proxy to `API_URL/*`, forwarding cookies and Authorization headers.
 
-## Architecture
-
-The UI implements a modern, component-based architecture built with Next.js and TypeScript:
-
-### Application Structure
-
-- **App Router** (`/src/app`): Next.js 14+ page routes and layouts
-- **Components** (`/src/components`): Reusable UI elements and patterns
-- **API Integration** (`/src/lib`): Service interfaces and API clients
-- **State Management** (`/src/store`): Global state using Context API
-
-### Key Components
-
-- **ChatInterface** (`/src/components/ChatInterface.tsx`): 
-  - Core conversational interface for interacting with AI agents
-  - Real-time message streaming with WebSockets
-  - Markdown rendering with syntax highlighting
-  - Multi-agent workflow visualization
-
-- **WebSocketProvider** (`/src/components/WebSocketProvider.tsx`):
-  - Socket.io integration for real-time communication
-  - Connection state management
-  - Event handling for multi-agent updates
-  - Conversation synchronization
-
-- **AgentWorkflow** (`/src/components/AgentWorkflow.tsx`):
-  - Visual representation of the Planner-Executor-Verifier workflow
-  - Real-time execution stage visualization
-  - Interactive step monitoring
-  - Operation result display
-
-## Installation
-
-### Prerequisites
-
-- Node.js 18+
-- Yarn package manager
-- Skyflo API Service (running locally or remotely)
-
-### Development Setup
-
-Clone the repository and install dependencies:
-
-```bash
-# Clone the repository
-git clone https://github.com/skyflo-ai/skyflo.git
-cd skyflo/ui
-
-# Install dependencies
-yarn install
-```
-
-Configure environment variables:
-
-```bash
-# Create .env file from example
-cp .env.example .env
-
-# Edit the .env file
-NODE_ENV=development
-```
-
-Start the development server:
-
-```bash
-# Run in development mode
-yarn dev
-```
-
-The UI will be available at http://localhost:3000.
-
-```bash
-# Or run with specific port
-yarn dev -p 3001
-```
-
-### Production Build
-
-Create and run an optimized production build:
-
-```bash
-# Build the application
-yarn build
-
-# Start the production server
-yarn start
-```
-
-## Component Structure
+## Project structure
 
 ```
 ui/
 ├── src/
-│   ├── app/              # Next.js 14+ pages and layouts
-│   ├── components/       # Reusable UI components
-│   │   ├── chat/        # Chat interface components
-│   │   ├── workflow/    # Agent workflow visualizations
-│   │   └── ui/          # Common UI elements
-│   ├── lib/             # Utilities and API clients
-│   │   ├── api/         # API integration layer
-│   │   └── utils/       # Helper functions
-│   ├── store/           # Global state management
-│   └── styles/          # Global styles and Tailwind
-├── public/              # Static assets
-└── package.json         # Project configuration
+│   ├── app/                       # Next.js 14 App Router
+│   │   ├── page.tsx               # Home -> Welcome flow
+│   │   ├── login/page.tsx         # Auth UI
+│   │   ├── chat/[id]/page.tsx     # Conversation view
+│   │   ├── history/page.tsx       # History view
+│   │   ├── settings/page.tsx      # Profile/Password
+│   │   └── api/                   # BFF routes (proxy to Engine)
+│   │       ├── conversation/      # list/create and by id CRUD
+│   │       ├── auth/me            # current user
+│   │       ├── auth/admin-check   # admin check
+│   │       ├── profile            # update profile/password
+│   │       └── team               # team management (admin)
+│   ├── components/
+│   │   ├── chat/
+│   │   │   ├── ChatInterface.tsx  # Orchestrates SSE session, tokens & tools
+│   │   │   ├── ChatMessages.tsx   # Renders text/tool segments (Markdown)
+│   │   │   ├── ChatInput.tsx      # Composer with stop+send
+│   │   │   ├── ChatHeader.tsx     # Branding/header
+│   │   │   ├── ChatSuggestions.tsx
+│   │   │   └── ToolVisualization.tsx
+│   │   ├── settings/              # Profile/Team components
+│   │   ├── navbar/
+│   │   └── ui/                    # Primitives (button, card, tooltip, etc.)
+│   ├── lib/
+│   │   ├── services/sseService.ts # Low-level SSE reader and event router
+│   │   ├── api.ts                 # Cookie→Auth headers helper, create conversation
+│   │   ├── auth.ts                # Login/register/logout/profile/password
+│   │   ├── approvals.ts           # Approve/deny/stop helpers
+│   │   ├── team.ts                # Team admin helpers
+│   │   └── utils.ts
+│   ├── store/
+│   │   └── useAuthStore.ts        # Zustand-backed auth store
+│   └── types/                     # Events, chat, auth types
+└── next.config.mjs                # Next config (standalone output)
 ```
 
-## Development
+## Data flow (chat + tools)
 
-### Design System
+1) User submits a prompt in `ChatInput`.
+2) `ChatInterface` calls `ChatService.startStream()` which `fetch`es `NEXT_PUBLIC_API_URL/agent/chat` with `Accept: text/event-stream`.
+3) SSE events from the Engine are parsed in `sseService.ts` and dispatched to `ChatInterface` callbacks:
+   - `token`: incremental assistant text (Markdown rendered in `ChatMessages`)
+   - `tools.pending`, `tool.executing`, `tool.result`, `tool.error`:
+     shown inline via `ToolVisualization` segments
+   - `tool.awaiting_approval`: UI prompts to approve/deny
+   - `completed` / `workflow_complete`: finalization
+4) Approvals use `ChatService.startApprovalStream(callId, approve, reason, conversationId)` which opens a second SSE stream to `/agent/approvals/{call_id}`.
+5) A running turn can be stopped via `approvals.stopConversation(conversationId, runId)` → `POST /agent/stop`.
 
-The UI follows a comprehensive design system:
+Conversations, history, profile, and team admin use server-side routes under `src/app/api/*` that forward to `API_URL` with the correct cookies/headers.
 
-- **Color Palette**:
-  - Primary: #0F172A (Dark blue)
-  - Secondary: #3B82F6 (Bright blue)
-  - Accent: #10B981 (Green)
-  - Alert: #EF4444 (Red)
-  - Background: #F8FAFC (Light gray)
-  - Text: #1E293B (Dark gray)
+## Authentication
 
-- **Typography**:
-  - Text: Inter (Sans-serif)
-  - Code: Fira Code (Monospace)
+- Login uses Engine `POST /auth/jwt/login` and stores the `auth_token` as an HttpOnly cookie.
+- Client requests to Engine include `Authorization: Bearer <auth_token>` built from cookies (`lib/api.ts`).
+- `useAuthStore` persists minimal auth state in `localStorage` (Zustand), separate from HttpOnly auth cookie used on the server.
 
-### Component Development
+## Environment variables
 
-Follow these guidelines when creating components:
+Set both server and client base URLs for the Engine API:
 
-```tsx
-// Example component following project standards
-import React from 'react'
-import { cn } from '@/lib/utils'
+```bash
+# Server-side BFF → Engine (used by src/app/api/* and server actions)
+API_URL=http://localhost:8080/api/v1
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline'
-  size?: 'sm' | 'md' | 'lg'
-}
+# Client-side SSE → Engine (used by ChatService in the browser)
+NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
 
-export function Button({
-  variant = 'primary',
-  size = 'md',
-  className,
-  ...props
-}: ButtonProps) {
-  return (
-    <button
-      className={cn(
-        // Base styles
-        'rounded font-medium transition-colors focus:outline-none focus:ring-2',
-        // Variant styles
-        variant === 'primary' && 'bg-button-primary text-white hover:bg-button-hover',
-        variant === 'secondary' && 'bg-dark-secondary text-white hover:bg-dark-hover',
-        variant === 'outline' && 'border border-border text-gray-200 hover:bg-dark-hover',
-        // Size styles
-        size === 'sm' && 'px-3 py-1.5 text-sm',
-        size === 'md' && 'px-4 py-2',
-        size === 'lg' && 'px-5 py-2.5 text-lg',
-        // Additional classes
-        className
-      )}
-      {...props}
-    />
-  )
-}
+NODE_ENV=development
 ```
 
-### State Management
+Notes:
+- Ensure Engine CORS allows the UI origin (or place UI behind the provided Nginx proxy, see deployment assets).
+- Default Engine port is 8080; MCP typically runs on 8888 (not used directly by the UI).
 
-The application uses a combination of:
+## Getting started (development)
 
-- React Context for global state
-- React hooks for component-specific state
-- React Query for data fetching and caching
-- Local storage for persistent preferences
+```bash
+cd ui
+yarn install
+yarn dev
+# http://localhost:3000
+```
 
-## Tech Stack
+## Production build
 
-| Component            | Technology                  |
-|----------------------|-----------------------------|
-| Framework            | Next.js 14+                 |
-| Language             | TypeScript 5                |
-| Styling              | Tailwind CSS                |
-| State Management     | React Context               |
-| WebSockets           | Socket.io                   |
-| Markdown Rendering   | React Markdown              |
-| Syntax Highlighting  | React Code Blocks           |
-| Deployment           | Vercel / Docker             |
+```bash
+yarn build
+yarn start
+```
+
+`next.config.mjs` outputs a standalone build suitable for containerization. See `deployment/ui/` for Nginx and container examples.
+
+## Key components
+
+- Chat
+  - `ChatInterface.tsx`: state machine for streaming turns, approvals, stop
+  - `ChatMessages.tsx`: renders Markdown and tool segments
+  - `ChatInput.tsx`: input + stop control
+  - `ToolVisualization.tsx`: compact view of tool execution results/errors
+- Settings
+  - Profile (name), password change via `/auth/me` and `/auth/users/me/password`
+  - Team admin (members, invitations, roles) via `/team/*` (admin only)
+
+## Server routes (BFF)
+
+- `GET/POST /api/conversation` → Engine conversations list/create
+- `GET/PATCH/DELETE /api/conversation/[id]` → per-conversation ops
+- `GET /api/auth/me` and `GET /api/auth/admin-check`
+- `PATCH/POST /api/profile` → profile update / password change
+- `GET/POST/PATCH/DELETE /api/team` → members, roles, invitations (admin)
+
+## Tech stack
+
+| Component            | Technology            |
+|----------------------|-----------------------|
+| Framework            | Next.js 14            |
+| Language             | TypeScript 5          |
+| Styling              | Tailwind CSS          |
+| State Management     | React + Zustand       |
+| Streaming            | Server‑Sent Events    |
+| Markdown             | react-markdown        |
+| Animations           | framer-motion         |
+
+## Troubleshooting
+
+- Cannot connect to backend during chat: verify `NEXT_PUBLIC_API_URL` and Engine on `:8080`, CORS, and network. The UI surfaces detailed errors from `sseService.ts`.
+- Approvals stream 404: ensure `POST /agent/approvals/{call_id}` exists on Engine and the `call_id` is correct.
+- Auth issues: confirm `auth_token` cookie is present and forwarded; server routes build headers via `lib/api.ts`.
 
 ## Community and Support
 
-- [Website](https://skyflo.ai)
-- [Discord Community](https://discord.gg/kCFNavMund)
-- [Twitter/X Updates](https://x.com/skyflo_ai)
-- [GitHub Discussions](https://github.com/skyflo-ai/skyflo/discussions)
+- Website: https://skyflo.ai
+- Discord: https://discord.gg/kCFNavMund
+- X/Twitter: https://x.com/skyflo_ai
+- GitHub Discussions: https://github.com/skyflo-ai/skyflo/discussions

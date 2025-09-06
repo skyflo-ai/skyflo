@@ -9,7 +9,6 @@ import {
   cancelInvitation,
 } from "@/lib/team";
 
-// Helper function to check if user is admin
 async function isUserAdmin() {
   try {
     const authToken = cookies().get("auth_token");
@@ -17,7 +16,6 @@ async function isUserAdmin() {
       return false;
     }
 
-    // Fetch current user info from API
     const response = await fetch(`${process.env.API_URL}/auth/me`, {
       headers: {
         Authorization: `Bearer ${authToken.value}`,
@@ -31,15 +29,12 @@ async function isUserAdmin() {
     const user = await response.json();
     return user.role === "admin";
   } catch (error) {
-    console.error("Error checking admin status:", error);
     return false;
   }
 }
 
-// GET endpoint to fetch team members
 export async function GET(req: NextRequest) {
   try {
-    // Check for admin role
     const admin = await isUserAdmin();
     if (!admin) {
       return NextResponse.json(
@@ -60,12 +55,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: result.error }, { status: 400 });
       }
     } else {
-      // Default to team members
       const result = await getTeamMembers();
       if (result.success) {
         return NextResponse.json(result.members);
       } else {
-        // Determine appropriate status code based on the error
         let statusCode = 400;
         if (
           result.error &&
@@ -80,7 +73,6 @@ export async function GET(req: NextRequest) {
       }
     }
   } catch (error) {
-    console.error("Error in GET /api/team:", error);
     return NextResponse.json(
       { error: "Failed to process request" },
       { status: 500 }
@@ -88,10 +80,8 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST endpoint to invite a team member
 export async function POST(req: NextRequest) {
   try {
-    // Check for admin role
     const admin = await isUserAdmin();
     if (!admin) {
       return NextResponse.json(
@@ -114,7 +104,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Use the inviteTeamMember function with email, role, and password
     const result = await inviteTeamMember({
       email,
       role: role || "Member",
@@ -127,7 +116,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
   } catch (error) {
-    console.error("Error in POST /api/team:", error);
     return NextResponse.json(
       { error: "Failed to process request" },
       { status: 500 }
@@ -135,10 +123,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PATCH endpoint to update a team member's role
 export async function PATCH(req: NextRequest) {
   try {
-    // Check for admin role
     const admin = await isUserAdmin();
     if (!admin) {
       return NextResponse.json(
@@ -164,7 +150,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
   } catch (error) {
-    console.error("Error in PATCH /api/team:", error);
     return NextResponse.json(
       { error: "Failed to process request" },
       { status: 500 }
@@ -172,10 +157,8 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// DELETE endpoint to remove team member or cancel invitation
 export async function DELETE(req: NextRequest) {
   try {
-    // Check for admin role
     const admin = await isUserAdmin();
     if (!admin) {
       return NextResponse.json(
@@ -211,7 +194,6 @@ export async function DELETE(req: NextRequest) {
       );
     }
   } catch (error) {
-    console.error("Error in DELETE /api/team:", error);
     return NextResponse.json(
       { error: "Failed to process request" },
       { status: 500 }

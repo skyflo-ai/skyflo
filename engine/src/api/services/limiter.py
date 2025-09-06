@@ -1,5 +1,3 @@
-"""Rate limiting service using Redis."""
-
 import logging
 from typing import Optional
 
@@ -10,12 +8,10 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
-# Redis client instance
 _redis_client: Optional[redis.Redis] = None
 
 
 async def init_limiter() -> None:
-    """Initialize the rate limiter with Redis."""
     global _redis_client
 
     if not settings.RATE_LIMITING_ENABLED:
@@ -23,13 +19,10 @@ async def init_limiter() -> None:
         return
 
     try:
-        # Create Redis client
         _redis_client = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
 
-        # Test connection
         await _redis_client.ping()
 
-        # Initialize FastAPI limiter
         await FastAPILimiter.init(_redis_client)
 
         logger.info(f"Rate limiter initialized with Redis at {settings.REDIS_URL}")
@@ -39,7 +32,6 @@ async def init_limiter() -> None:
 
 
 async def close_limiter() -> None:
-    """Close the Redis connection for the rate limiter."""
     global _redis_client
 
     if _redis_client is not None:
@@ -49,7 +41,6 @@ async def close_limiter() -> None:
 
 
 async def get_redis_client() -> Optional[redis.Redis]:
-    """Get the Redis client instance."""
     global _redis_client
 
     if _redis_client is None and settings.RATE_LIMITING_ENABLED:

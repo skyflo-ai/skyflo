@@ -7,34 +7,33 @@ This document outlines the architecture of [skyflo.ai](https://skyflo.ai).
 Skyflo.ai follows a clean architecture with the following components:
 
 1. **Engine** (`/engine`):
-Core engine powering the multi-agent system of Skyflo.ai for automating cloud native operations.
+Core backend service that turns natural language into safe Cloud Native operations using a  LangGraph workflow.
 
-   - Hosts the multi-agent system including the following agents built using [AutoGen by Microsoft](https://github.com/microsoft/autogen):
-     - The Planner
-     - The Executor
-     - The Verifier
-   - True graph-based execution workflow built for reliability and scalability.
-   - Manages user authentication and conversations
+   - LangGraph-based execution with nodes: `entry` → `model` → `gate` → `final`
+   - LLM integration via LiteLLM with controlled auto‑continue and iteration limits
+   - Approval policy for WRITE operations with human-in-the-loop safety
+   - Manages authentication, conversations, titles, persistence, and rate limiting
    - Communicates with the MCP server for tool discovery and execution
-   - Implements WebSocket-based real-time communication between the engine and the command center
+   - Real-time Server-Sent Events (SSE) streaming for tokens, tool progress, and workflow events
+   - Uses Redis pub/sub internally for streaming and stop signals; optional Postgres checkpointer for resilience
 
 2. **MCP Server** (`/mcp`):
-MCP server orchestrating secure integration and execution of cloud native tools.
+MCP server that exposes standardized cloud-native tools for the Engine to execute.
 
-   - Provides the MCP server for different cloud native tool definitions and handles their execution
-   - Implements tool definitions for `kubectl`, `argo`, and `helm`.
-   - Ensures secure access to cluster resources.
-   - Uses subprocess and shell commands for tool call execution.
+   - Built with FastMCP; single entrypoint registers tools and metadata
+   - Tool categories: `kubectl`, `argo` (Rollouts), and `helm`
+   - Safety checks, validation, and clear parameter docs (Pydantic)
+   - Supports HTTP and SSE transports; automatic tool discovery and registration
+   - Executes commands securely against cluster resources
 
 3. **Command Center** (`/ui`):
 UI command center delivering real-time insights and control for cloud native operations.
 
-   - The command center for all your cloud native operations.
-   - Manages user authentication and conversations
-   - Displays real-time workflow progress visualization
-   - Implements responsive Markdown-based chat UI
-   - Shows operation status and terminal outputs in real-time
-   - Settings dashboard for managing team members and permissions
+   - Next.js 14 application with a responsive Markdown-based chat UI
+   - Streams tokens and tool events from the Engine via SSE
+   - Server-side API routes (BFF) proxy to the Engine, forwarding cookies/auth headers
+   - Displays real-time workflow progress, tool results, and terminal-like outputs
+   - Manages conversations, profile/password, and team administration (roles, invitations)
 
 4. **Kubernetes Controller** (`/kubernetes-controller`):
 Kubernetes controller orchestrating secure, scalable deployments in cloud native environments.
@@ -48,54 +47,48 @@ Kubernetes controller orchestrating secure, scalable deployments in cloud native
    - Manages standard Kubernetes resources (Deployments, Services) for UI and API components
    - Monitors and reports component health through status conditions
 
-## Multi-Agent Architecture
+## Agent Architecture
 
-Skyflo.ai uses a state-of-the-art multi-agent architecture powered by [AutoGen](https://github.com/microsoft/autogen) and [LangGraph](https://github.com/LangChain-AI/langgraph):
+Skyflo.ai employs a graph-based workflow powered by [LangGraph](https://github.com/LangChain-AI/langgraph). The workflow is organized into the following phases:
 
-1. **Planner Agent**:
-   - Analyzes natural language queries to determine user intent
-   - Follows a two-step process:
+1. **Model Phase (Planning)**:
+   - Analyzes the user's natural language to determine intent
+   - Performs lightweight discovery when needed to ground the plan
+   - Produces structured tool calls for the next phase
 
-      1. Discovery: Before creating a plan, the planner agent will understand the user's intent and run a discovery phase to find the resources that are relevant to the user's intent.
-      2. Plan creation: Once the discovery phase is complete, the planner agent will create a plan for the executor agent to execute.
-   - Identifies required Kubernetes operations and resources
-   - Generates detailed execution plans with step-by-step actions
-   - Optimizes tool selection based on capabilities and dependencies
+2. **Tool Gate (Execution)**:
+   - Executes MCP tools (`kubectl`, `argo`, `helm`) with validated parameters
+   - Requires explicit approval for any WRITE/mutating operation
+   - Resolves dynamic parameters from previous steps and supports recursive operations
+   - Streams progress/results back to the model and UI
 
-2. **Executor Agent**:
-   - Executes each step of the execution plan by calling the MCP server
-   - Handles complex, multi-stage operations by resolving dynamic parameters from previous steps
-   - Waits for user confirmation before executing any WRITE operation on the Kubernetes cluster
-   - Implements validation for parameter types and values
-   - Executes recursive operations on multiple resources
-   - Processes and formats command outputs for user readability
-
-3. **Verifier Agent**:
-   - Evaluates execution results against original user intent
-   - Confirms successful implementation of requested changes
-   - Provides clear explanations of what was accomplished
-   - Calls the Planner agent to create a new plan if any issues are detected during the execution phase
+3. **Verification Phase**:
+   - Evaluates outcomes against the original intent and summarizes results
+   - Decides whether to auto‑continue, request approval, or stop
+   - If issues are detected, routes context back to the model phase for refinement
 
 ## Features
 
-- **Natural Language Kubernetes Management**: Interact with Kubernetes using natural language
-- **Resource Discovery**: Automatic discovery of cluster resources
-- **Cluster Health Monitoring**: Get insights into cluster performance and resource utilization
-- **Real-time Q&A**: Get immediate answers about your Kubernetes infrastructure
-- **Secure by Design**: Zero-trust, least-privileged architecture
-- **Real-time Operation Status**: Live updates during execution with WebSockets
-- **Multi-stage Operations**: Complex workflows broken down into manageable steps
-- **Context-aware Responses**: Maintains conversation context for follow-up questions
-- **Progressive Delivery Support**: Integration with Argo Rollouts for advanced deployment patterns
-- **Package Management**: Helm chart installation, upgrades, and rollbacks
-- **Terminal Output**: Live display of command outputs
-- **Conversation Persistence**: Save and continue conversations later
+- **Natural Language Kubernetes Management**: Perform operations via natural language
+- **Tool Execution via MCP**: Standardized tools for `kubectl`, `argo` (Rollouts), and `helm`
+- **Human-in-the-Loop Safety**: Explicit approvals required for WRITE operations
+- **SSE Streaming**: Live tokens, tool progress, and results
+- **Resource Discovery**: Automatic discovery to ground actions
+- **Multi-stage Operations**: Complex workflows broken into manageable steps
+- **Context-aware Responses**: Maintains conversation history
+- **Conversation Persistence**: Saved timelines with title generation
+- **Team Administration**: Roles, invitations, and member management
+- **Rate Limiting**: Protects services via Redis-backed limiter
+- **Optional Checkpointer**: Postgres-backed workflow resilience
+- **Progressive Delivery**: Argo Rollouts support
+- **Package Management**: Helm install/upgrade/rollback
+- **Terminal-style Output**: Live command output visualization
 
 ## Technical Stack
 
-- **Backend**: Python 3.11+, FastAPI, LangGraph, Redis, PostgreSQL
-- **Frontend**: React, Next.js, TypeScript, TailwindCSS, Socket.IO
-- **AI/ML**: AutoGen, LangGraph, LLM integration
-- **Infrastructure**: Kubernetes, Argo, Helm
-- **Communication**: WebSockets, Redis pub/sub
-- **Security**: JWT authentication, RBAC permissions, PyCasbin
+- **Backend**: Python 3.11+, FastAPI, LangGraph, LiteLLM, Tortoise ORM, Aerich, Redis, PostgreSQL
+- **Frontend**: React, Next.js 14, TypeScript, Tailwind CSS
+- **AI/ML**: LangGraph, LLM integration via LiteLLM
+- **Infrastructure**: Kubernetes, Argo Rollouts, Helm
+- **Communication**: Server-Sent Events (SSE), Redis pub/sub
+- **Security**: JWT authentication via fastapi-users, role-based access (admin)

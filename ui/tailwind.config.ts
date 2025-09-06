@@ -10,7 +10,7 @@ const config: Config = {
     extend: {
       colors: {
         dark: {
-          DEFAULT: "#070708",
+          DEFAULT: "#121214",
           secondary: "#1c1e24",
           navbar: "#070708",
           hover: "#16161a",
@@ -23,7 +23,7 @@ const config: Config = {
           menu: "#4E4E50",
         },
         button: {
-          primary: "#2e87e6", // 2e87e6, purple: 8e30d1
+          primary: "#0F1D2F", // 2e87e6, purple: 8e30d1
           hover: "#1a6fc9",
         },
       },

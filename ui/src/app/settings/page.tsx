@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import Navbar from "@/components/navbar/Navbar";
 import { useAuthStore } from "@/store/useAuthStore";

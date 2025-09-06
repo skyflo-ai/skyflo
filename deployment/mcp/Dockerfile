@@ -46,12 +46,9 @@ ENV VIRTUAL_ENV="/app/venv"
 RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Create the source directory structure first
-RUN mkdir -p src/mcp_server
-
-# Copy dependency-related files and source code needed for installation
+# Copy dependency-related files first for better layer caching
 COPY mcp/pyproject.toml mcp/.python-version mcp/uv.lock mcp/README.md ./
-COPY mcp/src/mcp_server/__about__.py ./src/mcp_server/
+COPY mcp/__about__.py ./
 
 # Install dependencies
 RUN pip install --upgrade pip && \
@@ -59,8 +56,10 @@ RUN pip install --upgrade pip && \
     pip install uvicorn[standard]
 
 # Now copy all remaining application files
-COPY mcp/src ./src
-COPY mcp/.env ./.env
+COPY mcp/main.py ./
+COPY mcp/config ./config
+COPY mcp/tools ./tools
+COPY mcp/utils ./utils
 
 # Copy and set up entrypoint script
 COPY deployment/mcp/entrypoint.sh /app/entrypoint.sh
@@ -72,7 +71,7 @@ RUN chown -R skyflo:skyflogroup /app && \
 
 # Update PATH and PYTHONPATH for skyflo user
 ENV PATH="/app/venv/bin:/usr/local/bin:/home/skyflo/.local/bin:${PATH}" \
-    PYTHONPATH="/app/src"
+    PYTHONPATH="/app"
 
 # Expose the API port
 EXPOSE 8081

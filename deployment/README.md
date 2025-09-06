@@ -11,39 +11,39 @@
 ## Setup KinD Cluster
 
 ```bash
-kind create cluster --name skyfloai --config local.kind.yml
+kind create cluster --name skyflo_ai --config local.kind.yml
 ```
 
 ## Build the Docker Images
 
 ```bash
 # Build the Engine image
-docker buildx build -f deployment/engine/Dockerfile -t skyfloai/engine:latest .
+docker buildx build -f deployment/engine/Dockerfile -t skyfloaiagent/engine:latest .
 
 # Build the MCP image
-docker buildx build -f deployment/mcp/Dockerfile -t skyfloai/mcp:latest .
+docker buildx build -f deployment/mcp/Dockerfile -t skyfloaiagent/mcp:latest .
 
 # Build the UI image
-docker buildx build -f deployment/ui/Dockerfile -t skyfloai/ui:latest .
+docker buildx build -f deployment/ui/Dockerfile -t skyfloaiagent/ui:latest .
 
 # Build the Kubernetes Controller image
-docker buildx build -f deployment/kubernetes-controller/Dockerfile -t skyfloai/controller:latest .
+docker buildx build -f deployment/kubernetes-controller/Dockerfile -t skyfloaiagent/controller:latest .
 
 # Build the Proxy image
-docker buildx build -f deployment/ui/proxy.Dockerfile -t skyfloai/proxy:latest .
+docker buildx build -f deployment/ui/proxy.Dockerfile -t skyfloaiagent/proxy:latest .
 ```
 
 ## Load the built images into the KinD cluster
 ```bash
-kind load docker-image --name skyfloai skyfloai/ui:latest
+kind load docker-image --name skyflo_ai skyfloaiagent/ui:latest
 
-kind load docker-image --name skyfloai skyfloai/engine:latest
+kind load docker-image --name skyflo_ai skyfloaiagent/engine:latest
 
-kind load docker-image --name skyfloai skyfloai/mcp:latest
+kind load docker-image --name skyflo_ai skyfloaiagent/mcp:latest
 
-kind load docker-image --name skyfloai skyfloai/controller:latest
+kind load docker-image --name skyflo_ai skyfloaiagent/controller:latest
 
-kind load docker-image --name skyfloai skyfloai/proxy:latest
+kind load docker-image --name skyflo_ai skyfloaiagent/proxy:latest
 ```
 
 ## Install the Controller and Resources

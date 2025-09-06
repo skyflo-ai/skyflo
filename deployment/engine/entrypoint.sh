@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 
-# Wait for 45 seconds for the database to be ready
-sleep 45
+# Wait for 30 seconds for the database to be ready
+sleep 30
 
 # Initialize Aerich if not already initialized
 if [ ! -d "migrations" ]; then
   echo "Initializing Aerich..."
-  aerich init -t src.api.repositories.database.TORTOISE_ORM_CONFIG
+  aerich init -t src.api.config.database.TORTOISE_ORM_CONFIG
 fi
 
 # Create initial migration if none exists
@@ -22,4 +22,4 @@ fi
 
 # Start the API service with Uvicorn
 echo "Starting Engine service..."
-exec uvicorn api.asgi:app --host 0.0.0.0 --port 8080
+exec uvicorn src.api.asgi:app --host 0.0.0.0 --port 8080

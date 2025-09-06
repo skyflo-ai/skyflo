@@ -5,7 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Cookie management functions for client-side
 export function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
 

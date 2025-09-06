@@ -4,12 +4,11 @@ import { useState, useEffect } from "react";
 
 import TeamSettings from "./TeamSettings";
 import ProfileSettings from "./ProfileSettings";
-import { User } from "@/lib/types/auth";
+import { User } from "@/types/auth";
 import { motion } from "framer-motion";
 import { MdError } from "react-icons/md";
 import { IoSettingsOutline } from "react-icons/io5";
 
-// Animation variants
 const fadeInVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.4 } },
@@ -45,7 +44,7 @@ export default function Settings({ user }: SettingsProps) {
       variants={fadeInVariants}
       className="flex flex-col h-full w-full overflow-auto px-2 py-2"
     >
-      <div className="relative bg-gradient-to-r from-[#0A1525] via-[#0F182A]/95 to-[#1A2C48]/90 p-8 rounded-xl border border-[#243147]/60 backdrop-blur-md shadow-lg shadow-blue-900/10 overflow-hidden mb-8">
+      {/* <div className="relative bg-gradient-to-r from-[#0A1525] via-[#0F182A]/95 to-[#1A2C48]/90 p-8 rounded-xl border border-[#243147]/60 backdrop-blur-md shadow-lg shadow-blue-900/10 overflow-hidden mb-8">
         <div className="absolute inset-0 bg-blue-600/5 rounded-xl" />
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent rounded-xl" />
 
@@ -66,22 +65,18 @@ export default function Settings({ user }: SettingsProps) {
             <IoSettingsOutline className="text-blue-400 w-32 h-32" />
           </div>
         </div>
-      </div>
+      </div> */}
 
-      {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full flex-grow">
-        {/* Left Column - Profile Settings */}
         <div className="flex flex-col space-y-8">
           <ProfileSettings user={user} />
         </div>
 
-        {/* Right Column - Team Management */}
         <div className="flex flex-col space-y-8">
           <TeamSettings />
         </div>
       </div>
 
-      {/* Custom Scrollbar Styles */}
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 5px;
@@ -92,11 +87,11 @@ export default function Settings({ user }: SettingsProps) {
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(59, 130, 246, 0.6);
+          background: rgba(100, 116, 139, 0.6);
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(59, 130, 246, 0.8);
+          background: rgba(100, 116, 139, 0.8);
         }
       `}</style>
     </motion.div>

@@ -85,27 +85,25 @@ input:-webkit-autofill:active {
     -webkit-text-fill-color: white !important;
 }
 
-/* Customize the scrollbar for WebKit-based browsers (Chrome, Safari) */
 ::-webkit-scrollbar {
-  width: 12px;  /* Width of the scrollbar */
+  width: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1E1E1E;  /* Dark background for the scrollbar track */
+  background: #1E1E1E;
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4B4B4B;  /* Darker shade for the scrollbar thumb */
+  background: #4B4B4B;
   border-radius: 10px;
-  border: 2px solid #1E1E1E;  /* Matches the track */
+  border: 2px solid #1E1E1E;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #646464;  /* Lighter on hover for better visibility */
+  background: #646464;
 }
 
-/* For Firefox (supports scrollbar-width and scrollbar-color) */
 * {
   scrollbar-width: thin;
   scrollbar-color: #4B4B4B #1E1E1E;

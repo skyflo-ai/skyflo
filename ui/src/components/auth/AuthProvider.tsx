@@ -1,13 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useEffect } from "react";
+import React, { createContext, useContext, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { getCookie, setCookie } from "@/lib/utils";
 import Loader from "@/components/ui/Loader";
 
-// We'll keep this minimal interface for backwards compatibility
 interface AuthContextType {
   user: any | null;
   login: (userData: any) => void;
@@ -32,13 +31,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading,
   } = useAuthStore();
 
-  const protectedRoutes = ["/", "/history", "/settings"];
+  const protectedRoutes = ["/", "/history", "/settings", "/chat"];
+  const initialAuthCheckRef = useRef(false);
+
+  const isProtectedRoute = (pathname: string) => {
+    return protectedRoutes.some((route) => {
+      if (route === "/") {
+        return pathname === "/";
+      }
+      return pathname.startsWith(route);
+    });
+  };
 
   useEffect(() => {
+    if (initialAuthCheckRef.current) return;
+
     const checkUserSession = async () => {
+      initialAuthCheckRef.current = true;
       setLoading(true);
+
       try {
-        // First check if user is admin, since this is an open route
         const adminCheckResponse = await fetch(`/api/auth/admin-check`, {
           headers: {
             "Content-Type": "application/json",
@@ -54,59 +66,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         }
 
-        // If not admin, proceed with normal authentication flow
-        // Try to get token from the store first
-        let currentToken = token;
-
-        // If no token in store, try to get it from cookies
-        if (!currentToken) {
-          currentToken = getCookie("auth_token");
-
-          // If we found a token in cookies but not in store, update the store
-          if (currentToken && !token) {
-            storeLogin(
-              {
-                id: "",
-                email: "",
-                full_name: "",
-                role: "",
-                is_active: false,
-                is_superuser: false,
-                is_verified: false,
-                created_at: "",
-              },
-              currentToken
-            );
-          }
-        } else {
-          // If we have a token in store but not in cookies, set it in cookies for redundancy
-          if (!getCookie("auth_token") && currentToken) {
-            setCookie("auth_token", currentToken, 7); // 7 days
-          }
-        }
+        let currentToken = token || getCookie("auth_token");
 
         if (!currentToken) {
-          // If no token, user is not authenticated
           setLoading(false);
-
-          // If user is trying to access a protected route, redirect to login
-          if (protectedRoutes.includes(pathname)) {
+          if (isProtectedRoute(pathname)) {
             router.push("/login");
           }
           return;
         }
 
-        // If we already have user data, no need to fetch again
-        if (user && isAuthenticated) {
-          // If user is on the login page but already logged in, redirect to dashboard
-          if (pathname === "/login") {
-            router.push("/");
-          }
-          setLoading(false);
-          return;
-        }
-
-        // Otherwise fetch user data using the token
         const response = await fetch(`/api/auth/me`, {
           headers: {
             "Content-Type": "application/json",
@@ -116,46 +85,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         if (response.ok) {
           const userData = await response.json();
-          // Save token to cookie on the client side as well for redundancy
-          setCookie("auth_token", currentToken, 7); // 7 days
+          setCookie("auth_token", currentToken, 7);
           storeLogin(userData, currentToken);
-
-          // If user is on the login page but already logged in, redirect to dashboard
-          if (pathname === "/login") {
-            router.push("/");
-          }
         } else {
-          // Token is invalid, clear it
           storeLogout();
-
-          // If user is trying to access a protected route, redirect to login
-          if (protectedRoutes.includes(pathname)) {
+          if (isProtectedRoute(pathname)) {
             router.push("/login");
           }
         }
       } catch (error) {
         storeLogout();
-
-        // If there is an error and the user is on a protected route, redirect to login
-        if (protectedRoutes.includes(pathname)) {
+        if (isProtectedRoute(pathname)) {
           router.push("/login");
         }
-        console.error("Failed to fetch user session:", error);
       } finally {
         setLoading(false);
       }
     };
 
     checkUserSession();
-  }, [pathname, token, user, isAuthenticated]);
+  }, []);
 
-  // Provide backward compatibility wrapper functions
+  useEffect(() => {
+    if (isLoading || !initialAuthCheckRef.current) return;
+
+    if (isAuthenticated) {
+      if (pathname === "/login") {
+        router.push("/");
+      }
+    } else {
+      if (isProtectedRoute(pathname)) {
+        router.push("/login");
+      }
+    }
+  }, [pathname, isAuthenticated, isLoading]);
+
+  useEffect(() => {
+    const cookieToken = getCookie("auth_token");
+
+    if (token && !cookieToken) {
+      setCookie("auth_token", token, 7);
+    }
+  }, [token]);
+
   const login = (userData: any) => {
     storeLogin(userData, token || "");
   };
 
   const logout = async () => {
-    // Also remove from client-side cookies
     if (typeof document !== "undefined") {
       document.cookie =
         "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
@@ -164,7 +141,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     router.push("/login");
   };
 
-  // For backward compatibility
   const contextValue = {
     user,
     login,

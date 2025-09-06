@@ -4,15 +4,15 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { AuthInput } from "./AuthInput";
-import { Lock, Mail } from "lucide-react";
+import { MdLock, MdEmail } from "react-icons/md";
 import { useAuthStore } from "@/store/useAuthStore";
 import { handleLogin } from "@/lib/auth";
 import { setCookie } from "@/lib/utils";
+import { showError } from "../ui/toast";
 
 export const Login = () => {
   const { login } = useAuthStore();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
 
@@ -25,18 +25,16 @@ export const Login = () => {
     if (!isMounted) return;
 
     setLoading(true);
-    setError(null);
 
     const formData = new FormData(e.currentTarget);
     const result = await handleLogin(formData);
 
     if (result && result.success) {
-      localStorage.setItem("auth_token", result.token);
       setCookie("auth_token", result.token, 7);
       login(result.user, result.token);
       router.push("/");
     } else {
-      setError(result?.error || "Authentication failed");
+      showError(result?.error || "Authentication failed");
     }
 
     setLoading(false);
@@ -53,20 +51,15 @@ export const Login = () => {
         type="email"
         name="email"
         placeholder="m@example.com"
-        icon={Mail}
+        icon={MdEmail}
       />
       <AuthInput
         id="password"
         type="password"
         name="password"
         placeholder="••••••••"
-        icon={Lock}
+        icon={MdLock}
       />
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mt-4">
-          <p className="text-red-400 text-sm">{error}</p>
-        </div>
-      )}
       <Button
         className="w-full mt-4 bg-gradient-to-r from-[#00B7FF] to-[#0056B3] text-white border-0 leading-tight py-6 rounded-lg font-semibold shadow-lg hover:shadow-xl hover:brightness-110 transition-all duration-300"
         type="submit"

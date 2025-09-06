@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
 import Header from "./Header";
-import ToastContainer from "./ui/ToastContainer";
 
 interface LayoutProps {
   children: ReactNode;

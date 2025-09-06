@@ -31,12 +31,9 @@ type SkyfloAIReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
 func (r *SkyfloAIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	// Fetch the SkyfloAI instance
 	skyflo := &skyflov1.SkyfloAI{}
 	err := r.Get(ctx, req.NamespacedName, skyflo)
 	if err != nil {
@@ -46,25 +43,21 @@ func (r *SkyfloAIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	// Reconcile UI component
 	if err := r.reconcileUI(ctx, skyflo); err != nil {
 		log.Error(err, "failed to reconcile UI component")
 		return ctrl.Result{}, err
 	}
 
-	// Reconcile Engine component
 	if err := r.reconcileEngine(ctx, skyflo); err != nil {
 		log.Error(err, "failed to reconcile Engine component")
 		return ctrl.Result{}, err
 	}
 
-	// Reconcile MCP component
 	if err := r.reconcileMCP(ctx, skyflo); err != nil {
 		log.Error(err, "failed to reconcile MCP component")
 		return ctrl.Result{}, err
 	}
 
-	// Update status
 	if err := r.updateStatus(ctx, skyflo); err != nil {
 		log.Error(err, "failed to update SkyfloAI status")
 		return ctrl.Result{}, err
@@ -73,9 +66,7 @@ func (r *SkyfloAIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-// reconcileUI reconciles the UI component
 func (r *SkyfloAIReconciler) reconcileUI(ctx context.Context, skyflo *skyflov1.SkyfloAI) error {
-	// Create UI deployment
 	uiDeployment := r.uiDeployment(skyflo)
 	if err := controllerutil.SetControllerReference(skyflo, uiDeployment, r.Scheme); err != nil {
 		return err
@@ -84,7 +75,6 @@ func (r *SkyfloAIReconciler) reconcileUI(ctx context.Context, skyflo *skyflov1.S
 		return err
 	}
 
-	// Create UI service
 	uiService := r.uiService(skyflo)
 	if err := controllerutil.SetControllerReference(skyflo, uiService, r.Scheme); err != nil {
 		return err
@@ -96,9 +86,7 @@ func (r *SkyfloAIReconciler) reconcileUI(ctx context.Context, skyflo *skyflov1.S
 	return nil
 }
 
-// reconcileEngine reconciles the Engine component
 func (r *SkyfloAIReconciler) reconcileEngine(ctx context.Context, skyflo *skyflov1.SkyfloAI) error {
-	// Create Engine deployment
 	engineDeployment := r.engineDeployment(skyflo)
 	if err := controllerutil.SetControllerReference(skyflo, engineDeployment, r.Scheme); err != nil {
 		return err
@@ -107,7 +95,6 @@ func (r *SkyfloAIReconciler) reconcileEngine(ctx context.Context, skyflo *skyflo
 		return err
 	}
 
-	// Create Engine service
 	engineService := r.engineService(skyflo)
 	if err := controllerutil.SetControllerReference(skyflo, engineService, r.Scheme); err != nil {
 		return err
@@ -119,9 +106,7 @@ func (r *SkyfloAIReconciler) reconcileEngine(ctx context.Context, skyflo *skyflo
 	return nil
 }
 
-// reconcileMCP reconciles the MCP component
 func (r *SkyfloAIReconciler) reconcileMCP(ctx context.Context, skyflo *skyflov1.SkyfloAI) error {
-	// Create MCP deployment
 	mcpDeployment := r.mcpDeployment(skyflo)
 	if err := controllerutil.SetControllerReference(skyflo, mcpDeployment, r.Scheme); err != nil {
 		return err
@@ -130,7 +115,6 @@ func (r *SkyfloAIReconciler) reconcileMCP(ctx context.Context, skyflo *skyflov1.
 		return err
 	}
 
-	// Create MCP service
 	mcpService := r.mcpService(skyflo)
 	if err := controllerutil.SetControllerReference(skyflo, mcpService, r.Scheme); err != nil {
 		return err
@@ -142,9 +126,7 @@ func (r *SkyfloAIReconciler) reconcileMCP(ctx context.Context, skyflo *skyflov1.
 	return nil
 }
 
-// updateStatus updates the status of the SkyfloAI resource
 func (r *SkyfloAIReconciler) updateStatus(ctx context.Context, skyflo *skyflov1.SkyfloAI) error {
-	// Update UI status
 	uiDeployment := &appsv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{Name: skyflo.Name + "-ui", Namespace: skyflo.Namespace}, uiDeployment)
 	if err == nil {
@@ -155,7 +137,6 @@ func (r *SkyfloAIReconciler) updateStatus(ctx context.Context, skyflo *skyflov1.
 		}
 	}
 
-	// Update Engine status
 	engineDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, types.NamespacedName{Name: skyflo.Name + "-engine", Namespace: skyflo.Namespace}, engineDeployment)
 	if err == nil {
@@ -166,7 +147,6 @@ func (r *SkyfloAIReconciler) updateStatus(ctx context.Context, skyflo *skyflov1.
 		}
 	}
 
-	// Update MCP status
 	mcpDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, types.NamespacedName{Name: skyflo.Name + "-mcp", Namespace: skyflo.Namespace}, mcpDeployment)
 	if err == nil {
@@ -179,8 +159,6 @@ func (r *SkyfloAIReconciler) updateStatus(ctx context.Context, skyflo *skyflov1.
 
 	return r.Status().Update(ctx, skyflo)
 }
-
-// Helper functions for creating resources
 
 func (r *SkyfloAIReconciler) uiDeployment(skyflo *skyflov1.SkyfloAI) *appsv1.Deployment {
 	replicas := int32(1)
@@ -391,8 +369,6 @@ func (r *SkyfloAIReconciler) mcpService(skyflo *skyflov1.SkyfloAI) *corev1.Servi
 		},
 	}
 }
-
-// Helper functions
 
 func (r *SkyfloAIReconciler) createOrUpdateDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
 	found := &appsv1.Deployment{}

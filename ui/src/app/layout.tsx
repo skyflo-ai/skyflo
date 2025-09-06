@@ -3,7 +3,6 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import dynamic from "next/dynamic";
-import { WebSocketProvider } from "@/components/WebSocketProvider";
 import ToastContainer from "@/components/ui/ToastContainer";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,9 +24,7 @@ export default function RootLayout({
         <title>Skyflo.ai | AI Agent for Cloud Native</title>
       </head>
       <body className={`${inter.className} bg-dark text-gray-200`}>
-        <WebSocketProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </WebSocketProvider>
+        <AuthProvider>{children}</AuthProvider>
         <ToastContainer />
       </body>
     </html>

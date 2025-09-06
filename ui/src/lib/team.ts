@@ -1,16 +1,14 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { TeamMember } from "./types/auth";
+import { TeamMember } from "../types/auth";
 
-// Fetch team members
 export async function getTeamMembers(): Promise<{
   success: boolean;
   members?: TeamMember[];
   error?: string;
 }> {
   try {
-    // Get the auth token from server-side cookies
     const authToken = cookies().get("auth_token");
 
     if (!authToken) {
@@ -38,7 +36,6 @@ export async function getTeamMembers(): Promise<{
     const members = await response.json();
     return { success: true, members };
   } catch (error) {
-    console.error("Error fetching team members:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",
@@ -46,7 +43,6 @@ export async function getTeamMembers(): Promise<{
   }
 }
 
-// Invite a new team member
 export async function inviteTeamMember(data: {
   email: string;
   role: string;
@@ -79,7 +75,6 @@ export async function inviteTeamMember(data: {
     const member = await response.json();
     return { success: true, member };
   } catch (error) {
-    console.error("Error inviting team member:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",
@@ -87,7 +82,6 @@ export async function inviteTeamMember(data: {
   }
 }
 
-// Remove a team member
 export async function removeTeamMember(
   memberId: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -118,7 +112,6 @@ export async function removeTeamMember(
 
     return { success: true };
   } catch (error) {
-    console.error("Error removing team member:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",
@@ -126,7 +119,6 @@ export async function removeTeamMember(
   }
 }
 
-// Update a team member's role
 export async function updateTeamMemberRole(data: {
   memberId: string;
   role: string;
@@ -161,7 +153,6 @@ export async function updateTeamMemberRole(data: {
     const member = await response.json();
     return { success: true, member };
   } catch (error) {
-    console.error("Error updating team member role:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",
@@ -169,7 +160,6 @@ export async function updateTeamMemberRole(data: {
   }
 }
 
-// Get pending invitations
 export async function getPendingInvitations(): Promise<{
   success: boolean;
   invitations?: TeamMember[];
@@ -200,7 +190,6 @@ export async function getPendingInvitations(): Promise<{
     const invitations = await response.json();
     return { success: true, invitations };
   } catch (error) {
-    console.error("Error fetching pending invitations:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",
@@ -208,7 +197,6 @@ export async function getPendingInvitations(): Promise<{
   }
 }
 
-// Cancel a pending invitation
 export async function cancelInvitation(
   invitationId: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -239,7 +227,6 @@ export async function cancelInvitation(
 
     return { success: true };
   } catch (error) {
-    console.error("Error canceling invitation:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",

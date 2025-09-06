@@ -1,144 +1,158 @@
 # Skyflo.ai Engine Service
 
-[![Python](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org)
-
-
-## Overview
-
-The Skyflo.ai Engine Service is the central intelligence layer that connects the frontend UI with the Engine's execution backend and the MCP server. It powers the platform's natural language interaction capabilities by orchestrating a sophisticated multi-agent system built using AutoGen that translates user queries into precise Kubernetes operations through LangGraph-powered workflows.
+The Skyflo.ai Engine is the backend intelligence layer that connects with the UI and the MCP server, turning natural language queries into safe Cloud Native operations with a human-in-the-loop workflow.
 
 ## Architecture
 
-The Engine Service implements a layered architecture designed for high maintainability and testability:
+The Engine follows a layered structure under `src/api`:
 
-### Layer Structure
+- `endpoints/`: FastAPI routers for agent chat/approvals/stop, conversations, auth, team, and health
+- `services/`: Business logic (MCP client, tool execution, approvals, rate limiting, titles, persistence)
+- `agent/`: LangGraph workflow
+- `config/`: Settings, database, and rate-limit configuration
+- `models/`: Tortoise ORM models
+- `middleware/`: CORS and request logging
+- `utils/`: Helpers, sanitization, time utilities
 
-- **Web Layer** (`/src/api/web/`): FastAPI endpoints, WebSocket gateways, and Engine dependencies
-- **Service Layer** (`/src/api/services/`): Business logic, orchestration, and role enforcement
-- **Workflow Layer** (`/src/api/workflow/`): LangGraph-powered execution engine with recursive automata
-- **Repository Layer** (`/src/api/repositories/`): Tortoise ORM access to PostgreSQL
-- **Domain Layer** (`/src/api/domain/`): Entity definitions, Pydantic models, and permission logic
+### Execution Model (LangGraph)
 
-### Multi-Agent System
+The workflow is a compact graph compiled with an optional Postgres checkpointer:
 
-The service orchestrates three specialized AI agents working in concert:
+- Nodes: `entry` → `model` → `gate` → `final` with conditional routing
+- `model` runs an LLM turn (via LiteLLM) and may produce tool calls
+- `gate` executes MCP tools (with approval policy) and feeds results back to the model
+- Auto‑continue is applied conservatively based on a “next speaker” decision
+- Stop requests are honored mid‑stream via Redis flags
 
-1. **Planner Agent** (`/src/api/workflow/agents/planner.py`):
-   - Analyzes natural language queries to determine user intent
-   - Selects appropriate Kubernetes operations and tools
-   - Generates detailed execution plans with step-by-step actions
-   - Creates verification checklists for quality assurance
+Checkpointer:
+- Postgres checkpointer via `langgraph-checkpoint-postgres` when `ENABLE_POSTGRES_CHECKPOINTER=true`
+- Falls back to in‑memory if Postgres is unavailable
 
-2. **Executor Agent** (`/src/api/workflow/agents/executor.py`):
-   - Implements each step of the execution plan
-   - Resolves dynamic parameters from previous steps
-   - Manages complex, multi-stage operations
-   - Executes tool calls against the Engine component
+### Event Streaming (SSE + Redis)
 
-3. **Verifier Agent** (`/src/api/workflow/agents/verifier.py`):
-   - Validates execution results against original user intent
-   - Implements error recovery strategies
-   - Provides clear explanations of outcomes
-   - Ensures operations meet quality standards
+All workflow events stream over SSE from `/api/v1/agent/chat` and `/api/v1/agent/approvals/{call_id}`. Internally, the Engine uses Redis pub/sub channels keyed by a unique run id. Event types include (non‑exhaustive):
 
-4. **Workflow Manager** (`/src/api/workflow/manager.py`):
-   - Orchestrates the entire workflow using LangGraph
-   - Manages state transitions between agents
-   - Handles retry logic and error recovery
-   - Generates final user responses
+- `ready`, `heartbeat`
+- `token`, `generation.start`, `generation.complete`
+- `tools.pending`, `tool.executing`, `tool.result`, `tool.error`, `tool.approved`, `tool.denied`
+- `completed`, `workflow_complete`, `workflow_error`
 
 ## Features
 
-### Core Capabilities
-
-- **Natural Language Understanding**: Process Kubernetes operations through conversational queries
-- **Multi-Agent Orchestration**: Coordinates specialized agents via LangGraph workflows
-- **Enterprise Authentication**: JWT-based auth with refresh tokens and secure sessions
-- **RBAC & Permissions**: Role-based access control powered by PyCasbin
-- **Team & Organization Management**: User organizations with hierarchical permissions
-- **Real-time Communications**: WebSocket-based streaming for live updates
-
-### Workflow Engine
-
-- **Recursive Automata**: Self-healing graph state machines for complex operations
-- **Dynamic Parameter Resolution**: Context-aware parameter handling from previous steps
-- **Intelligent Error Recovery**: Automatic retry and alternative strategy implementation
-- **Execution Monitoring**: Live tracking of operation progress and resource status
-- **Step Visualization**: Real-time display of execution stages and agent transitions
-
-### Communication Features
-
-- **Chat Management**: Persistent conversations with message threading
-- **Real-time Messaging**: WebSocket and Redis pub/sub implementation
-- **Terminal Streaming**: Live command output display
-- **Token Streaming**: Real-time LLM response generation
+- Natural language operations with tool execution via MCP
+- SSE streaming for tokens, tool progress, and results
+- Auth with fastapi-users (JWT), first user becomes admin
+- Team admin endpoints (list/add/update/remove members)
+- Conversation CRUD with persisted message timeline and title generation
+- Rate limiting via Redis (fastapi-limiter)
+- Optional Postgres checkpointer for resilient workflow state
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.11+ - [pyenv](https://github.com/pyenv/pyenv)
-- Docker & Docker Compose (optional)
+- Python 3.11+
+- PostgreSQL and Redis
+- Docker & Docker Compose (optional, for local services)
 
 ### Setup
 
-1. Copy the .env.example file to .env.
+1) Create `.env` from the example and set required variables.
 
 ```bash
-# From the project root
+# From engine/
 cp .env.example .env
 ```
 
-_Make sure to fill in the env `OPEN_AI_KEY` variable._
+Minimum to set for local dev:
+- `APP_NAME`, `APP_VERSION`, `APP_DESCRIPTION`
+- `POSTGRES_DATABASE_URL` (e.g. `postgres://postgres:postgres@localhost:5432/skyflo`)
+- `REDIS_URL` (e.g. `redis://localhost:6379/0`)
+- `JWT_SECRET`
+- LLM provider key, e.g. `OPENAI_API_KEY` when `LLM_MODEL=openai/gpt-4o`
 
-2. Install dependencies:
+2) Install dependencies and the package in editable mode.
 
 ```bash
-# Create and activate virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Unix or MacOS
-.venv\Scripts\activate     # On Windows
-
-# Install dependencies with uv
+source .venv/bin/activate
 uv pip install -e "."
 ```
 
-3. Configure the database:
+3) Apply database migrations (Tortoise + Aerich).
 
 ```bash
-# Initialize database with migrations
 aerich upgrade
 ```
 
-4. Add a new migration
+To create new migrations during development:
 
 ```bash
 aerich migrate
-
 aerich upgrade
 ```
 
-## Usage
-
-### Docker Deployment
-
-Run the local.docker-compose.yml file:
+### Optional: Start local PostgreSQL + Redis
 
 ```bash
-# From the project root
-docker-compose -f deployment/local.docker-compose.yaml up -d
+# From project root
+docker compose -f deployment/local.docker-compose.yaml up -d
 ```
 
-This starts the PostgreSQL and Redis services that are required for the Engine to run.
-
-### Starting the Engine Server
+### Run the Engine
 
 ```bash
-source .venv/bin/activate && uvicorn api.asgi:app --host 0.0.0.0 --port 8080 --reload
+source .venv/bin/activate
+uvicorn api.asgi:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-The Engine service will be available at http://localhost:8080.
+Service will be available at `http://localhost:8080`.
 
+## API
+
+Base path: `/api/v1`
+
+- `GET /health` and `GET /health/database`
+- `POST /agent/chat` (SSE): stream tokens/events
+- `POST /agent/approvals/{call_id}` (SSE): approve/deny pending tool
+- `POST /agent/stop`: stop a specific run
+- `POST /conversations`, `GET /conversations`, `GET/PATCH/DELETE /conversations/{id}`
+- Auth (`/auth/jwt/*`, `/auth/register/*`, `/auth/verify/*`, `/auth/reset-password/*`, `/auth/users/*`), plus:
+  - `GET /auth/is_admin_user`
+  - `GET /auth/me`, `PATCH /auth/me`
+  - `PATCH /auth/users/me/password`
+- Team admin (`/team/*`): members list/add/update/remove (requires admin)
+
+### SSE chat example
+
+```bash
+curl -N -H "Content-Type: application/json" \
+  -X POST \
+  -d '{"messages":[{"role":"user","content":"List pods in default"}]}' \
+  http://localhost:8080/api/v1/agent/chat
+```
+
+### Approvals example
+
+```bash
+curl -N -H "Content-Type: application/json" \
+  -X POST \
+  -d '{"approve":true, "reason":"safe", "conversation_id":"<conversation-uuid>"}' \
+  http://localhost:8080/api/v1/agent/approvals/<call_id>
+```
+
+## Configuration
+
+Defined in `src/api/config/settings.py` (Pydantic Settings, `.env` loaded). Key variables:
+
+- App: `APP_NAME`, `APP_VERSION`, `APP_DESCRIPTION`, `DEBUG`, `LOG_LEVEL`, `API_V1_STR`
+- DB: `POSTGRES_DATABASE_URL`
+- Checkpointer: `ENABLE_POSTGRES_CHECKPOINTER` (default true), `CHECKPOINTER_DATABASE_URL`
+- Redis & Rate limit: `REDIS_URL`, `RATE_LIMITING_ENABLED`, `RATE_LIMIT_PER_MINUTE`
+- Auth: `JWT_SECRET`, `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`
+- MCP: `MCP_SERVER_URL`
+- Workflow: `MAX_AUTO_CONTINUE_TURNS`, `LLM_MAX_ITERATIONS`, `LLM_TEMPERATURE`
+- LLM: `LLM_MODEL` (e.g. `openai/gpt-4o`), `LLM_HOST` (optional), provider API key envs like `OPENAI_API_KEY`
 
 ## Component Structure
 
@@ -146,39 +160,35 @@ The Engine service will be available at http://localhost:8080.
 engine/
 ├── src/
 │   └── api/
-│       ├── web/            # FastAPI endpoints and WebSocket gateways
-│       ├── services/       # Business logic and orchestration
-│       ├── workflow/       # LangGraph execution engine
-│       │   └── agents/     # Specialized AI agents
-│       │       ├── planner.py    # Query analysis and planning
-│       │       ├── executor.py   # Plan execution and tool calls
-│       │       └── verifier.py   # Result validation and QA
-│       ├── repositories/   # Tortoise ORM database access
-│       ├── domain/        # Entity models and permissions
-│       └── config/        # Configuration management
-├── migrations/            # Database migrations
-└── pyproject.toml        # Project dependencies
+│       ├── agent/          # LangGraph workflow (graph, model node, state, prompts)
+│       ├── config/         # Settings, DB, rate limiting
+│       ├── endpoints/      # FastAPI routers (agent, auth, conversations, team, health)
+│       ├── middleware/     # CORS, logging
+│       ├── models/         # Tortoise ORM models (User, Conversation, Message)
+│       ├── schemas/        # Pydantic schemas (team)
+│       ├── services/       # MCP client, tool executor, approvals, limiter, persistence, titles
+│       └── utils/          # Helpers, sanitization, time
+├── migrations/              # Aerich migrations
+└── pyproject.toml          # Project dependencies and tooling
 ```
 
 ## Tech Stack
 
-| Component            | Technology                 |
-|----------------------|----------------------------|
-| Web Framework        | FastAPI + Uvicorn          |
-| ORM                  | Tortoise ORM               |
-| Migrations           | Aerich                     |
-| Authentication       | FastAPI Users              |
-| RBAC                 | PyCasbin                   |
-| WebSockets           | FastAPI/Socket.IO          |
-| Pub/Sub              | Broadcaster (Redis)        |
-| Multi-Agent System   | LangGraph + AutoGen        |
-| LLM Integration      | OpenAI + Custom LLM Client |
-| Database             | PostgreSQL                 |
-| Centralized WS       | Redis                      |
+| Component            | Technology                       |
+|----------------------|----------------------------------|
+| Web Framework        | FastAPI + Uvicorn                |
+| ORM                  | Tortoise ORM                     |
+| Migrations           | Aerich                           |
+| Authentication       | fastapi-users (+ tortoise)       |
+| Streaming            | SSE + Redis (pub/sub)            |
+| Rate limiting        | fastapi-limiter + Redis          |
+| AI Agent             | LangGraph                        |
+| LLM Integration      | LiteLLM                          |
+| Database             | PostgreSQL                       |
 
 ## Community and Support
 
-- [Website](https://skyflo.ai)
-- [Discord Community](https://discord.gg/kCFNavMund)
-- [Twitter/X Updates](https://x.com/skyflo_ai)
-- [GitHub Discussions](https://github.com/skyflo-ai/skyflo/discussions)
+- Website: https://skyflo.ai
+- Discord: https://discord.gg/kCFNavMund
+- X/Twitter: https://x.com/skyflo_ai
+- GitHub Discussions: https://github.com/skyflo-ai/skyflo/discussions

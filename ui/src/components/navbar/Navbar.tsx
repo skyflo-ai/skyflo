@@ -2,7 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
-import { Home, History, LogOut, Settings } from "lucide-react";
+import { MdHistory, MdLogout, MdSettings, MdAdd } from "react-icons/md";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -30,7 +30,6 @@ export default function Navbar() {
 
   return (
     <nav className="h-screen w-16 bg-dark-navbar flex flex-col items-center py-4 px-8 border-r border-border">
-      {/* Logo placeholder */}
       <div className="w-10 h-10 rounded-full mb-8">
         <Image
           src="/logo_vector_transparent.png"
@@ -41,32 +40,30 @@ export default function Navbar() {
         />
       </div>
 
-      {/* Nav icons */}
       <div className="flex-grow flex flex-col space-y-3">
         <NavIcon
-          icon={<Home size={20} />}
-          tooltip="Home"
+          icon={<MdAdd size={20} />}
+          tooltip="New Chat"
           onClick={() => router.push("/")}
           isActive={pathname === "/"}
         />
         <NavIcon
-          icon={<History size={20} />}
+          icon={<MdHistory size={20} />}
           tooltip="History"
           onClick={() => router.push("/history")}
           isActive={pathname === "/history"}
         />
       </div>
 
-      {/* Admin/Settings Menu Icons */}
       <div className="mt-auto flex flex-col space-y-3 mb-4">
         <NavIcon
-          icon={<Settings size={20} />}
+          icon={<MdSettings size={20} />}
           tooltip="Settings"
           onClick={() => router.push("/settings")}
           isActive={pathname === "/settings"}
         />
         <NavIcon
-          icon={<LogOut size={20} />}
+          icon={<MdLogout size={20} />}
           tooltip="Logout"
           onClick={handleLogoutOnClick}
         />

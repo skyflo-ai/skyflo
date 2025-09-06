@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { AuthToken, User } from "./types/auth";
+import { AuthToken, User } from "../types/auth";
 
 type AuthResult =
   | { success: true; user: User; token: string; error?: undefined }
@@ -27,7 +27,6 @@ export async function handleLogin(formData: FormData): Promise<AuthResult> {
     if (response.ok) {
       const tokenData: AuthToken = await response.json();
 
-      // Store token in cookies for server-side access
       cookies().set("auth_token", tokenData.access_token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -35,7 +34,6 @@ export async function handleLogin(formData: FormData): Promise<AuthResult> {
         path: "/",
       });
 
-      // Get user data
       const userResponse = await fetch(`${process.env.API_URL}/auth/me`, {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
@@ -56,7 +54,6 @@ export async function handleLogin(formData: FormData): Promise<AuthResult> {
       return { success: false, error: "Authentication failed" };
     }
   } catch (error) {
-    console.error("Error during login:", error);
     return { success: false, error: "Error during login" };
   }
 }
@@ -84,49 +81,14 @@ export async function handleRegistration(
 
     if (response.ok) {
       const userData = await response.json();
-      const setCookieHeader = response.headers.get("set-cookie");
-
-      if (setCookieHeader) {
-        const cookieArray = setCookieHeader.split(/,(?=[^;]+=[^;]+)/);
-
-        cookieArray.forEach((cookieStr) => {
-          const [name, value] = cookieStr.split(";")[0].trim().split("=");
-          cookies().set(name, value, {
-            path: "/",
-            httpOnly: cookieStr.includes("HttpOnly"),
-            secure: cookieStr.includes("Secure"),
-            sameSite: getSameSite(cookieStr),
-            maxAge: getMaxAge(cookieStr),
-            expires: getExpires(cookieStr),
-          });
-        });
-      }
 
       return { success: true, user: userData, token: "" };
     } else {
       return { success: false, error: "Registration failed" };
     }
   } catch (error) {
-    console.error("Error during registration:", error);
     return { success: false, error: "Error during registration" };
   }
-}
-
-function getSameSite(cookieStr: string): "strict" | "lax" | "none" | undefined {
-  if (cookieStr.includes("SameSite=None")) return "none";
-  if (cookieStr.includes("SameSite=Strict")) return "strict";
-  if (cookieStr.includes("SameSite=Lax")) return "lax";
-  return undefined;
-}
-
-function getMaxAge(cookieStr: string): number | undefined {
-  const maxAgeMatch = cookieStr.match(/Max-Age=(\d+)/);
-  return maxAgeMatch ? parseInt(maxAgeMatch[1], 10) : undefined;
-}
-
-function getExpires(cookieStr: string): Date | undefined {
-  const expiresMatch = cookieStr.match(/expires=([^;]+)/i);
-  return expiresMatch ? new Date(expiresMatch[1]) : undefined;
 }
 
 export async function handleLogout() {
@@ -146,10 +108,8 @@ export async function handleLogout() {
     });
 
     if (response.ok) {
-      // Remove auth cookie
       cookies().delete("auth_token");
 
-      // Clear any other cookies if needed
       nextCookies.forEach((cookie) => {
         cookies().delete(cookie.name);
       });
@@ -159,17 +119,14 @@ export async function handleLogout() {
       return { success: false, error: "Unauthorized" };
     }
   } catch (error) {
-    console.error("Error during logout:", error);
     return { success: false, error: "Error during logout" };
   }
 }
 
-// Server-side API function to update user profile
 export async function updateUserProfile(data: {
   full_name?: string;
 }): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
-    // Get the auth token from server-side cookies
     const nextCookies = cookies().getAll();
     const cookieHeader = nextCookies
       .map((cookie) => `${cookie.name}=${cookie.value}`)
@@ -203,7 +160,6 @@ export async function updateUserProfile(data: {
     const updatedUser = await response.json();
     return { success: true, user: updatedUser };
   } catch (error) {
-    console.error("Error updating profile:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",
@@ -211,18 +167,12 @@ export async function updateUserProfile(data: {
   }
 }
 
-// Server-side API function to change password
 export async function changePassword(data: {
   current_password: string;
   new_password: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    // Get the auth token from server-side cookies
     const nextCookies = cookies().getAll();
-    const cookieHeader = nextCookies
-      .map((cookie) => `${cookie.name}=${cookie.value}`)
-      .join("; ");
-
     const authToken = nextCookies.find(
       (cookie) => cookie.name === "auth_token"
     );
@@ -253,7 +203,6 @@ export async function changePassword(data: {
 
     return { success: true };
   } catch (error) {
-    console.error("Error changing password:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",

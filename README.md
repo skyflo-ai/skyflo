@@ -13,7 +13,7 @@
 
 </div>
 
-Skyflo.ai is your AI-powered companion for cloud native operations, enabling seamless infrastructure management through natural language.
+Skyflo.ai is your AI co-pilot for Cloud Native operations, enabling seamless infrastructure management through natural language with a safety-first, human-in-the-loop design.
 
 ## How to Install
 
@@ -23,21 +23,13 @@ Skyflo.ai offers flexible deployment options, accommodating both production and 
 curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh -o install.sh && chmod +x install.sh && ./install.sh
 ```
 
+Skyflo can be configured to use different LLM providers (like Groq, Anthropic, Cohere, etc.), or even use a self-hosted model.
+
 For more details, see the [Installation Guide](docs/install.md).
-
-## Configuration
-
-By default, Skyflo is configured to use OpenAI's GPT-4o model. For instructions on using different LLM providers (like Groq, Anthropic, Cohere, etc.) or configuring API keys, please refer to the [Installation Guide](docs/install.md).
 
 ## Architecture
 
 Read more about the architecture of Skyflo.ai in the [Architecture](docs/architecture.md) documentation.
-
-Skyflo.ai's multi-agent architecture leverages [Microsoft's AutoGen](https://github.com/microsoft/autogen) for agent orchestration and [LangGraph](https://github.com/langchain-ai/langgraph) for graph-based execution flows.
-
-## Roadmap
-
-Read more about the [roadmap of Skyflo.ai here](https://skyflo.ai/roadmap).
 
 ## Contributing
 

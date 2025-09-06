@@ -1,21 +1,14 @@
 import React, { useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { MdCheck, MdContentCopy } from "react-icons/md";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CodeBlockProps {
   code: string;
-  language?: string;
-  showLineNumbers?: boolean;
   className?: string;
 }
 
-export function CodeBlock({
-  code,
-  language = "bash",
-  showLineNumbers = false,
-  className,
-}: CodeBlockProps) {
+export function CodeBlock({ code, className }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -29,46 +22,27 @@ export function CodeBlock({
       <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-transparent opacity-50 rounded-xl overflow-hidden" />
 
       <div className="relative">
-        <div className="flex items-center justify-between px-2 py-1 border-b border-blue-500/10">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-red-500/20" />
-            <div className="w-3 h-3 rounded-full bg-yellow-500/20" />
-            <div className="w-3 h-3 rounded-full bg-green-500/20" />
-          </div>
-          {language && (
-            <span className="text-xs text-gray-400 font-mono">{language}</span>
+        <button
+          onClick={handleCopy}
+          className="absolute top-2 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 bg-gray-800 hover:bg-gray-700 rounded-full shadow-[0px_0px_6px_5px_rgba(0,_0,_0,_0.1)]"
+          aria-label="Copy code"
+        >
+          {copied ? (
+            <MdCheck className="h-4 w-4 text-green-500" />
+          ) : (
+            <MdContentCopy className="h-4 w-4 text-gray-300" />
           )}
-          <button
-            onClick={handleCopy}
-            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 
-                     p-1 hover:bg-blue-500/10 rounded-lg"
-            aria-label="Copy code"
-          >
-            {copied ? (
-              <Check className="h-4 w-4 text-green-500" />
-            ) : (
-              <Copy className="h-4 w-4 text-gray-400" />
-            )}
-          </button>
-        </div>
+        </button>
 
         <ScrollArea className="relative max-h-[300px] overflow-y-auto">
           <pre
             className={cn(
-              "p-4 overflow-x-auto font-mono text-sm",
-              showLineNumbers && "pl-12 relative"
+              "p-4 font-mono text-sm whitespace-pre-wrap break-words break-all max-w-full overflow-x-hidden bg-blue-500/5"
             )}
           >
-            {showLineNumbers && (
-              <div className="absolute left-0 top-0 bottom-0 w-8 bg-blue-500/5 flex flex-col items-end pr-2 text-gray-500 select-none">
-                {code.split("\n").map((_, i) => (
-                  <div key={i} className="leading-6">
-                    {i + 1}
-                  </div>
-                ))}
-              </div>
-            )}
-            <code className="text-gray-300 leading-6">{code}</code>
+            <code className="text-gray-300 leading-6 whitespace-pre-wrap break-words break-all max-w-full block">
+              {code}
+            </code>
           </pre>
         </ScrollArea>
       </div>

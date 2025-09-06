@@ -28,20 +28,16 @@ dependencies = [
     "broadcaster>=0.3.1",
     "redis>=5.0.1",
     "fastapi-limiter>=0.1.6",
-    "autogen-agentchat>=0.4.9.2",
-    "autogen-core>=0.4.9.2",
-    "autogen-ext[mcp]>=0.4.9.2",
     "langgraph>=0.3.18",
     "mcp>=1.5.0",
     "openai>=1.68.2",
     "typer>=0.15.2",
-    "tenacity>=8.2.3",
-    "tomlkit>=0.13.2",
-    "tiktoken>=0.9.0",
     "fastapi-users-tortoise>=0.2.0",
-    "python-socketio>=5.12.1",
     "python-decouple>=3.8",
     "litellm>=1.67.4",
+    "langgraph-checkpoint-postgres>=2.0.23",
+    "psycopg[binary]>=3.1.0",
+    "asyncpg>=0.30.0",
 ]
 
 [[project.authors]]
@@ -102,6 +98,6 @@ line-length = 100
 target-version = ["py311"]
 
 [tool.aerich]
-tortoise_orm = "src.api.repositories.database.TORTOISE_ORM_CONFIG"
+tortoise_orm = "src.api.config.database.TORTOISE_ORM_CONFIG"
 location = "./migrations"
 src_folder = "./."

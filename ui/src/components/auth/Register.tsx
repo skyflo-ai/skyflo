@@ -4,10 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { AuthInput } from "./AuthInput";
-import { Lock, Mail, User } from "lucide-react";
+import { MdLock, MdEmail, MdPerson } from "react-icons/md";
 import { useAuthStore } from "@/store/useAuthStore";
 import { handleRegistration } from "@/lib/auth";
-import { setCookie } from "@/lib/utils";
 
 export const Register = () => {
   const { login } = useAuthStore();
@@ -31,9 +30,6 @@ export const Register = () => {
     const result = await handleRegistration(formData);
 
     if (result && result.success) {
-      localStorage.setItem("auth_token", result.token);
-      setCookie("auth_token", result.token, 7);
-      login(result.user, result.token);
       router.push("/login");
     } else {
       setError(result?.error || "Registration failed");
@@ -53,21 +49,21 @@ export const Register = () => {
         type="text"
         name="name"
         placeholder="Your Name"
-        icon={User}
+        icon={MdPerson}
       />
       <AuthInput
         id="email"
         type="email"
         name="email"
         placeholder="m@example.com"
-        icon={Mail}
+        icon={MdEmail}
       />
       <AuthInput
         id="password"
         type="password"
         name="password"
         placeholder="••••••••"
-        icon={Lock}
+        icon={MdLock}
       />
       {error && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mt-4">

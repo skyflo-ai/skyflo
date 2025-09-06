@@ -1,41 +1,62 @@
 import { useState, useEffect } from "react";
-import { MdGroup, MdPersonAdd } from "react-icons/md";
+import {
+  MdAdminPanelSettings,
+  MdGroup,
+  MdOutlineLock,
+  MdPerson,
+  MdPersonAdd,
+} from "react-icons/md";
 import { IoTrash } from "react-icons/io5";
 import {
   HiOutlineMail,
   HiOutlineUserGroup,
   HiOutlineLockClosed,
 } from "react-icons/hi";
-import { TeamMember } from "@/lib/types/auth";
+import { TeamMember } from "@/types/auth";
 import { useAuthStore } from "@/store/useAuthStore";
-import { showSuccess, showError } from "@/lib/toast";
+import { showSuccess, showError } from "@/components/ui/toast";
+import { ConfirmModal } from "@/components/ui/modal";
 
 interface TeamSettingsProps {}
 
 export default function TeamSettings({}: TeamSettingsProps) {
-  // Get the current user from auth store
   const { user } = useAuthStore();
   const isAdmin = user?.role === "admin";
 
-  // Team management state
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [newMemberRole, setNewMemberRole] = useState("Member");
   const [newMemberPassword, setNewMemberPassword] = useState("");
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
 
-  // Separate loading states for different actions
   const [isTeamLoading, setIsTeamLoading] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   const [removingMemberIds, setRemovingMemberIds] = useState<string[]>([]);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    memberId: string;
+    memberName: string;
+  }>({ isOpen: false, memberId: "", memberName: "" });
 
-  // Fetch team members on component mount
   useEffect(() => {
     if (isAdmin) {
       fetchTeamMembers();
     }
   }, [isAdmin]);
 
-  // Fetch team members from API
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setIsRoleDropdownOpen(false);
+    };
+
+    if (isRoleDropdownOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => {
+        document.removeEventListener("click", handleClickOutside);
+      };
+    }
+  }, [isRoleDropdownOpen]);
+
   const fetchTeamMembers = async () => {
     setIsTeamLoading(true);
     try {
@@ -43,7 +64,6 @@ export default function TeamSettings({}: TeamSettingsProps) {
 
       if (response.ok) {
         const data = await response.json();
-        // always show the current user on top of the list
         const currentUser = data.find(
           (member: TeamMember) => member.id === user?.id
         );
@@ -65,14 +85,12 @@ export default function TeamSettings({}: TeamSettingsProps) {
         }
       }
     } catch (error) {
-      console.error("[Team] Error fetching team members:", error);
       showError("An unexpected error occurred");
     } finally {
       setIsTeamLoading(false);
     }
   };
 
-  // Handle team member invite
   const handleInviteMember = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -95,28 +113,38 @@ export default function TeamSettings({}: TeamSettingsProps) {
 
       if (response.ok) {
         const data = await response.json();
-        // always show the current user on top of the list
         setTeamMembers([data, ...teamMembers]);
         setNewMemberEmail("");
         setNewMemberPassword("");
-        showSuccess("Team member invitation sent");
+        showSuccess("Team member added");
       } else {
         const error = await response.json();
         showError(error.error || "Failed to invite team member");
       }
     } catch (error) {
-      console.error("[Team] Error inviting team member:", error);
       showError("An unexpected error occurred");
     } finally {
       setIsInviting(false);
     }
   };
 
-  // Handle removing a team member
-  const handleRemoveMember = async (memberId: string) => {
+  const handleRemoveMember = (memberId: string) => {
     if (!isAdmin) return;
 
-    // Add member ID to the removing array
+    const member = teamMembers.find((m) => m.id === memberId);
+    if (member) {
+      setDeleteModal({
+        isOpen: true,
+        memberId,
+        memberName: member.email,
+      });
+    }
+  };
+
+  const handleRemoveMemberConfirm = async () => {
+    const { memberId } = deleteModal;
+    if (!isAdmin || !memberId) return;
+
     setRemovingMemberIds((prev) => [...prev, memberId]);
 
     try {
@@ -125,23 +153,19 @@ export default function TeamSettings({}: TeamSettingsProps) {
       });
 
       if (response.ok) {
-        // Remove member from state
         setTeamMembers(teamMembers.filter((member) => member.id !== memberId));
-        showSuccess("Team member removed successfully");
+        showSuccess("Team member removed");
       } else {
         const error = await response.json();
         showError(error.error || "Failed to remove team member");
       }
     } catch (error) {
-      console.error("[Team] Error removing team member:", error);
       showError("An unexpected error occurred");
     } finally {
-      // Remove member ID from the removing array
       setRemovingMemberIds((prev) => prev.filter((id) => id !== memberId));
     }
   };
 
-  // If user is not an admin, show access denied message
   if (!isAdmin) {
     return (
       <div className="bg-gradient-to-br from-[#0A1020] to-[#0A1525] rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden">
@@ -151,8 +175,9 @@ export default function TeamSettings({}: TeamSettingsProps) {
           </h2>
         </div>
         <div className="p-6 text-center">
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 text-amber-400">
-            <p>Only administrators can access team management features.</p>
+          <div className="flex items-center justify-center gap-2 bg-amber-600/10 border border-amber-500/20 rounded-lg p-4 text-amber-400">
+            <MdOutlineLock className="w-5 h-5 text-amber-400" />
+            <p>Only admins can access team management features.</p>
           </div>
         </div>
       </div>
@@ -161,12 +186,11 @@ export default function TeamSettings({}: TeamSettingsProps) {
 
   return (
     <>
-      {/* Team Members List */}
-      <div className="bg-gradient-to-br from-[#0A1020] to-[#0A1525] rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden flex-1">
+      <div className="bg-dark rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden flex-1">
         <div className="bg-gradient-to-r from-[#1A2C48]/90 to-[#0F182A]/90 p-5 border-b border-[#243147] backdrop-blur-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-500/20 p-2.5 rounded-full">
-              <MdGroup className="w-5 h-5 text-blue-400" />
+            <div className="bg-slate-500/15 p-2.5 rounded-full">
+              <MdGroup className="w-5 h-5 text-slate-300" />
             </div>
             <h2 className="text-xl font-semibold text-slate-100">
               Team Management
@@ -224,9 +248,7 @@ export default function TeamSettings({}: TeamSettingsProps) {
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               member.role === "Admin"
-                                ? "bg-blue-500/20 text-blue-400"
-                                : member.role === "Viewer"
-                                ? "bg-purple-500/20 text-purple-400"
+                                ? "bg-emerald-500/20 text-emerald-400"
                                 : "bg-slate-500/20 text-slate-300"
                             }`}
                           >
@@ -248,7 +270,7 @@ export default function TeamSettings({}: TeamSettingsProps) {
                           {member.id !== user?.id && (
                             <button
                               type="button"
-                              className="text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1"
+                              className="text-slate-400 hover:text-rose-400 outline-none focus:outline-none focus-visible:outline-none transition-colors flex items-center gap-1"
                               aria-label="Remove member"
                               onClick={() => handleRemoveMember(member.id)}
                               disabled={removingMemberIds.includes(member.id)}
@@ -274,12 +296,11 @@ export default function TeamSettings({}: TeamSettingsProps) {
         </div>
       </div>
 
-      {/* Invite New Team Member */}
-      <div className="bg-gradient-to-br from-[#0A1020] to-[#0A1525] rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden">
+      <div className="bg-dark rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden">
         <div className="bg-gradient-to-r from-[#1A2C48]/90 to-[#0F182A]/90 p-5 border-b border-[#243147] backdrop-blur-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-500/20 p-2.5 rounded-full">
-              <MdPersonAdd className="w-5 h-5 text-blue-400" />
+            <div className="bg-slate-500/15 p-2.5 rounded-full">
+              <MdPersonAdd className="w-5 h-5 text-slate-300" />
             </div>
             <h2 className="text-xl font-semibold text-slate-100">
               Invite Team Member
@@ -294,14 +315,14 @@ export default function TeamSettings({}: TeamSettingsProps) {
                   htmlFor="memberEmail"
                   className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
                 >
-                  <HiOutlineMail className="text-blue-400" />
+                  <HiOutlineMail className="text-slate-400" />
                   Email Address
                 </label>
                 <div className="relative">
                   <input
                     type="email"
                     id="memberEmail"
-                    className="w-full p-3 pl-10 rounded-lg bg-[#0F1D2F] border border-slate-700/60 text-slate-300 shadow-inner focus:border-blue-600/80 focus:ring-2 focus:ring-blue-600/30 transition-all duration-200 focus:outline-none"
+                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
                     value={newMemberEmail}
                     onChange={(e) => setNewMemberEmail(e.target.value)}
                     placeholder="colleague@company.com"
@@ -319,14 +340,14 @@ export default function TeamSettings({}: TeamSettingsProps) {
                   htmlFor="memberPassword"
                   className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
                 >
-                  <HiOutlineLockClosed className="text-blue-400" />
+                  <HiOutlineLockClosed className="text-slate-400" />
                   Password
                 </label>
                 <div className="relative">
                   <input
                     type="password"
                     id="memberPassword"
-                    className="w-full p-3 pl-10 rounded-lg bg-[#0F1D2F] border border-slate-700/60 text-slate-300 shadow-inner focus:border-blue-600/80 focus:ring-2 focus:ring-blue-600/30 transition-all duration-200 focus:outline-none"
+                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
                     value={newMemberPassword}
                     onChange={(e) => setNewMemberPassword(e.target.value)}
                     placeholder="Set initial password"
@@ -344,27 +365,25 @@ export default function TeamSettings({}: TeamSettingsProps) {
                   htmlFor="memberRole"
                   className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
                 >
-                  <HiOutlineUserGroup className="text-blue-400" />
+                  <HiOutlineUserGroup className="text-slate-400" />
                   Role
                 </label>
                 <div className="relative">
-                  <select
-                    id="memberRole"
-                    className="w-full p-3 pl-10 rounded-lg bg-[#0F1D2F] border border-slate-700/60 text-slate-300 shadow-inner focus:border-blue-600/80 focus:ring-2 focus:ring-blue-600/30 transition-all duration-200 focus:outline-none appearance-none"
-                    value={newMemberRole}
-                    onChange={(e) => setNewMemberRole(e.target.value)}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsRoleDropdownOpen(!isRoleDropdownOpen);
+                    }}
+                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200 text-left flex items-center justify-between"
                     disabled={isInviting}
                   >
-                    <option value="Member">Member</option>
-                    <option value="Admin">Admin</option>
-                    <option value="Viewer">Viewer</option>
-                  </select>
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <MdGroup className="text-slate-500" />
-                  </div>
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <span>{newMemberRole}</span>
                     <svg
-                      className="h-5 w-5 text-slate-500"
+                      className={`h-5 w-5 text-slate-500 transition-transform duration-200 ${
+                        isRoleDropdownOpen ? "rotate-180" : ""
+                      }`}
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 20 20"
                       fill="currentColor"
@@ -375,39 +394,88 @@ export default function TeamSettings({}: TeamSettingsProps) {
                         clipRule="evenodd"
                       />
                     </svg>
+                  </button>
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                    <MdGroup className="text-slate-500" />
                   </div>
+
+                  {isRoleDropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 mb-1 bg-[#1A2332] border border-slate-600/60 rounded-lg shadow-[0px_-3px_2px_0px_rgba(0,_0,_0,_0.1)] z-[100]">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setNewMemberRole("Member");
+                          setIsRoleDropdownOpen(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 rounded-t-lg transition-colors flex items-center gap-2"
+                        disabled={isInviting}
+                      >
+                        <MdPerson className="w-4 h-4" />
+                        Member
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setNewMemberRole("Admin");
+                          setIsRoleDropdownOpen(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-colors flex items-center gap-2"
+                        disabled={isInviting}
+                      >
+                        <MdAdminPanelSettings className="w-4 h-4" />
+                        Admin
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="group relative bg-gradient-to-r from-blue-600 to-cyan-600 p-[1px] hover:from-blue-500 hover:to-cyan-500 text-white transition-all duration-300 rounded-md overflow-hidden w-full"
+                className="group inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg w-full
+                           bg-[#0A1525]/50 border border-blue-500/30 
+                   hover:border-blue-500/40 hover:bg-[#0A1525]/80
+                           outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0
+                           transition-all duration-100 cursor-pointer text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isInviting}
               >
-                <div className="relative bg-[#030712] rounded-md group-hover:bg-opacity-90 px-4 py-2 transition-all duration-300 flex items-center justify-center">
-                  {isInviting ? (
-                    <>
-                      <div className="h-4 w-4 rounded-full border-2 border-white/80 border-r-transparent animate-spin mr-2" />
-                      <span className="text-sm font-medium">
-                        Sending Invitation...
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <MdPersonAdd
-                        className="h-4 w-4 mr-2"
-                        aria-hidden="true"
-                      />
-                      <span className="text-sm font-medium">Add Member</span>
-                    </>
-                  )}
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
+                {isInviting ? (
+                  <>
+                    <div className="h-4 w-4 rounded-full border-2 border-white/80 border-r-transparent animate-spin" />
+                    <span className="text-sm font-medium">
+                      Sending Invitation...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <MdPersonAdd
+                      className="h-4 w-4 text-blue-400/70 group-hover:text-blue-400"
+                      aria-hidden="true"
+                    />
+                    <span className="text-sm font-medium">Add Member</span>
+                  </>
+                )}
               </button>
             </div>
           </form>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        onClose={() =>
+          setDeleteModal({ isOpen: false, memberId: "", memberName: "" })
+        }
+        onConfirm={handleRemoveMemberConfirm}
+        title="Remove Team Member"
+        message={`Are you sure you want to remove "${deleteModal.memberName}" from the team?`}
+        confirmText="Remove"
+        variant="danger"
+      />
     </>
   );
 }

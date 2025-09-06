@@ -1,11 +1,10 @@
-import { User } from "@/lib/types/auth";
+import { User } from "@/types/auth";
 import { useState } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { HiOutlineMail, HiOutlineKey, HiOutlineRefresh } from "react-icons/hi";
 import { MdLock, MdPerson } from "react-icons/md";
-import { showSuccess, showError } from "@/lib/toast";
+import { showSuccess, showError } from "@/components/ui/toast";
 
-// ProfileSettings Component
 interface ProfileSettingsProps {
   user: User | null;
 }
@@ -17,11 +16,9 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Separate loading states for each action
   const [isProfileUpdating, setIsProfileUpdating] = useState(false);
   const [isPasswordChanging, setIsPasswordChanging] = useState(false);
 
-  // Handle profile update
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -43,7 +40,6 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
       const data = await response.json();
 
       if (response.ok) {
-        // Update the user in the store with the new data
         login(
           {
             ...user,
@@ -54,25 +50,22 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
                 .state?.token
             : ""
         );
-        showSuccess("Profile updated successfully");
+        showSuccess("Profile updated");
       } else {
         showError(data.error || "Failed to update profile");
       }
     } catch (error: any) {
-      console.error("[Profile] Error updating profile:", error);
       showError(error.message || "Failed to update profile");
     } finally {
       setIsProfileUpdating(false);
     }
   };
 
-  // Handle password change
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!user) return;
 
-    // Validate passwords
     if (newPassword !== confirmPassword) {
       showError("New passwords do not match");
       return;
@@ -101,17 +94,15 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
       const data = await response.json();
 
       if (response.ok) {
-        // Clear password fields
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
 
-        showSuccess("Password changed successfully");
+        showSuccess("Password changed");
       } else {
         showError(data.error || "Failed to change password");
       }
     } catch (error: any) {
-      console.error("[Profile] Error changing password:", error);
       showError(error.message || "Failed to change password");
     } finally {
       setIsPasswordChanging(false);
@@ -120,12 +111,11 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
 
   return (
     <>
-      {/* Profile Information */}
-      <div className="bg-gradient-to-br from-[#0A1020] to-[#0A1525] rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden flex-1">
+      <div className="bg-dark rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden flex-1">
         <div className="bg-gradient-to-r from-[#1A2C48]/90 to-[#0F182A]/90 p-5 border-b border-[#243147] backdrop-blur-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-500/20 p-2.5 rounded-full">
-              <HiOutlineMail className="w-5 h-5 text-blue-400" />
+            <div className="bg-slate-500/15 p-2.5 rounded-full">
+              <HiOutlineMail className="w-5 h-5 text-slate-300" />
             </div>
             <h2 className="text-xl font-semibold text-slate-100">
               Profile Information
@@ -140,14 +130,14 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
                   htmlFor="email"
                   className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
                 >
-                  <HiOutlineMail className="text-blue-400" />
+                  <HiOutlineMail className="text-slate-400" />
                   Email Address
                 </label>
                 <div className="relative">
                   <input
                     type="email"
                     id="email"
-                    className="w-full p-3 pl-10 rounded-lg bg-[#0F1D2F] border border-slate-700/60 text-slate-300 shadow-inner opacity-70 focus:outline-none"
+                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner opacity-70 outline-none focus:outline-none focus-visible:outline-none"
                     value={user?.email}
                     disabled
                   />
@@ -165,14 +155,14 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
                   htmlFor="fullName"
                   className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
                 >
-                  <MdPerson className="text-blue-400" />
+                  <MdPerson className="text-slate-400" />
                   Full Name
                 </label>
                 <div className="relative">
                   <input
                     type="text"
                     id="fullName"
-                    className="w-full p-3 pl-10 rounded-lg bg-[#0F1D2F] border border-slate-700/60 text-slate-300 shadow-inner focus:border-blue-600/80 focus:ring-2 focus:ring-blue-600/30 transition-all duration-200 focus:outline-none"
+                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                   />
@@ -184,42 +174,40 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
 
               <button
                 type="submit"
-                className="group relative bg-gradient-to-r from-blue-600 to-cyan-600 p-[1px] hover:from-blue-500 hover:to-cyan-500 text-white transition-all duration-300 rounded-md overflow-hidden w-full"
+                className="group inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg w-full
+                           bg-[#0A1525]/50 border border-blue-500/30 
+                   hover:border-blue-500/40 hover:bg-[#0A1525]/80
+                           outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0
+                           transition-all duration-100 cursor-pointer text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isProfileUpdating}
               >
-                <div className="relative bg-[#030712] rounded-md group-hover:bg-opacity-90 px-4 py-2 transition-all duration-300 flex items-center justify-center">
-                  {isProfileUpdating ? (
-                    <>
-                      <div className="h-4 w-4 rounded-full border-2 border-white/80 border-r-transparent animate-spin mr-2" />
-                      <span className="text-sm font-medium">
-                        Updating Profile...
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <HiOutlineRefresh
-                        className="h-4 w-4 mr-2"
-                        aria-hidden="true"
-                      />
-                      <span className="text-sm font-medium">
-                        Update Profile
-                      </span>
-                    </>
-                  )}
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
+                {isProfileUpdating ? (
+                  <>
+                    <div className="h-4 w-4 rounded-full border-2 border-white/80 border-r-transparent animate-spin" />
+                    <span className="text-sm font-medium">
+                      Updating Profile...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <HiOutlineRefresh
+                      className="h-4 w-4 text-blue-400/70 group-hover:text-blue-400"
+                      aria-hidden="true"
+                    />
+                    <span className="text-sm font-medium">Update Profile</span>
+                  </>
+                )}
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* Password Change */}
-      <div className="bg-gradient-to-br from-[#0A1020] to-[#0A1525] rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden">
+      <div className="bg-dark rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden">
         <div className="bg-gradient-to-r from-[#1A2C48]/90 to-[#0F182A]/90 p-5 border-b border-[#243147] backdrop-blur-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-500/20 p-2.5 rounded-full">
-              <HiOutlineKey className="w-5 h-5 text-blue-400" />
+            <div className="bg-slate-500/15 p-2.5 rounded-full">
+              <HiOutlineKey className="w-5 h-5 text-slate-300" />
             </div>
             <h2 className="text-xl font-semibold text-slate-100">
               Security Settings
@@ -234,14 +222,14 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
                   htmlFor="currentPassword"
                   className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
                 >
-                  <HiOutlineKey className="text-blue-400" />
+                  <HiOutlineKey className="text-slate-400" />
                   Current Password
                 </label>
                 <div className="relative">
                   <input
                     type="password"
                     id="currentPassword"
-                    className="w-full p-3 pl-10 rounded-lg bg-[#0F1D2F] border border-slate-700/60 text-slate-300 shadow-inner focus:border-blue-600/80 focus:ring-2 focus:ring-blue-600/30 transition-all duration-200 focus:outline-none"
+                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     required
@@ -257,14 +245,14 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
                   htmlFor="newPassword"
                   className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
                 >
-                  <HiOutlineKey className="text-blue-400" />
+                  <HiOutlineKey className="text-slate-400" />
                   New Password
                 </label>
                 <div className="relative">
                   <input
                     type="password"
                     id="newPassword"
-                    className="w-full p-3 pl-10 rounded-lg bg-[#0F1D2F] border border-slate-700/60 text-slate-300 shadow-inner focus:border-blue-600/80 focus:ring-2 focus:ring-blue-600/30 transition-all duration-200 focus:outline-none"
+                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     minLength={8}
@@ -274,10 +262,6 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
                     <MdLock className="text-slate-500" />
                   </div>
                 </div>
-                <p className="text-xs text-slate-500 mt-2 ml-1 flex items-center gap-1.5">
-                  <span className="h-1 w-1 rounded-full bg-blue-400"></span>
-                  Password must be at least 8 characters long
-                </p>
               </div>
 
               <div>
@@ -285,14 +269,14 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
                   htmlFor="confirmPassword"
                   className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
                 >
-                  <HiOutlineKey className="text-blue-400" />
+                  <HiOutlineKey className="text-slate-400" />
                   Confirm New Password
                 </label>
                 <div className="relative">
                   <input
                     type="password"
                     id="confirmPassword"
-                    className="w-full p-3 pl-10 rounded-lg bg-[#0F1D2F] border border-slate-700/60 text-slate-300 shadow-inner focus:border-blue-600/80 focus:ring-2 focus:ring-blue-600/30 transition-all duration-200 focus:outline-none"
+                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     minLength={8}
@@ -306,30 +290,29 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
 
               <button
                 type="submit"
-                className="group relative bg-gradient-to-r from-blue-600 to-cyan-600 p-[1px] hover:from-blue-500 hover:to-cyan-500 text-white transition-all duration-300 rounded-md overflow-hidden w-full"
+                className="group inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg w-full
+                           bg-[#0A1525]/50 border border-blue-500/30 
+                   hover:border-blue-500/40 hover:bg-[#0A1525]/80
+                           outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0
+                           transition-all duration-100 cursor-pointer text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isPasswordChanging}
               >
-                <div className="relative bg-[#030712] rounded-md group-hover:bg-opacity-90 px-4 py-2 transition-all duration-300 flex items-center justify-center">
-                  {isPasswordChanging ? (
-                    <>
-                      <div className="h-4 w-4 rounded-full border-2 border-white/80 border-r-transparent animate-spin mr-2" />
-                      <span className="text-sm font-medium">
-                        Changing Password...
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <HiOutlineKey
-                        className="h-4 w-4 mr-2"
-                        aria-hidden="true"
-                      />
-                      <span className="text-sm font-medium">
-                        Change Password
-                      </span>
-                    </>
-                  )}
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
+                {isPasswordChanging ? (
+                  <>
+                    <div className="h-4 w-4 rounded-full border-2 border-white/80 border-r-transparent animate-spin" />
+                    <span className="text-sm font-medium">
+                      Changing Password...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <HiOutlineKey
+                      className="h-4 w-4 text-blue-400/70 group-hover:text-blue-400"
+                      aria-hidden="true"
+                    />
+                    <span className="text-sm font-medium">Change Password</span>
+                  </>
+                )}
               </button>
             </div>
           </form>

@@ -1,13 +1,13 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LucideIcon } from "lucide-react";
+import React from "react";
 
 interface AuthInputProps {
   id: string;
   type: string;
   name: string;
   placeholder: string;
-  icon: LucideIcon;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
 }
 
 export const AuthInput: React.FC<AuthInputProps> = ({
@@ -31,7 +31,7 @@ export const AuthInput: React.FC<AuthInputProps> = ({
         name={name.toLowerCase()}
         placeholder={placeholder}
         required
-        className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 pl-12 pr-4 py-2 rounded-lg transition-all duration-200 autofill:bg-gray-900 autofill:text-white"
+        className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
       />
     </div>
   </div>

@@ -1,93 +1,198 @@
 import Image from "next/image";
+import React from "react";
 
-export default function Loader() {
+type Props = {
+  size?: number;
+  logoSrc?: string;
+  alt?: string;
+};
+
+export default function SphereLogoLoader({
+  size = 200,
+  logoSrc = "/logo_vector_transparent.png",
+  alt = "Skyflo.ai",
+}: Props) {
+  const px = `${size}px`;
+  const logo = Math.round(size * 0.45); // 45% of sphere
+
   return (
-    <div className="flex flex-col items-center justify-center gap-6">
-      {/* Animated spinner with logo */}
-      <div className="relative w-28 h-28 flex items-center justify-center">
-        {/* Outer spinning ring */}
-        <div className="absolute inset-0 border-4 border-slate-700/60 rounded-full"></div>
-        <div
-          className="absolute inset-0 border-4 border-t-blue-600 border-r-cyan-600 border-b-slate-700/40 border-l-slate-700/40 rounded-full animate-spin"
-          style={{ animationDuration: "2s" }}
-        ></div>
+    <div
+      className="loader-wrapper"
+      role="status"
+      aria-live="polite"
+      aria-label="Generating"
+      style={{ ["--size" as any]: px }}
+    >
+      <div className="sphere">
+        <div className="sweep" />
 
-        {/* Middle ring with reverse animation */}
-        <div className="absolute inset-[6px] border-4 border-slate-700/60 rounded-full"></div>
-        <div
-          className="absolute inset-[6px] border-4 border-b-blue-500 border-l-cyan-500 border-t-slate-700/40 border-r-slate-700/40 rounded-full animate-spin"
-          style={{ animationDuration: "3s", animationDirection: "reverse" }}
-        ></div>
+        <div className="gloss" />
+        <div className="vignette" aria-hidden="true" />
 
-        {/* Inner pulsing core with logo */}
-        <div
-          className="absolute inset-[14px] bg-gradient-to-br from-[#1A2C48]/90 to-[#0F182A]/90 rounded-full animate-pulse"
-          style={{ animationDuration: "1.5s" }}
-        ></div>
-        <div className="absolute inset-[14px] flex items-center justify-center">
+        <div className="logo">
           <Image
-            src="/logo_vector_transparent.png"
-            alt="Skyflo.ai"
-            width={40}
-            height={40}
-            className="rounded-full"
+            src={logoSrc}
+            alt={alt}
+            width={logo}
+            height={logo}
+            className="logo-img"
+            priority
           />
         </div>
+
+        <div className="noise" aria-hidden="true" />
       </div>
 
-      {/* Cycling text messages */}
-      <div className="h-6 overflow-hidden relative w-64 text-center">
-        <ul className="cycling-text text-blue-400 animate-cycling-text absolute w-full list-none m-0 p-0">
-          <li className="h-6 flex justify-center items-center">
-            Scanning environment
-          </li>
-          <li className="h-6 flex justify-center items-center">
-            Initializing neural pathways
-          </li>
-          <li className="h-6 flex justify-center items-center">
-            Connecting to the cluster
-          </li>
-          <li className="h-6 flex justify-center items-center">
-            Loading cloud interface
-          </li>
-          <li className="h-6 flex justify-center items-center">
-            Ready to assist
-          </li>
-        </ul>
-      </div>
+      <span className="sr-only">Loading</span>
 
-      {/* Add CSS for cycling text animation */}
-      <style jsx global>{`
-        @keyframes cycleText {
-          0%,
-          16% {
-            transform: translateY(0);
+      <style jsx>{`
+        :root {
+          --sf-ink: #070b12;
+          --sf-core: #0b1b2d;
+          --sf-glow: #0ea5e9;
+          --sf-accent: #38bdf8;
+          --sf-pink: #22d3ee;
+          --sf-white: #ffffff;
+          --size: 180px;
+        }
+
+        .loader-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: var(--size);
+          height: var(--size);
+          border-radius: 9999px;
+          user-select: none;
+          position: relative;
+          isolation: isolate;
+          background: transparent;
+        }
+
+        .sphere {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          overflow: hidden;
+          background:
+    /* highlight fleck — lower alpha */ radial-gradient(
+              110% 110% at 30% 25%,
+              rgba(255, 255, 255, 0.18) 0%,
+              rgba(255, 255, 255, 0.04) 18%,
+              transparent 22%
+            ),
+            /* main glow — lower alpha & slower falloff */
+              radial-gradient(
+                120% 120% at 50% 70%,
+                rgba(14, 165, 233, 0.48) 0%,
+                rgba(14, 165, 233, 0.32) 24%,
+                var(--sf-core) 62%,
+                rgba(0, 0, 0, 0.88) 100%
+              );
+          box-shadow: inset 0 0 60px rgba(14, 165, 233, 0.12),
+            0 20px 60px rgba(56, 189, 248, 0.08);
+        }
+
+        .sweep {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          will-change: transform;
+          animation: sweepRotate 2.4s linear infinite;
+          pointer-events: none;
+        }
+
+        @keyframes sweepRotate {
+          0% {
+            transform: rotate(90deg);
+            box-shadow: 0 10px 22px 0 rgba(255, 255, 255, 0.55) inset,
+              0 24px 34px 0 rgba(56, 189, 248, 0.45) inset,
+              0 64px 68px 0 rgba(30, 64, 175, 0.65) inset;
           }
-          16.6%,
-          33% {
-            transform: translateY(-24px);
-          }
-          33.6%,
           50% {
-            transform: translateY(-48px);
+            transform: rotate(270deg);
+            box-shadow: 0 10px 20px 0 rgba(255, 255, 255, 0.5) inset,
+              0 20px 14px 0 rgba(34, 211, 238, 0.45) inset,
+              0 42px 66px 0 rgba(9, 24, 54, 0.7) inset;
           }
-          50.6%,
-          66% {
-            transform: translateY(-72px);
-          }
-          66.6%,
-          83% {
-            transform: translateY(-96px);
-          }
-          83.6%,
           100% {
-            transform: translateY(-120px);
+            transform: rotate(450deg);
+            box-shadow: 0 10px 22px 0 rgba(255, 255, 255, 0.55) inset,
+              0 24px 34px 0 rgba(56, 189, 248, 0.45) inset,
+              0 64px 68px 0 rgba(30, 64, 175, 0.65) inset;
           }
         }
 
-        .animate-cycling-text {
-          animation: cycleText 3s infinite;
-          animation-timing-function: cubic-bezier(0.8, 0, 0.2, 1);
+        .gloss {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          background: radial-gradient(
+            65% 50% at 28% 20%,
+            rgba(255, 255, 255, 0.18) 0%,
+            rgba(255, 255, 255, 0.04) 40%,
+            transparent 60%
+          );
+          mix-blend-mode: screen;
+          pointer-events: none;
+        }
+
+        .vignette {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          pointer-events: none;
+          mix-blend-mode: multiply;
+          background: radial-gradient(
+            70% 70% at 50% 50%,
+            rgba(0, 0, 0, 0) 0%,
+            rgba(0, 0, 0, 0.06) 55%,
+            rgba(0, 0, 0, 0.14) 80%,
+            rgba(0, 0, 0, 0.2) 100%
+          );
+          z-index: 1;
+        }
+
+        .logo {
+          position: absolute;
+          inset: 0;
+          display: grid;
+          place-items: center;
+          z-index: 2;
+          filter: drop-shadow(0 1px 4px rgba(255, 255, 255, 0.15));
+        }
+
+        .logo-img {
+          border-radius: 12px;
+        }
+
+        .noise {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          opacity: 0.12; /* was 0.24 */
+          mix-blend-mode: overlay;
+          pointer-events: none;
+          background-size: 120px 120px;
+        }
+
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 1px, 1px);
+          white-space: nowrap;
+          border: 0;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .sweep {
+            animation: none !important;
+          }
         }
       `}</style>
     </div>

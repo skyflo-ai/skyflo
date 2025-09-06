@@ -1,6 +1,6 @@
 # Unleash Skyflo.ai
 
-Welcome to the future of cloud orchestration. This guide will help you deploy Skyflo.ai in minutes, whether you're experimenting locally or deploying in production.
+This guide will help you deploy Skyflo.ai in minutes, whether you're experimenting locally or deploying in production.
 
 ## Prerequisites
 
@@ -149,6 +149,13 @@ Your services are directly accessible through NodePorts:
 To remove Skyflo.ai and all its components:
 ```bash
 kubectl delete namespace skyflo-ai
+```
+
+or, if you are using a different namespace:
+
+```bash
+export VERSION=0.2.0 NAMESPACE=<namespace>
+envsubst < curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.yaml | kubectl delete -f -
 ```
 
 For local KinD cluster:

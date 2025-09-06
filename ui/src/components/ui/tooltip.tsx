@@ -41,7 +41,6 @@ export function TooltipTrigger({
     <button type="button">{children}</button>
   );
 
-  // Preserve original event handlers
   const child = trigger as React.ReactElement;
   const originalProps = child.props || {};
   const { onClick: originalOnClick } = originalProps;
@@ -64,7 +63,6 @@ export function TooltipTrigger({
       if (originalProps.onBlur) originalProps.onBlur(e);
     },
     onClick: (e: React.MouseEvent) => {
-      // Ensure click events are preserved and properly forwarded
       if (originalOnClick) {
         originalOnClick(e);
       }

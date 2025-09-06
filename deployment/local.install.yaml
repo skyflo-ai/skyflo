@@ -1,24 +1,17 @@
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: skyflo-ai
----
-apiVersion: v1
 kind: Secret
 metadata:
   name: skyflo-secrets
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 type: Opaque
 stringData:
-  # Major Cloud LLM Providers
+  # LLM Providers
   openai-api-key: ${OPENAI_API_KEY}
   anthropic-api-key: ${ANTHROPIC_API_KEY}
   azure-api-key: ${AZURE_API_KEY}
   gemini-api-key: ${GEMINI_API_KEY}
   cohere-api-key: ${COHERE_API_KEY}
   mistral-api-key: ${MISTRAL_API_KEY}
-
-  # Alternative LLM Providers
   groq-api-key: ${GROQ_API_KEY}
   anyscale-api-key: ${ANYSCALE_API_KEY}
   perplexity-api-key: ${PERPLEXITYAI_API_KEY}
@@ -31,8 +24,6 @@ stringData:
   jina-ai-api-key: ${JINAAI_API_KEY}
   alephalpha-api-key: ${ALEPHALPHA_API_KEY}
   voyage-api-key: ${VOYAGE_API_KEY}
-
-  # Enterprise & Research Providers
   databricks-token: ${DATABRICKS_TOKEN}
   clarifai-pat: ${CLARIFAI_PAT}
   baseten-api-key: ${BASETEN_API_KEY}
@@ -43,21 +34,20 @@ stringData:
   nvidia-nim-api-key: ${NVIDIA_NGC_API_KEY}
   xai-api-key: ${XAI_API_KEY}
   volcengine-api-key: ${VOLCENGINE_API_KEY}
-
-  # Infrastructure & Routing
   openrouter-api-key: ${OPENROUTER_API_KEY}
   huggingface-token: ${HF_TOKEN}
   bedrock-aws-access-key-id: ${AWS_ACCESS_KEY_ID}
   bedrock-aws-secret-access-key: ${AWS_SECRET_ACCESS_KEY}
   bedrock-aws-region-name: ${AWS_REGION_NAME}
-
-  # Self-hosted / On-premise
   ollama-api-key: ${OLLAMA_API_KEY}
 
   # System configuration
+  postgres-database-url: ${POSTGRES_DATABASE_URL}
+  redis-url: ${REDIS_URL}
+  mcp-server-url: ${MCP_SERVER_URL}
+  jwt-secret: ${JWT_SECRET}
   llm-host: ${LLM_HOST}
   llm-model: ${LLM_MODEL}
-  jwt-secret: ${JWT_SECRET}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -321,13 +311,13 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: skyflo-ai-controller
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: skyflo-ai-mcp
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -340,19 +330,19 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: skyflo-ai-mcp
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: skyflo-ai-controller
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: skyflo-ai-controller
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   replicas: 1
   selector:
@@ -411,7 +401,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: skyflo-ai-redis-headless
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   clusterIP: None
   ports:
@@ -426,7 +416,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: skyflo-ai-redis
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   serviceName: skyflo-ai-redis-headless
   replicas: 1
@@ -485,7 +475,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: skyflo-ai-redis
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   ports:
   - port: 6379
@@ -499,7 +489,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: skyflo-ai-postgres-headless
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   clusterIP: None
   ports:
@@ -514,7 +504,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: skyflo-ai-postgres
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   serviceName: skyflo-ai-postgres-headless
   replicas: 1
@@ -580,7 +570,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: skyflo-ai-postgres
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   ports:
   - port: 5432
@@ -594,7 +584,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: skyflo-ai-ui
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   replicas: 1
   selector:
@@ -647,7 +637,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: skyflo-ai-ui
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   ports:
   - port: 80
@@ -667,7 +657,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: skyflo-ai-engine
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   replicas: 1
   selector:
@@ -686,22 +676,6 @@ spec:
         - containerPort: 8080
           name: http
         env:
-        - name: SKYFLO_API_HOST
-          value: "0.0.0.0"
-        - name: SKYFLO_API_PORT
-          value: "8080"
-        - name: SKYFLO_LOG_LEVEL
-          value: "INFO"
-        - name: POSTGRES_USER
-          value: "skyflo"
-        - name: POSTGRES_PASSWORD
-          value: "skyflo" # In production, use a secret
-        - name: POSTGRES_DB
-          value: "skyflo"
-        - name: POSTGRES_HOST
-          value: "skyflo-ai-postgres"
-        - name: REDIS_HOST
-          value: "skyflo-ai-redis"
         - name: OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
@@ -906,6 +880,27 @@ spec:
               name: skyflo-secrets
               key: volcengine-api-key
               optional: true
+        - name: POSTGRES_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: postgres-database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: redis-url
+        - name: MCP_SERVER_URL
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: mcp-server-url
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-secrets
+              key: jwt-secret
+              optional: true
         - name: LLM_HOST
           valueFrom:
             secretKeyRef:
@@ -918,12 +913,6 @@ spec:
               name: skyflo-secrets
               key: llm-model
               optional: true
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: jwt-secret
-              optional: true
         resources:
           limits:
             cpu: 1000m
@@ -935,10 +924,10 @@ spec:
           httpGet:
             path: /api/v1/health
             port: http
-          initialDelaySeconds: 60 # to allow the database and api to start
-          timeoutSeconds: 5 # timeout after 5 seconds
-          periodSeconds: 5 # check every 5 seconds
-          failureThreshold: 3 # fail after 3 failures
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /api/v1/health
@@ -962,7 +951,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: skyflo-ai-engine
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   ports:
   - port: 8080
@@ -978,7 +967,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: skyflo-ai-mcp
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   replicas: 1
   selector:
@@ -1001,10 +990,10 @@ spec:
           httpGet:
             path: /mcp/v1/health
             port: http
-          initialDelaySeconds: 60 # to allow the database and api to start
-          timeoutSeconds: 5 # timeout after 5 seconds
-          periodSeconds: 5 # check every 5 seconds
-          failureThreshold: 3 # fail after 3 failures
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /mcp/v1/health
@@ -1035,7 +1024,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: skyflo-ai-mcp
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   ports:
   - port: 8081
@@ -1049,7 +1038,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: skyflo-ai-mcp-policy
-  namespace: skyflo-ai
+  namespace: ${NAMESPACE}
 spec:
   podSelector:
     matchLabels:
@@ -1063,4 +1052,4 @@ spec:
         matchLabels:
           app: skyflo-ai-engine
   egress:
-  - {} # This allows all egress traffic
+  - {}
