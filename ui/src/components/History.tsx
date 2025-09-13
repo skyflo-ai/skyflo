@@ -128,9 +128,10 @@ export default function History() {
     });
   };
 
-  const handleRenameSubmit = async (newTitle: string) => {
+  const handleRenameSubmit = async (formData: FormData) => {
     const { conversationId, currentTitle } = renameModal;
 
+    const newTitle = String(formData.get("title") || "");
     if (newTitle && newTitle !== currentTitle) {
       try {
         const response = await fetch(`/api/conversation/${conversationId}`, {
@@ -343,7 +344,7 @@ export default function History() {
                   <Link href={`/chat/${conversation.id}`} className="block">
                     <div
                       className="bg-blue-500/10 border border-[#1E2D45] 
-                   hover:border-blue-500/30 hover:bg-blue-500/15 rounded-lg border p-4 h-full transition-all duration-200 transform hover:-translate-y-0.5"
+                   hover:border-blue-500/30 hover:bg-blue-500/15 rounded-lg border p-4 h-full transition-all duration-200"
                     >
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="text-lg text-slate-200 truncate transition-colors flex-1 pr-2">
@@ -414,11 +415,23 @@ export default function History() {
         }
         onSubmit={handleRenameSubmit}
         title="Rename Chat"
-        label="Chat Title"
-        placeholder="Enter a new title for this conversation"
-        defaultValue={renameModal.currentTitle}
         submitText="Rename"
-      />
+      >
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Chat Title
+          </label>
+          <input
+            type="text"
+            name="title"
+            defaultValue={renameModal.currentTitle}
+            placeholder="Enter a new title for this conversation"
+            className="w-full p-3 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 placeholder-slate-400 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
+            autoFocus
+            required
+          />
+        </div>
+      </InputModal>
 
       <ConfirmModal
         isOpen={deleteModal.isOpen}

@@ -1,6 +1,6 @@
 # Architecture
 
-This document outlines the architecture of [skyflo.ai](https://skyflo.ai).
+[Skyflo.ai](https://skyflo.ai) is an AI co-pilot for Cloud & DevOps that unifies **Kubernetes operations and CI/CD systems (starting with Jenkins)** behind a natural-language interface. The [Engine](../engine) runs a LangGraph workflow with a **human-in-the-loop safety gate** for any changes, executes tools via the [MCP server](../mcp), and streams **sanitized, real-time SSE** updates to the [UI](../ui).
 
 ## Components
 
@@ -21,7 +21,7 @@ Core backend service that turns natural language into safe Cloud Native operatio
 MCP server that exposes standardized cloud-native tools for the Engine to execute.
 
    - Built with FastMCP; single entrypoint registers tools and metadata
-   - Tool categories: `kubectl`, `argo` (Rollouts), and `helm`
+   - Tool categories: `kubectl`, `argo` (Rollouts), `helm`, and `jenkins` (CI)
    - Safety checks, validation, and clear parameter docs (Pydantic)
    - Supports HTTP and SSE transports; automatic tool discovery and registration
    - Executes commands securely against cluster resources
@@ -82,6 +82,7 @@ Skyflo.ai employs a graph-based workflow powered by [LangGraph](https://github.c
 - **Optional Checkpointer**: Postgres-backed workflow resilience
 - **Progressive Delivery**: Argo Rollouts support
 - **Package Management**: Helm install/upgrade/rollback
+- **External Integrations**: Jenkins CI with secure credentials and integration-aware tools
 - **Terminal-style Output**: Live command output visualization
 
 ## Technical Stack

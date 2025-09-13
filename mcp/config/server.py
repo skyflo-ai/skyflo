@@ -22,3 +22,4 @@ mcp = FastMCP(
 from tools import kubectl
 from tools import helm
 from tools import argo
+from tools import jenkins

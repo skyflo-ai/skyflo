@@ -1,10 +1,13 @@
 """Shared command execution utilities for MCP tools."""
 
 import asyncio
+from typing import Optional
 from .types import ToolOutput
 
 
-async def run_command(cmd: str, args: list[str]) -> ToolOutput:
+async def run_command(
+    cmd: str, args: list[str], stdin: Optional[str] = None
+) -> ToolOutput:
     """Run a command and return its output with error status."""
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -12,8 +15,11 @@ async def run_command(cmd: str, args: list[str]) -> ToolOutput:
             *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            stdin=asyncio.subprocess.PIPE if stdin is not None else None,
         )
-        stdout, stderr = await proc.communicate()
+        stdout, stderr = await proc.communicate(
+            input=stdin.encode() if stdin is not None else None
+        )
 
         stdout_text = stdout.decode().strip()
         stderr_text = stderr.decode().strip()
@@ -24,7 +30,6 @@ async def run_command(cmd: str, args: list[str]) -> ToolOutput:
                 "error": True,
             }
 
-        # Return stdout if it has content, otherwise return stderr (for informational messages)
         if stdout_text:
             output_text = stdout_text
             error = False

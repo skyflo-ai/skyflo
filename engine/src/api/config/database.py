@@ -14,6 +14,7 @@ TORTOISE_ORM_CONFIG = {
             "models": [
                 "src.api.models.user",
                 "src.api.models.conversation",
+                "src.api.models.integration",
                 "aerich.models",
             ],
             "default_connection": "default",

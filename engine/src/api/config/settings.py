@@ -30,6 +30,8 @@ class Settings(BaseSettings):
 
     MCP_SERVER_URL: str = "http://127.0.0.1:8888"
 
+    INTEGRATIONS_SECRET_NAMESPACE: Optional[str] = Field(default="default")
+
     MAX_AUTO_CONTINUE_TURNS: int = 2
 
     LLM_MODEL: Optional[str] = Field(default="openai/gpt-4o", env="LLM_MODEL")

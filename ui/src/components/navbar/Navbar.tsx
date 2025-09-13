@@ -3,6 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { MdHistory, MdLogout, MdSettings, MdAdd } from "react-icons/md";
+import { FiLayers } from "react-icons/fi";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -30,7 +31,7 @@ export default function Navbar() {
 
   return (
     <nav className="h-screen w-16 bg-dark-navbar flex flex-col items-center py-4 px-8 border-r border-border">
-      <div className="w-10 h-10 rounded-full mb-8">
+      <div className="flex items-center justify-center w-10 h-10 rounded-full mb-8">
         <Image
           src="/logo_vector_transparent.png"
           alt="logo"
@@ -52,6 +53,12 @@ export default function Navbar() {
           tooltip="History"
           onClick={() => router.push("/history")}
           isActive={pathname === "/history"}
+        />
+        <NavIcon
+          icon={<FiLayers size={20} />}
+          tooltip="Integrations"
+          onClick={() => router.push("/integrations")}
+          isActive={pathname === "/integrations"}
         />
       </div>
 

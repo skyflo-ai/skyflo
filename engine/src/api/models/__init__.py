@@ -1,5 +1,6 @@
 from .user import User
 from .conversation import Conversation, Message
+from .integration import Integration
 
 from .user import UserCreate, UserRead, UserUpdate, UserDB
 from .conversation import (
@@ -9,11 +10,13 @@ from .conversation import (
     MessageCreate,
     MessageRead,
 )
+from .integration import IntegrationCreate, IntegrationRead, IntegrationUpdate
 
 __all__ = [
     "User",
     "Conversation",
     "Message",
+    "Integration",
     "UserCreate",
     "UserRead",
     "UserUpdate",
@@ -23,4 +26,7 @@ __all__ = [
     "ConversationUpdate",
     "MessageCreate",
     "MessageRead",
+    "IntegrationCreate",
+    "IntegrationRead",
+    "IntegrationUpdate",
 ]

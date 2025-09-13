@@ -13,7 +13,7 @@
 
 </div>
 
-Skyflo.ai is your AI co-pilot for Cloud Native operations, enabling seamless infrastructure management through natural language with a safety-first, human-in-the-loop design.
+Skyflo.ai is your AI co-pilot for Cloud & DevOps that unifies Kubernetes operations and CI/CD systems (starting with Jenkins) through natural language with a safety-first, human-in-the-loop design.
 
 ## How to Install
 
@@ -23,9 +23,20 @@ Skyflo.ai offers flexible deployment options, accommodating both production and 
 curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh -o install.sh && chmod +x install.sh && ./install.sh
 ```
 
-Skyflo can be configured to use different LLM providers (like Groq, Anthropic, Cohere, etc.), or even use a self-hosted model.
+Skyflo can be configured to use different LLM providers (like OpenAI, Anthropic, Gemini, Groq, etc.), or even use a self-hosted model.
 
 For more details, see the [Installation Guide](docs/install.md).
+
+## Supported Tools
+
+Skyflo.ai executes Cloud & DevOps operations through standardized tools and integrations:
+
+* **Kubernetes**: Resource discovery; get/describe; logs/exec; **safe apply/diff** flows.
+* **Argo Rollouts**: Inspect status; pause/resume; promote/cancel; analyze progressive delivery.
+* **Helm**: Search, install/upgrade/rollback with dry-run and diff-first safety.
+* **Jenkins (new)**: Jobs, builds, logs, SCM, identity—**secure auth & CSRF handling**, integration-aware tool filtering, and automatic parameter injection from configured credentials.
+
+Write/mutating operations require explicit approval from the user.
 
 ## Architecture
 
@@ -37,7 +48,7 @@ We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for deta
 
 ## Code of Conduct
 
-We have a [Code of Conduct](code_of_conduct.md) that we ask all contributors to follow.
+We have a [Code of Conduct](CODE_OF_CONDUCT.md) that we ask all contributors to follow.
 
 ## Community
 

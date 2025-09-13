@@ -6,8 +6,10 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 from .tools_cache import ToolsCache
 from .approvals import ApprovalService
 from .mcp_client import MCPClient
+from .integrations import IntegrationService
 from ..config import settings
 from ..utils.sanitization import mcp_tools_to_openai_format
+from ..integrations.jenkins import filter_jenkins_tools, inject_jenkins_metadata_tool_args
 from ..utils.clock import now_ms
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,9 @@ class ToolExecutor:
         self._owns_client: bool = owns_client if mcp_client is None else False
 
         self._tools = ToolsCache()
+        self._integrations = (
+            IntegrationService(mcp_client=self._mcp_client) if mcp_client else IntegrationService()
+        )
 
         if approvals:
             self.approvals = approvals
@@ -63,9 +68,60 @@ class ToolExecutor:
         self._mcp_client = None
         await self.approvals.close()
 
-    async def get_openai_compatible_tools(self) -> List[Dict[str, Any]]:
+    async def filter_integrations_tools(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        try:
+            jenkins_integration = await self._integrations.get_integration("jenkins")
+            jenkins_configured = jenkins_integration is not None
+            jenkins_status = jenkins_integration.status if jenkins_integration else None
+
+            tools = filter_jenkins_tools(
+                tools=tools, integration_status=jenkins_status, is_configured=jenkins_configured
+            )
+
+            return tools
+        except Exception as e:
+            logger.error(f"Error filtering integration tools: {e}")
+            return tools
+
+    async def inject_integration_tool_params(
+        self,
+        tool_name: str,
+        args: Dict[str, Any],
+        tool_metadata: Optional[Dict[str, Any]],
+        call_id: str,
+        tool_title: str,
+        run_id: str,
+    ) -> tuple[Dict[str, Any], Optional[List[Dict[str, Any]]]]:
+        jenkins_integration = await self._integrations.get_integration("jenkins")
+        args, jenkins_error = inject_jenkins_metadata_tool_args(
+            tool_name=tool_name,
+            args=args,
+            tool_metadata=tool_metadata,
+            integration=jenkins_integration,
+        )
+
+        if jenkins_error:
+            if self.sse_publish:
+                await self.sse_publish(
+                    {
+                        "type": "tool.error",
+                        "call_id": call_id,
+                        "tool": tool_name,
+                        "title": tool_title,
+                        "error": jenkins_error,
+                        "run_id": run_id,
+                        "timestamp": now_ms(),
+                    }
+                )
+            return args, [{"type": "text", "text": jenkins_error}]
+
+        return args, None
+
+    async def get_llm_compatible_tools(self) -> List[Dict[str, Any]]:
         try:
             all_tools = await self._tools.get_all(self._fetch_tools_from_server)
+
+            all_tools = await self.filter_integrations_tools(all_tools)
 
             return mcp_tools_to_openai_format({"tools": all_tools})
         except Exception as e:
@@ -98,6 +154,18 @@ class ToolExecutor:
         try:
             tool_metadata = await self._get_tool_metadata(name)
             tool_title = tool_metadata.get("title", name) if tool_metadata else name
+
+            args, integration_error = await self.inject_integration_tool_params(
+                tool_name=name,
+                args=args,
+                tool_metadata=tool_metadata,
+                call_id=call_id,
+                tool_title=tool_title,
+                run_id=run_id,
+            )
+
+            if integration_error is not None:
+                return integration_error
 
             validation_error = await self._validate_tool_parameters(name, args, tool_metadata)
             if validation_error:

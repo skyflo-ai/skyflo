@@ -1,6 +1,6 @@
 # Skyflo.ai UI
 
-The command center for the Skyflo.ai platform. It provides an intuitive and powerful interface for interacting with the Sky AI agent that manage Cloud Native resources through natural language.
+The command center for the Skyflo.ai platform. It provides an intuitive interface to interact with the Sky AI agent and manage Cloud Native resources and CI/CD (starting with Jenkins) through natural language, with real-time SSE updates and human-in-the-loop safety.
 
 ## How it fits with the backend
 
@@ -8,8 +8,8 @@ The command center for the Skyflo.ai platform. It provides an intuitive and powe
   - `POST /agent/chat` (SSE) for token/tool streaming
   - `POST /agent/approvals/{call_id}` (SSE) for approve/deny
   - `POST /agent/stop` for stopping a running turn
-  - Auth, Team, and Conversations endpoints
-- MCP server provides tool execution capabilities (kubectl, helm, argo) used by the Engine. The UI does not talk to MCP directly.
+  - Auth, Team, Integrations, and Conversations endpoints
+- MCP server provides tool execution capabilities (kubectl, helm, argo, jenkins) used by the Engine. The UI does not talk to MCP directly.
 
 The UI communicates with the Engine in two ways:
 - Client-side streaming via SSE to `NEXT_PUBLIC_API_URL/agent/*` using `ChatService`.
@@ -25,6 +25,7 @@ ui/
 │   │   ├── login/page.tsx         # Auth UI
 │   │   ├── chat/[id]/page.tsx     # Conversation view
 │   │   ├── history/page.tsx       # History view
+│   │   ├── integrations/page.tsx  # Integrations admin (admin only)
 │   │   ├── settings/page.tsx      # Profile/Password
 │   │   └── api/                   # BFF routes (proxy to Engine)
 │   │       ├── conversation/      # list/create and by id CRUD
@@ -131,6 +132,7 @@ yarn start
 - `GET /api/auth/me` and `GET /api/auth/admin-check`
 - `PATCH/POST /api/profile` → profile update / password change
 - `GET/POST/PATCH/DELETE /api/team` → members, roles, invitations (admin)
+- `GET/POST /api/integrations` and `PATCH/DELETE /api/integrations/[id]` → integrations admin (admin)
 
 ## Tech stack
 

@@ -16,8 +16,9 @@ authors = [
 
 dependencies = [
     "mcp>=1.5.0",
-    "fastmcp",
     "pydantic>=2.10.6",
+    "httpx>=0.28.1",
+    "fastmcp>=2.12.3",
 ]
 
 [project.optional-dependencies]
