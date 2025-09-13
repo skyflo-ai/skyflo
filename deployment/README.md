@@ -11,7 +11,7 @@
 ## Setup KinD Cluster
 
 ```bash
-kind create cluster --name skyflo_ai --config local.kind.yml
+kind create cluster --name skyflo-ai --config deployment/local.kind.yaml
 ```
 
 ## Build the Docker Images
@@ -35,15 +35,15 @@ docker buildx build -f deployment/ui/proxy.Dockerfile -t skyfloaiagent/proxy:lat
 
 ## Load the built images into the KinD cluster
 ```bash
-kind load docker-image --name skyflo_ai skyfloaiagent/ui:latest
+kind load docker-image --name skyflo-ai skyfloaiagent/ui:latest
 
-kind load docker-image --name skyflo_ai skyfloaiagent/engine:latest
+kind load docker-image --name skyflo-ai skyfloaiagent/engine:latest
 
-kind load docker-image --name skyflo_ai skyfloaiagent/mcp:latest
+kind load docker-image --name skyflo-ai skyfloaiagent/mcp:latest
 
-kind load docker-image --name skyflo_ai skyfloaiagent/controller:latest
+kind load docker-image --name skyflo-ai skyfloaiagent/controller:latest
 
-kind load docker-image --name skyflo_ai skyfloaiagent/proxy:latest
+kind load docker-image --name skyflo-ai skyfloaiagent/proxy:latest
 ```
 
 ## Install the Controller and Resources

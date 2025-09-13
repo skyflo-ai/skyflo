@@ -73,7 +73,7 @@ class WorkflowGraph:
         )
         self.model_node = ModelNode(
             event_callback=self.event_callback,
-            tools_provider=self.tool_executor.get_openai_compatible_tools,
+            tools_provider=self.tool_executor.get_llm_compatible_tools,
         )
         self.graph = self._build_graph()
         self.compiled_graph = None

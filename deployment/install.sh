@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="v0.2.0"
+VERSION="v0.3.0"
 
 export VERSION
 
@@ -202,10 +202,15 @@ set_runtime_defaults() {
         print_colored "yellow" "ℹ Using default MCP server URL"
     fi
 
+    if [ -z "$INTEGRATIONS_SECRET_NAMESPACE" ]; then
+        INTEGRATIONS_SECRET_NAMESPACE="$NAMESPACE"
+    fi
+
     export JWT_SECRET
     export POSTGRES_DATABASE_URL
     export REDIS_URL
     export MCP_SERVER_URL
+    export INTEGRATIONS_SECRET_NAMESPACE
 }
 
 setup_kind_cluster_if_needed() {

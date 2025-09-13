@@ -1,8 +1,6 @@
 """Kubernetes tools implementation for MCP server."""
 
 import asyncio
-import tempfile
-import os
 from typing import Optional
 from pydantic import Field
 
@@ -11,10 +9,10 @@ from utils.commands import run_command
 from utils.types import ToolOutput
 
 
-async def run_kubectl_command(command: str) -> ToolOutput:
+async def run_kubectl_command(command: str, stdin: Optional[str] = None) -> ToolOutput:
     """Run a kubectl command and return its output."""
     cmd_parts = [part for part in command.split(" ") if part]
-    return await run_command("kubectl", cmd_parts)
+    return await run_command("kubectl", cmd_parts, stdin=stdin)
 
 
 @mcp.tool(
@@ -89,51 +87,17 @@ async def k8s_describe(
 
 
 @mcp.tool(
-    title="Create Kubernetes Manifest File",
-    tags=["k8s"],
-    annotations={"readOnlyHint": False},
-)
-async def k8s_manifest_write(
-    content: str = Field(description="The YAML manifest content"),
-    name: str = Field(description="The name of the manifest file"),
-) -> ToolOutput:
-    """Create a Kubernetes manifest file."""
-    try:
-        # Ensure the manifests directory exists
-        manifests_dir = os.path.join(tempfile.gettempdir(), "skyflo", "manifests")
-        os.makedirs(manifests_dir, exist_ok=True)
-
-        # Ensure manifest name ends with .yaml or .yml
-        if not name.endswith((".yaml", ".yml")):
-            name += ".yaml"
-
-        # Create full file path
-        file_path = os.path.join(manifests_dir, name)
-
-        # Write manifest to file
-        with open(file_path, "w") as f:
-            f.write(content)
-
-        return {"output": file_path, "error": False}
-    except Exception as e:
-        return {"output": f"Error creating manifest: {str(e)}", "error": True}
-
-
-@mcp.tool(
     title="Apply Kubernetes Manifest", tags=["k8s"], annotations={"readOnlyHint": False}
 )
 async def k8s_apply(
-    file_path: str = Field(description="The path to the manifest file to apply"),
+    content: str = Field(description="The YAML manifest content to apply"),
     namespace: Optional[str] = Field(
         default=None, description="The namespace to apply the manifest to"
     ),
 ) -> ToolOutput:
-    """Apply a Kubernetes manifest file."""
-    manifest_path = os.path.join(
-        tempfile.gettempdir(), "skyflo", "manifests", file_path
-    )
+    """Apply a Kubernetes manifest from provided YAML content."""
     return await run_kubectl_command(
-        f"apply -f {manifest_path} {f'-n {namespace}' if namespace else ''}"
+        f"apply -f - {f'-n {namespace}' if namespace else ''}", stdin=content
     )
 
 

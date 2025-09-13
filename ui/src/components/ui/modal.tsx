@@ -86,6 +86,7 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   variant?: "danger" | "default";
+  size?: "sm" | "md" | "lg";
 }
 
 export function ConfirmModal({
@@ -97,6 +98,7 @@ export function ConfirmModal({
   confirmText = "Confirm",
   cancelText = "Cancel",
   variant = "default",
+  size = "sm",
 }: ConfirmModalProps) {
   const handleConfirm = () => {
     onConfirm();
@@ -109,7 +111,7 @@ export function ConfirmModal({
       : "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400";
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
+    <Modal isOpen={isOpen} onClose={onClose} title={title} size={size}>
       <div className="space-y-6">
         <p className="text-slate-300">{message}</p>
 
@@ -135,13 +137,12 @@ export function ConfirmModal({
 interface InputModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (value: string) => void;
+  onSubmit: (formData: FormData) => void;
   title: string;
-  label: string;
-  placeholder?: string;
-  defaultValue?: string;
+  children: React.ReactNode;
   submitText?: string;
   cancelText?: string;
+  size?: "sm" | "md" | "lg";
 }
 
 export function InputModal({
@@ -149,50 +150,22 @@ export function InputModal({
   onClose,
   onSubmit,
   title,
-  label,
-  placeholder,
-  defaultValue = "",
+  children,
   submitText = "Save",
   cancelText = "Cancel",
+  size = "sm",
 }: InputModalProps) {
-  const [value, setValue] = React.useState(defaultValue);
-
-  useEffect(() => {
-    setValue(defaultValue);
-  }, [defaultValue, isOpen]);
-
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (value.trim()) {
-      onSubmit(value.trim());
-      onClose();
-    }
-  };
-
-  const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      handleSubmit(event);
-    }
+    const formData = new FormData(event.currentTarget);
+    onSubmit(formData);
+    onClose();
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
+    <Modal isOpen={isOpen} onClose={onClose} title={title} size={size}>
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            {label}
-          </label>
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            className="w-full p-3 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 placeholder-slate-400 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
-            autoFocus
-          />
-        </div>
+        {children}
 
         <div className="flex justify-end gap-3">
           <button
@@ -204,8 +177,7 @@ export function InputModal({
           </button>
           <button
             type="submit"
-            disabled={!value.trim()}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-500/20 hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors"
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-500/20 hover:bg-blue-500/30 rounded-md transition-colors"
           >
             {submitText}
           </button>

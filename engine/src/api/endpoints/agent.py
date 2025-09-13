@@ -21,6 +21,7 @@ from ..config import settings
 from .conversation import check_conversation_authorization
 from ..services.stop_service import request_stop, clear_stop
 from ..services.title_generator import generate_and_store_title
+from ..integrations.jenkins import strip_jenkins_metadata_tool_args
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +41,25 @@ def sse_format(event: str, data: Dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def strip_integration_meta_keys(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(payload, dict):
+        return payload
+
+    sanitized = dict(payload)
+    if "args" in sanitized:
+        sanitized["args"] = strip_jenkins_metadata_tool_args(sanitized.get("args", {}))
+    if "tools" in sanitized:
+        sanitized["tools"] = [
+            strip_jenkins_metadata_tool_args(tool) for tool in sanitized.get("tools", [])
+        ]
+    return sanitized
+
+
 async def publish_event(channel: str, event: str, payload: Dict[str, Any]):
     r = await get_redis_client()
     try:
-        await r.publish(channel, sse_format(event, payload))
+        sanitized_payload = strip_integration_meta_keys(payload)
+        await r.publish(channel, sse_format(event, sanitized_payload))
     except Exception as e:
         logger.error(f"Error publishing to Redis channel {channel}: {str(e)}")
 

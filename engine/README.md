@@ -1,12 +1,12 @@
 # Skyflo.ai Engine Service
 
-The Skyflo.ai Engine is the backend intelligence layer that connects with the UI and the MCP server, turning natural language queries into safe Cloud Native operations with a human-in-the-loop workflow.
+The Skyflo.ai Engine is the backend intelligence layer that connects the [UI](../ui) and the [MCP server](../mcp) to turn natural-language requests into **safe Cloud & DevOps operations** across Kubernetes and CI/CD systems, with a human-in-the-loop workflow.
 
 ## Architecture
 
 The Engine follows a layered structure under `src/api`:
 
-- `endpoints/`: FastAPI routers for agent chat/approvals/stop, conversations, auth, team, and health
+- `endpoints/`: FastAPI routers for agent chat/approvals/stop, conversations, auth, team, integrations, and health
 - `services/`: Business logic (MCP client, tool execution, approvals, rate limiting, titles, persistence)
 - `agent/`: LangGraph workflow
 - `config/`: Settings, database, and rate-limit configuration
@@ -46,6 +46,7 @@ All workflow events stream over SSE from `/api/v1/agent/chat` and `/api/v1/agent
 - Conversation CRUD with persisted message timeline and title generation
 - Rate limiting via Redis (fastapi-limiter)
 - Optional Postgres checkpointer for resilient workflow state
+- Integrations admin (CRUD) with secure credential storage (Kubernetes Secret)
 
 ## Installation
 
@@ -122,6 +123,7 @@ Base path: `/api/v1`
   - `GET /auth/me`, `PATCH /auth/me`
   - `PATCH /auth/users/me/password`
 - Team admin (`/team/*`): members list/add/update/remove (requires admin)
+ - Integrations (`/integrations/*`): list/create/update/delete (admin only)
 
 ### SSE chat example
 
@@ -151,6 +153,7 @@ Defined in `src/api/config/settings.py` (Pydantic Settings, `.env` loaded). Key 
 - Redis & Rate limit: `REDIS_URL`, `RATE_LIMITING_ENABLED`, `RATE_LIMIT_PER_MINUTE`
 - Auth: `JWT_SECRET`, `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`
 - MCP: `MCP_SERVER_URL`
+ - Integrations: `INTEGRATIONS_SECRET_NAMESPACE` (default `default`)
 - Workflow: `MAX_AUTO_CONTINUE_TURNS`, `LLM_MAX_ITERATIONS`, `LLM_TEMPERATURE`
 - LLM: `LLM_MODEL` (e.g. `openai/gpt-4o`), `LLM_HOST` (optional), provider API key envs like `OPENAI_API_KEY`
 
@@ -162,9 +165,9 @@ engine/
 │   └── api/
 │       ├── agent/          # LangGraph workflow (graph, model node, state, prompts)
 │       ├── config/         # Settings, DB, rate limiting
-│       ├── endpoints/      # FastAPI routers (agent, auth, conversations, team, health)
+│       ├── endpoints/      # FastAPI routers (agent, auth, conversations, team, integrations, health)
 │       ├── middleware/     # CORS, logging
-│       ├── models/         # Tortoise ORM models (User, Conversation, Message)
+│       ├── models/         # Tortoise ORM models (User, Conversation, Message, Integration)
 │       ├── schemas/        # Pydantic schemas (team)
 │       ├── services/       # MCP client, tool executor, approvals, limiter, persistence, titles
 │       └── utils/          # Helpers, sanitization, time

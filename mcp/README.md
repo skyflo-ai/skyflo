@@ -1,6 +1,6 @@
 # MCP Server for Skyflo.ai
 
-This is the MCP server for Skyflo.ai. It is a specialized infrastructure tools MCP server that enables natural language interactions with Kubernetes clusters through standardized interfaces for kubectl, Argo Rollouts, and Helm operations. It provides a unified FastMCP server that exposes cloud-native tools for the engine service of Skyflo.ai.
+This is the MCP server for Skyflo.ai. It unifies Kubernetes (kubectl, Argo Rollouts, Helm) and CI/CD systems (starting with Jenkins) behind a FastMCP server, enabling natural-language execution by the [Engine](../engine) with integration-aware tool discovery, and secure credential resolution over HTTP or SSE.
 
 ## Architecture
 
@@ -11,7 +11,7 @@ The MCP Server is built using FastMCP:
 The FastMCP server serves as the core tool execution engine:
 
 - Single entrypoint through `server.py` 
-- Registers standardized tool definitions for kubectl, argo rollouts, and helm
+- Registers standardized tool definitions for kubectl, argo rollouts, helm, and jenkins
 - Implements safety mechanisms and validation checks
 - Handles both synchronous and asynchronous operations
 - Supports comprehensive tool documentation and metadata
@@ -25,6 +25,7 @@ The FastMCP server serves as the core tool execution engine:
 1. `kubectl` - Kubernetes tools: [/tools/kubectl.py](tools/kubectl.py)
 2. `argo` - Argo Rollouts tools: [/tools/argo.py](tools/argo.py)
 3. `helm` - Helm tools: [/tools/helm.py](tools/helm.py)
+4. `jenkins` - Jenkins tools: [/tools/jenkins.py](tools/jenkins.py)
 
 ## Installation
 
@@ -85,8 +86,9 @@ mcp/
 │   ├── __init__.py          # Package initialization
 │   ├── kubectl.py           # Kubernetes tools
 │   ├── argo.py              # Argo Rollouts tools
-│   └── helm.py              # Helm tools
-├── server.py                # FastMCP server entrypoint
+│   ├── helm.py              # Helm tools
+│   └── jenkins.py           # Jenkins tools
+├── config/server.py         # FastMCP server entrypoint
 ├── __about__.py             # Version information
 ├── pyproject.toml           # Project dependencies
 └── README.md                # Documentation
