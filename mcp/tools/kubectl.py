@@ -346,3 +346,120 @@ async def k8s_port_forward(
     return await run_kubectl_command(
         f"port-forward {resource_spec} {ports} {f'-n {namespace}' if namespace else ''}"
     )
+
+def build_kubectl_top_args(
+    resource_type: str,
+    name: Optional[str] = None,
+    namespace: Optional[str] = None,
+    all_namespaces: Optional[bool] = None,
+    containers: Optional[bool] = None,
+    label_selector: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    no_headers: Optional[bool] = None,
+) -> list[str]:
+    """Build kubectl top command arguments from parameters."""
+    args = ["top", resource_type]
+    
+    if name:
+        args.append(name)
+    
+    if all_namespaces:
+        args.append("-A")
+    elif namespace:
+        args.extend(["-n", namespace])
+    
+    if containers:
+        args.append("--containers")
+    
+    if no_headers:
+        args.append("--no-headers")
+    
+    if label_selector:
+        args.extend(["-l", label_selector])
+    
+    if sort_by:
+        if sort_by not in ["cpu", "memory"]:
+            raise ValueError(f"sort_by must be 'cpu' or 'memory', got: {sort_by}")
+        args.extend(["--sort-by", sort_by])
+    
+    return args
+
+
+@mcp.tool(
+    title="Get Kubernetes Pod Resource Usage",
+    tags=["k8s", "metrics"],
+    annotations={"readOnlyHint": True},
+)
+async def k8s_top_pods(
+    pod_name: Optional[str] = Field(
+        default=None, description="The name of the pod to get metrics for"
+    ),
+    namespace: Optional[str] = Field(
+        default=None, description="The namespace of the pod"
+    ),
+    all_namespaces: Optional[bool] = Field(
+        default=False, description="Whether to get metrics from all namespaces"
+    ),
+    containers: Optional[bool] = Field(
+        default=False, description="Whether to show container-level metrics"
+    ),
+    label_selector: Optional[str] = Field(
+        default=None, description="Label selector to filter pods"
+    ),
+    sort_by: Optional[str] = Field(
+        default=None, description="Sort by 'cpu' or 'memory'"
+    ),
+    no_headers: Optional[bool] = Field(
+        default=False, description="Whether to hide column headers"
+    ),
+) -> ToolOutput:
+    """Get resource usage metrics for Kubernetes pods."""
+    if namespace and all_namespaces:
+        raise ValueError("namespace and all_namespaces are mutually exclusive")
+    
+    args = build_kubectl_top_args(
+        resource_type="pods",
+        name=pod_name,
+        namespace=namespace,
+        all_namespaces=all_namespaces,
+        containers=containers,
+        label_selector=label_selector,
+        sort_by=sort_by,
+        no_headers=no_headers,
+    )
+
+    return await run_command("kubectl", args)
+
+
+@mcp.tool(
+    title="Get Kubernetes Node Resource Usage",
+    tags=["k8s", "metrics"],
+    annotations={"readOnlyHint": True},
+)
+async def k8s_top_nodes(
+    node_name: Optional[str] = Field(
+        default=None, description="The name of the node to get metrics for"
+    ),
+    sort_by: Optional[str] = Field(
+        default=None, description="Sort by 'cpu' or 'memory'"
+    ),
+    label_selector: Optional[str] = Field(
+        default=None, description="Label selector to filter nodes"
+    ),
+    no_headers: Optional[bool] = Field(
+        default=False, description="Whether to hide column headers"
+    ),
+) -> ToolOutput:
+    """Get resource usage metrics for Kubernetes nodes."""
+    if node_name and label_selector:
+        raise ValueError("node_name and label_selector are mutually exclusive")
+    
+    args = build_kubectl_top_args(
+        resource_type="nodes",
+        name=node_name,
+        sort_by=sort_by,
+        label_selector=label_selector,
+        no_headers=no_headers,
+    )
+
+    return await run_command("kubectl", args)
