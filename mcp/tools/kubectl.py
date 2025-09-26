@@ -26,11 +26,35 @@ async def k8s_logs(
     num_lines: Optional[int] = Field(
         default=50, description="The number of lines to get from the logs"
     ),
+    container: Optional[str] = Field(
+        default=None, description="The name of the container to get logs from (if pod has multiple containers)"
+    ),
+    since: Optional[str] = Field(
+        default=None, description="Only return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to all logs"
+    ),
+    previous: Optional[bool] = Field(
+        default=False, description="If true, print the logs for the previous instance of the container in a pod if it exists"
+    ),
 ) -> ToolOutput:
     """Get logs from a Kubernetes pod."""
-    return await run_kubectl_command(
-        f"logs {pod_name} {f'-n {namespace}' if namespace else ''} --tail {num_lines}"
-    )
+    cmd_parts = ["logs", pod_name]
+
+    if namespace:
+        cmd_parts.extend(["-n", namespace])
+
+    if container:
+        cmd_parts.extend(["-c", container])
+
+    if since:
+        cmd_parts.extend(["--since", since])
+
+    if previous:
+        cmd_parts.append("--previous")
+
+    if num_lines is not None:
+        cmd_parts.extend(["--tail", str(num_lines)])
+
+    return await run_command("kubectl", cmd_parts)
 
 
 @mcp.tool(
