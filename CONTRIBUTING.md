@@ -4,7 +4,7 @@ Thank you for considering contributing to Skyflo.ai! This document provides guid
 
 We are committed to providing a friendly, safe, and welcoming environment for all contributors. Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-We highly recommend reading our [Architecture Guide](ARCHITECTURE.md) if you'd like to contribute! The repo is not as intimidating as it first seems if you read the guide!
+We highly recommend reading our [Architecture Guide](docs/architecture.md) if you'd like to contribute! The repo is not as intimidating as it first seems if you read the guide!
 
 ## Quick Start
 
