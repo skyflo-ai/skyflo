@@ -77,6 +77,9 @@ async def k8s_get(
     output: Optional[str] = Field(
         default=None, description="Output format (wide, yaml, json)"
     ),
+    label_selector: Optional[str] = Field(
+        default=None, description="Label selector to filter resources (e.g., 'app=nginx' or 'tier=frontend,environment=production')"
+    ),
 ) -> ToolOutput:
     """Get information about Kubernetes resources."""
     if not resource_type:
@@ -86,7 +89,7 @@ async def k8s_get(
         all_namespaces = False
 
     return await run_kubectl_command(
-        f"get {resource_type} {name if name else ''} {'-n ' + namespace + ' ' if namespace else ''}{'-o ' + output if output else ''} {'-A' if all_namespaces else ''}"
+        f"get {resource_type} {name if name else ''} {'-n ' + namespace + ' ' if namespace else ''}{'-o ' + output if output else ''} {'-A' if all_namespaces else ''} {'-l ' + label_selector if label_selector else ''}"
     )
 
 
