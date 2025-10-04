@@ -318,3 +318,50 @@ async def helm_search_repo(
     if max_col_width:
         cmd += f" --max-col-width {max_col_width}"
     return await run_helm_command(cmd)
+
+
+@mcp.tool(
+    title="Render Helm Template", tags=["helm"], annotations={"readOnlyHint": True}
+)
+async def helm_template(
+    release_name: str = Field(description="The name for the Helm release"),
+    chart: str = Field(description="The Helm chart to render"),
+    namespace: Optional[str] = Field(
+        default=None, description="The namespace to render the template for"
+    ),
+    values: Optional[str] = Field(
+        default=None, description="YAML values content to use for rendering"
+    ),
+    include_crds: Optional[bool] = Field(
+        default=False, description="Include CRDs in the rendered output"
+    ),
+) -> ToolOutput:
+    """Render Helm chart templates without installing to preview manifests."""
+    cmd = f"template {release_name} {chart}"
+    
+    if namespace:
+        cmd += f" -n {namespace}"
+    
+    if include_crds:
+        cmd += " --include-crds"
+    
+    if values:
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+                f.write(values)
+                values_file = f.name
+
+            cmd += f" -f {values_file}"
+            result = await run_helm_command(cmd)
+
+            os.unlink(values_file)
+            return result
+        except Exception as e:
+            if "values_file" in locals():
+                try:
+                    os.unlink(values_file)
+                except:
+                    pass
+            return {"output": f"Error rendering Helm template: {str(e)}", "error": True}
+    else:
+        return await run_helm_command(cmd)
