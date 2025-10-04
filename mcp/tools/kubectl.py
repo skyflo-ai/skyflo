@@ -86,7 +86,7 @@ async def k8s_get(
         all_namespaces = False
 
     return await run_kubectl_command(
-        f"get {resource_type} {name if name else ''} {'-n ' + namespace + ' ' if namespace else ''}{'-o ' + output if output else ''} {'-A' if all_namespaces else ''}"
+        f"get {resource_type} {name if name else ''} {'-n ' + namespace if namespace else ''}{'-o ' + output if output else ''} {'-A' if all_namespaces else ''}"
     )
 
 
@@ -196,7 +196,7 @@ async def k8s_scale(
 ) -> ToolOutput:
     """Scale a Kubernetes resource."""
     return await run_kubectl_command(
-        f"scale {resource_type}/{name} --replicas={replicas} {f'-n {namespace} ' if namespace else ''}"
+        f"scale {resource_type}/{name} --replicas={replicas} {f'-n {namespace}' if namespace else ''}"
     )
 
 
