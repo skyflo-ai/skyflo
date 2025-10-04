@@ -8,8 +8,10 @@ export async function GET(request: NextRequest) {
     const url = new URL(`${process.env.API_URL}/conversations`);
     const limit = request.nextUrl.searchParams.get("limit");
     const cursor = request.nextUrl.searchParams.get("cursor");
+    const query = request.nextUrl.searchParams.get("query");
     if (limit) url.searchParams.set("limit", limit);
     if (cursor) url.searchParams.set("cursor", cursor);
+    if (query) url.searchParams.set("query", query);
 
     const response = await fetch(url.toString(), {
       method: "GET",
