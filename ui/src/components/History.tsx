@@ -68,8 +68,8 @@ export default function History() {
             )}`
           : `/api/conversation?limit=${limit}`;
 
-        // Append search term if provided and has at least 3 characters
-        if (normalizedSearchTerm.length > 2) {
+        // Append search term if provided and has at least 2 characters
+        if (normalizedSearchTerm.length >= 2) {
           url = url.concat(
             `&query=${encodeURIComponent(normalizedSearchTerm)}`
           );
@@ -286,7 +286,7 @@ export default function History() {
     // 1. Initial search
     // 2. Search if query is reset
     // 3. Search if query has at least 3 characters
-    if (cleanedSearchTerm.length === 0 || cleanedSearchTerm.length > 2) {
+    if (cleanedSearchTerm.length === 0 || cleanedSearchTerm.length >= 2) {
       debouncedSearch(cleanedSearchTerm);
     }
   }, [searchQuery, debouncedSearch]);
