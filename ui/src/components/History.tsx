@@ -59,7 +59,7 @@ export default function History() {
 
       setLoading(true);
 
-      const limit = 10;
+      const limit = 25;
 
       try {
         let url = nextCursor
