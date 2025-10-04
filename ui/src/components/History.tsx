@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmModal, InputModal } from "@/components/ui/modal";
@@ -20,12 +14,19 @@ import {
   MdSearch,
   MdRefresh,
 } from "react-icons/md";
+import { useDebouncedFunction } from "@/lib/debounce";
 
 interface Conversation {
   id: string;
   title: string;
   created_at: string;
   updated_at: string;
+}
+
+interface ConversationFetchOptions {
+  searchTerm?: string;
+  nextCursor?: string | null;
+  shouldReset?: boolean;
 }
 
 export default function History() {
@@ -46,60 +47,100 @@ export default function History() {
     title: string;
   }>({ isOpen: false, conversationId: "", title: "" });
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const fetchConversationsRef = useRef<() => void>();
+  const fetchConversationsRef = useRef<
+    ((ops: ConversationFetchOptions) => Promise<void>) | null
+  >(null);
+  const activeSearchTermRef = useRef("");
 
-  const fetchConversations = useCallback(async () => {
-    if (loading || !hasMore) return;
-    setLoading(true);
+  const fetchConversations = useCallback(
+    async (ops: ConversationFetchOptions) => {
+      const { searchTerm = "", nextCursor, shouldReset = false } = ops || {};
+      const normalizedSearchTerm = searchTerm.trim();
 
-    const limit = 25;
+      setLoading(true);
 
-    try {
-      const url = nextCursor
-        ? `/api/conversation?limit=${limit}&cursor=${encodeURIComponent(
-            nextCursor
-          )}`
-        : `/api/conversation?limit=${limit}`;
+      const limit = 25;
 
-      const response = await fetch(url);
-      const data = await response.json();
+      try {
+        let url = nextCursor
+          ? `/api/conversation?limit=${limit}&cursor=${encodeURIComponent(
+              nextCursor
+            )}`
+          : `/api/conversation?limit=${limit}`;
 
-      if (
-        response.ok &&
-        data.status === "success" &&
-        Array.isArray(data.data)
-      ) {
-        setConversations((prev) => {
-          const existingIds = new Set(prev.map((conv) => conv.id));
-          const newConversations = data.data.filter(
-            (conv: Conversation) => !existingIds.has(conv.id)
+        // Append search term if provided and has at least 2 characters
+        if (normalizedSearchTerm.length >= 2) {
+          url = url.concat(
+            `&query=${encodeURIComponent(normalizedSearchTerm)}`
           );
-          return [...prev, ...newConversations];
-        });
-        setNextCursor(data.pagination?.next_cursor ?? null);
-        setHasMore(Boolean(data.pagination?.has_more));
-      } else {
-        showError("Failed to load your chat history.");
-      }
-    } catch (error) {
-      showError("Failed to load your chat history.");
-    } finally {
-      setLoading(false);
-    }
-  }, [hasMore, loading, nextCursor]);
+        }
 
-  useEffect(() => {
-    fetchConversationsRef.current = fetchConversations;
-  }, [fetchConversations]);
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (
+          response.ok &&
+          data.status === "success" &&
+          Array.isArray(data.data)
+        ) {
+          if (normalizedSearchTerm !== activeSearchTermRef.current) {
+            return;
+          }
+          setConversations((prev) => {
+            if (shouldReset) return data.data;
+            const existingIds = new Set(prev.map((conv) => conv.id));
+            const newConversations = data.data.filter(
+              (conv: Conversation) => !existingIds.has(conv.id)
+            );
+            return [...prev, ...newConversations];
+          });
+          setNextCursor(data.pagination?.next_cursor ?? null);
+          setHasMore(Boolean(data.pagination?.has_more));
+        } else {
+          showError("Failed to load your chat history.");
+        }
+      } catch (error) {
+        showError("Failed to load your chat history.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const handleSearch = useCallback(
+    (query: string) => {
+      const normalizedQuery = query.trim();
+      activeSearchTermRef.current = normalizedQuery;
+      setConversations([]);
+      setNextCursor(null);
+      setHasMore(true);
+      setOpenMenuId(null);
+      fetchConversations({
+        searchTerm: normalizedQuery,
+        nextCursor: null,
+        shouldReset: normalizedQuery.length === 0,
+      });
+    },
+    [fetchConversations]
+  );
+
+  const { execute: debouncedSearch } = useDebouncedFunction(handleSearch, 400);
 
   const handleRefresh = useCallback(() => {
     setConversations([]);
     setNextCursor(null);
     setHasMore(true);
     setOpenMenuId(null);
+    setSearchQuery("");
+    activeSearchTermRef.current = "";
     setTimeout(() => {
       if (fetchConversationsRef.current) {
-        fetchConversationsRef.current();
+        fetchConversationsRef.current({
+          nextCursor: null,
+          searchTerm: "",
+          shouldReset: true,
+        });
       }
     });
   }, []);
@@ -208,21 +249,6 @@ export default function History() {
   }, [openMenuId]);
 
   useEffect(() => {
-    if (conversations.length === 0 && hasMore && !loading) {
-      fetchConversations();
-    }
-  }, []);
-
-  const displayConversations = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    let items = conversations;
-    if (query) {
-      items = items.filter((c) => c.title.toLowerCase().includes(query));
-    }
-    return items;
-  }, [conversations, searchQuery]);
-
-  useEffect(() => {
     const sentinel = document.getElementById("scroll-sentinel");
     if (!sentinel) return;
 
@@ -237,7 +263,11 @@ export default function History() {
           hasMore &&
           fetchConversationsRef.current
         ) {
-          fetchConversationsRef.current();
+          fetchConversationsRef.current({
+            nextCursor,
+            searchTerm: searchQuery.trim(),
+            shouldReset: false,
+          });
         }
       },
       { threshold: 1.0 }
@@ -248,53 +278,67 @@ export default function History() {
     return () => {
       if (observerRef.current) observerRef.current.disconnect();
     };
-  }, [hasMore, loading]);
+  }, [hasMore, loading, nextCursor, searchQuery]);
+
+  useEffect(() => {
+    const cleanedSearchTerm = searchQuery.trim();
+
+    // 1. Initial search
+    // 2. Search if query is reset
+    // 3. Search if query has at least 3 characters
+    if (cleanedSearchTerm.length === 0 || cleanedSearchTerm.length >= 2) {
+      debouncedSearch(cleanedSearchTerm);
+    }
+  }, [searchQuery, debouncedSearch]);
+
+  useEffect(() => {
+    fetchConversationsRef.current = fetchConversations;
+  }, [fetchConversations]);
 
   return (
     <div className="flex flex-col h-full w-full overflow-auto px-2 py-2">
-      {conversations.length > 0 && (
-        <div
-          className="relative bg-[#0A1525]/50 border border-[#1E2D45] 
-                    p-8 rounded-xl border border-[#243147]/60 backdrop-blur-md shadow-lg shadow-blue-900/10 overflow-hidden mb-8"
-        >
-          <div className="absolute inset-0 bg-blue-600/5 rounded-xl" />
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent rounded-xl" />
+      <div
+        className="relative bg-[#0A1525]/50 border border-[#1E2D45] 
+                    p-8 rounded-xl border-[#243147]/60 backdrop-blur-md shadow-lg shadow-blue-900/10 overflow-hidden mb-8"
+      >
+        <div className="absolute inset-0 bg-blue-600/5 rounded-xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent rounded-xl" />
 
-          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-400 bg-clip-text text-transparent tracking-tight flex items-center">
-                Chat History
-              </h1>
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-400 bg-clip-text text-transparent tracking-tight flex items-center">
+              Chat History
+            </h1>
+          </div>
+          <div className="w-full md:w-auto mt-4 md:mt-0 flex items-center gap-2">
+            <div className="relative w-full md:w-80">
+              <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                aria-label="Search chats"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search chats"
+                className="w-full pl-10 pr-3 p-2 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 placeholder-slate-400 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
+              />
             </div>
-            <div className="w-full md:w-auto mt-4 md:mt-0 flex items-center gap-2">
-              <div className="relative w-full md:w-80">
-                <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  aria-label="Search chats"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search chats"
-                  className="w-full pl-10 pr-3 p-2 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 placeholder-slate-400 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
-                />
-              </div>
-              <button
-                onClick={handleRefresh}
-                aria-label="Refresh chats"
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-button-primary duration-300 border border-slate-700/60 text-slate-200 hover:border-blue-500/50 group transition-colors"
-              >
-                <MdRefresh
-                  className={`${
-                    loading ? "animate-spin" : ""
-                  } text-blue-400/70 group-hover:text-blue-400 duration-300`}
-                />
-                <span className="hidden md:inline group-hover:text-slate-100">
-                  Refresh
-                </span>
-              </button>
-            </div>
+            <button
+              onClick={handleRefresh}
+              aria-label="Refresh chats"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-button-primary duration-300 border border-slate-700/60 text-slate-200 hover:border-blue-500/50 group transition-colors"
+            >
+              <MdRefresh
+                className={`${
+                  loading ? "animate-spin" : ""
+                } text-blue-400/70 group-hover:text-blue-400 duration-300`}
+              />
+              <span className="hidden md:inline group-hover:text-slate-100">
+                Refresh
+              </span>
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
       <div className="h-full">
         {conversations.length === 0 && loading ? (
@@ -314,29 +358,33 @@ export default function History() {
             <div className="text-center py-12 px-4">
               <div className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-8 inline-block">
                 <MdChat className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-300 mb-2">
-                  No chats yet
-                </h3>
-                <p className="text-slate-400">
-                  Start a new chat from the chat page to see your history here.
-                </p>
+                {searchQuery.trim().length > 0 ? (
+                  <>
+                    <h3 className="text-lg font-semibold text-slate-300 mb-2">
+                      No results found
+                    </h3>
+                    <p className="text-slate-400">
+                      Try a different search term.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-semibold text-slate-300 mb-2">
+                      No chats yet
+                    </h3>
+                    <p className="text-slate-400">
+                      Start a new chat from the chat page to see your history
+                      here.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
         ) : (
           <>
-            {displayConversations.length === 0 ? (
-              <div className="text-center py-12 px-4">
-                <div className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-8 inline-block">
-                  <h3 className="text-lg font-semibold text-slate-300 mb-2">
-                    No results found
-                  </h3>
-                  <p className="text-slate-400">Try a different search term.</p>
-                </div>
-              </div>
-            ) : null}
             <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              {displayConversations.map((conversation) => (
+              {conversations.map((conversation) => (
                 <div
                   key={conversation.id}
                   className="relative group transition-all duration-300"
@@ -344,7 +392,7 @@ export default function History() {
                   <Link href={`/chat/${conversation.id}`} className="block">
                     <div
                       className="bg-blue-500/10 border border-[#1E2D45] 
-                   hover:border-blue-500/30 hover:bg-blue-500/15 rounded-lg border p-4 h-full transition-all duration-200"
+                   hover:border-blue-500/30 hover:bg-blue-500/15 rounded-lg p-4 h-full transition-all duration-200"
                     >
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="text-lg text-slate-200 truncate transition-colors flex-1 pr-2">
