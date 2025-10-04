@@ -32,13 +32,19 @@ export default function Navbar() {
   return (
     <nav className="h-screen w-16 bg-dark-navbar flex flex-col items-center py-4 px-8 border-r border-border">
       <div className="flex items-center justify-center w-10 h-10 rounded-full mb-8">
-        <Image
-          src="/logo_vector_transparent.png"
-          alt="logo"
-          width={40}
-          height={40}
-          className="rounded-full"
-        />
+        <button
+          onClick={() => router.push("/")}
+          className="cursor-pointer"
+          aria-label="Go to home page"
+        >
+          <Image
+            src="/logo_vector_transparent.png"
+            alt="logo"
+            width={40}
+            height={40}
+            className="rounded-full"
+          />
+        </button>
       </div>
 
       <div className="flex-grow flex flex-col space-y-3">
