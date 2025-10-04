@@ -103,6 +103,7 @@ async def get_conversations(
     user=Depends(fastapi_users.current_user(active=True)),
     limit: int = 20,
     cursor: Optional[str] = None,
+    query: Optional[str] = None,
 ) -> Dict[str, Any]:
     try:
         # Enforce sane limits
@@ -110,7 +111,10 @@ async def get_conversations(
             limit = 20
         limit = min(limit, 50)
 
-        query = Conversation.filter(user=user).order_by("-created_at")
+        query_filter = Conversation.filter(user=user).order_by("-created_at")
+
+        if query and len(query.strip()) >= 2:
+            query_filter = query_filter.filter(title__icontains=query.strip())
 
         if cursor:
             cursor_dt: Optional[datetime] = None
@@ -132,9 +136,9 @@ async def get_conversations(
             if cursor_dt is None:
                 raise HTTPException(status_code=400, detail="Invalid cursor")
 
-            query = query.filter(created_at__lt=cursor_dt)
+            query_filter = query_filter.filter(created_at__lt=cursor_dt)
 
-        conversations = await query.limit(limit)
+        conversations = await query_filter.limit(limit)
 
         next_cursor = (
             conversations[-1].created_at.isoformat() if len(conversations) == limit else None
