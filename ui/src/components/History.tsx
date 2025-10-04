@@ -358,27 +358,31 @@ export default function History() {
             <div className="text-center py-12 px-4">
               <div className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-8 inline-block">
                 <MdChat className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-300 mb-2">
-                  No chats yet
-                </h3>
-                <p className="text-slate-400">
-                  Start a new chat from the chat page to see your history here.
-                </p>
+                {searchQuery.trim().length > 0 ? (
+                  <>
+                    <h3 className="text-lg font-semibold text-slate-300 mb-2">
+                      No results found
+                    </h3>
+                    <p className="text-slate-400">
+                      Try a different search term.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-semibold text-slate-300 mb-2">
+                      No chats yet
+                    </h3>
+                    <p className="text-slate-400">
+                      Start a new chat from the chat page to see your history
+                      here.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
         ) : (
           <>
-            {conversations.length === 0 ? (
-              <div className="text-center py-12 px-4">
-                <div className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-8 inline-block">
-                  <h3 className="text-lg font-semibold text-slate-300 mb-2">
-                    No results found
-                  </h3>
-                  <p className="text-slate-400">Try a different search term.</p>
-                </div>
-              </div>
-            ) : null}
             <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               {conversations.map((conversation) => (
                 <div
