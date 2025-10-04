@@ -47,16 +47,19 @@ export default function History() {
     title: string;
   }>({ isOpen: false, conversationId: "", title: "" });
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const fetchConversationsRef =
-    useRef<(ops: ConversationFetchOptions) => void>();
+  const fetchConversationsRef = useRef<
+    ((ops: ConversationFetchOptions) => Promise<void>) | null
+  >(null);
+  const activeSearchTermRef = useRef("");
 
   const fetchConversations = useCallback(
     async (ops: ConversationFetchOptions) => {
       const { searchTerm = "", nextCursor, shouldReset = false } = ops || {};
+      const normalizedSearchTerm = searchTerm.trim();
 
       setLoading(true);
 
-      const limit = 25;
+      const limit = 10;
 
       try {
         let url = nextCursor
@@ -66,8 +69,10 @@ export default function History() {
           : `/api/conversation?limit=${limit}`;
 
         // Append search term if provided and has at least 3 characters
-        if (searchTerm && searchTerm.length > 2) {
-          url = url.concat(`&query=${encodeURIComponent(searchTerm)}`);
+        if (normalizedSearchTerm.length > 2) {
+          url = url.concat(
+            `&query=${encodeURIComponent(normalizedSearchTerm)}`
+          );
         }
 
         const response = await fetch(url);
@@ -78,6 +83,9 @@ export default function History() {
           data.status === "success" &&
           Array.isArray(data.data)
         ) {
+          if (normalizedSearchTerm !== activeSearchTermRef.current) {
+            return;
+          }
           setConversations((prev) => {
             if (shouldReset) return data.data;
             const existingIds = new Set(prev.map((conv) => conv.id));
@@ -102,14 +110,16 @@ export default function History() {
 
   const handleSearch = useCallback(
     (query: string) => {
+      const normalizedQuery = query.trim();
+      activeSearchTermRef.current = normalizedQuery;
       setConversations([]);
       setNextCursor(null);
       setHasMore(true);
       setOpenMenuId(null);
       fetchConversations({
-        searchTerm: query,
+        searchTerm: normalizedQuery,
         nextCursor: null,
-        shouldReset: query.length === 0,
+        shouldReset: normalizedQuery.length === 0,
       });
     },
     [fetchConversations]
@@ -123,6 +133,7 @@ export default function History() {
     setHasMore(true);
     setOpenMenuId(null);
     setSearchQuery("");
+    activeSearchTermRef.current = "";
     setTimeout(() => {
       if (fetchConversationsRef.current) {
         fetchConversationsRef.current({
