@@ -3,6 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { MdHistory, MdLogout, MdSettings, MdAdd } from "react-icons/md";
+import { FaGithub } from "react-icons/fa";
 import { FiLayers } from "react-icons/fi";
 
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -69,6 +70,14 @@ export default function Navbar() {
       </div>
 
       <div className="mt-auto flex flex-col space-y-3 mb-4">
+        <a
+          aria-label="Open GitHub repository"
+          href="https://github.com/skyflo-ai/skyflo"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <NavIcon icon={<FaGithub size={20} />} tooltip="GitHub" />
+        </a>
         <NavIcon
           icon={<MdSettings size={20} />}
           tooltip="Settings"
