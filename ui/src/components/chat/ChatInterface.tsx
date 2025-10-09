@@ -11,6 +11,7 @@ import {
 import { ChatMessages } from "./ChatMessages";
 import { ChatInput } from "./ChatInput";
 import { stopConversation } from "@/lib/approvals";
+import { MdArrowUpward, MdDelete } from "react-icons/md";
 
 interface ChatInterfaceProps {
   conversationId: string;
@@ -26,6 +27,9 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [waitingForFirstUpdate, setWaitingForFirstUpdate] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [queuedMessages, setQueuedMessages] = useState<
+    { id: string; content: string; timestamp: number }[]
+  >([]);
 
   useEffect(() => {
     if (!isStreaming) {
@@ -80,6 +84,16 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const lastScrollTopRef = useRef(0);
+  const queueDrainingRef = useRef(false);
+  const footerRef = useRef<HTMLDivElement | null>(null);
+  const [footerHeight, setFooterHeight] = useState<number>(96);
+  const immediateSubmitRef = useRef(false);
+
+  const removeQueuedMessage = useCallback((id: string) => {
+    setQueuedMessages((q) => q.filter((m) => m.id !== id));
+  }, []);
+
+  let submitQueuedMessageNow = (_id: string) => {};
 
   const convertToolExecution = (
     execution: ToolExecution
@@ -463,6 +477,54 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     [messages, isStreaming, handleCancel]
   );
 
+  submitQueuedMessageNow = useCallback(
+    (id: string) => {
+      if (immediateSubmitRef.current) return;
+      const msg = queuedMessages.find((m) => m.id === id);
+      if (!msg) return;
+      queueDrainingRef.current = true;
+      immediateSubmitRef.current = true;
+      setQueuedMessages((q) => q.filter((m) => m.id !== id));
+      void handleSendMessage(msg.content);
+    },
+    [queuedMessages, handleSendMessage]
+  );
+
+  useEffect(() => {
+    if (
+      !isStreaming &&
+      queuedMessages.length > 0 &&
+      !queueDrainingRef.current &&
+      !immediateSubmitRef.current
+    ) {
+      const [next, ...rest] = queuedMessages;
+      queueDrainingRef.current = true;
+      setQueuedMessages(rest);
+      void handleSendMessage(next.content);
+    }
+  }, [isStreaming, queuedMessages, handleSendMessage]);
+
+  useEffect(() => {
+    if (isStreaming) {
+      if (queueDrainingRef.current) queueDrainingRef.current = false;
+      if (immediateSubmitRef.current) immediateSubmitRef.current = false;
+    }
+  }, [isStreaming]);
+
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el) return;
+    const update = () => setFooterHeight(el.offsetHeight || 96);
+    update();
+    const ro = new ResizeObserver(() => update());
+    ro.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [queuedMessages.length]);
+
   useEffect(() => {
     const key = `initialMessage:${conversationId}`;
     const pending =
@@ -477,11 +539,18 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     (e?: React.FormEvent) => {
       e?.preventDefault();
       if (!inputValue.trim()) return;
-
-      handleSendMessage(inputValue);
+      const trimmed = inputValue.trim();
+      if (isStreaming || queueDrainingRef.current) {
+        setQueuedMessages((q) => [
+          ...q,
+          { id: crypto.randomUUID(), content: trimmed, timestamp: Date.now() },
+        ]);
+      } else {
+        handleSendMessage(trimmed);
+      }
       setInputValue("");
     },
-    [inputValue, handleSendMessage]
+    [inputValue, isStreaming, handleSendMessage]
   );
 
   const handleApprovalAction = useCallback(
@@ -533,7 +602,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             setIsAtBottom(true);
           }
         }}
-        className="h-full overflow-auto py-4 pb-16"
+        className="h-full overflow-auto py-4"
+        style={{ paddingBottom: footerHeight + 8 }}
       >
         <div className="max-w-5xl mx-auto">
           {error && (
@@ -553,7 +623,50 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 w-full max-w-5xl mx-auto px-4">
+      <div
+        ref={footerRef}
+        className="absolute bottom-0 left-0 right-0 w-full max-w-5xl mx-auto px-4"
+      >
+        {queuedMessages.length > 0 && (
+          <div className="mb-2 rounded-2xl border border-blue-400/20 bg-[#111318] py-2">
+            <div className="flex items-center justify-between px-4 py-2 text-xs text-[#8693a3] tracking-wide">
+              <span>{queuedMessages.length} Queued</span>
+            </div>
+            <ul className="">
+              {queuedMessages.map((m) => (
+                <li
+                  key={m.id}
+                  className="flex items-center justify-between bg-[#191a1f] rounded-xl px-3 py-2 mt-1"
+                >
+                  <span className="truncate text-sm text-white/90">
+                    {m.content}
+                  </span>
+                  <div className="ml-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => removeQueuedMessage(m.id)}
+                      aria-label="Remove"
+                      title="Remove"
+                      className="rounded-full border border-red-400/40 bg-red-500/10 p-1.5 hover:bg-red-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+                    >
+                      <MdDelete className="h-4 w-4 text-red-300" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => submitQueuedMessageNow(m.id)}
+                      aria-label="Submit now"
+                      title="Submit now"
+                      className="rounded-full border border-blue-400/40 bg-blue-500/10 p-1.5 hover:bg-blue-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
+                    >
+                      <MdArrowUpward className="h-4 w-4 text-blue-300" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="xs:ml-[0px] ml-[-8px] bg-dark rounded-t-3xl">
           <ChatInput
             inputValue={inputValue}
