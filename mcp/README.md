@@ -10,7 +10,7 @@ The MCP Server is built using FastMCP:
 
 The FastMCP server serves as the core tool execution engine:
 
-- Single entrypoint through `server.py` 
+- Single entrypoint through `server.py`
 - Registers standardized tool definitions for kubectl, argo rollouts, helm, and jenkins
 - Implements safety mechanisms and validation checks
 - Handles both synchronous and asynchronous operations
@@ -75,6 +75,37 @@ uv run python main.py --sse --host 0.0.0.0 --port 8888
 
 The server provides MCP (Model Communication Protocol) interface for AI agents to interact with cloud-native tools.
 
+## Testing
+
+### Running Tests
+
+The MCP server includes comprehensive test coverage for all tool implementations. Tests are organized in a structured directory layout that mirrors the source code:
+
+```
+tests/
+├── tools/                   # Tests for tool implementations
+│   ├── test_argo.py        # Argo Rollouts tests
+│   ├── test_helm.py        # Helm tests
+│   ├── test_jenkins.py     # Jenkins tests
+│   └── test_kubectl.py     # Kubernetes tests
+└── utils/                  # Tests for utility functions
+    └── test_commands.py    # Command execution tests
+```
+
+#### Quick Start
+
+**Using the test runner script**
+
+```bash
+# Navigate to mcp directory
+cd mcp
+
+# Run all tests with default coverage (30%)
+./run_tests.sh
+
+# Run tests with custom coverage threshold
+./run_tests.sh --coverage 80
+```
 
 ## Development
 
@@ -97,6 +128,7 @@ mcp/
 ### Best Practices
 
 - **Tool Implementation**
+
   - Use clear documentation and type hints with Pydantic Field descriptions
   - Implement proper error handling and validation
   - Follow async/await patterns for command execution
