@@ -19,10 +19,13 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
   const [isProfileUpdating, setIsProfileUpdating] = useState(false);
   const [isPasswordChanging, setIsPasswordChanging] = useState(false);
 
+  const isFullNameDirty = fullName.trim() !== (user?.full_name || "").trim();
+
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!user) return;
+    if (!isFullNameDirty) return;
 
     setIsProfileUpdating(true);
 
@@ -179,7 +182,7 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
                    hover:border-blue-500/40 hover:bg-[#0A1525]/80
                            outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0
                            transition-all duration-100 cursor-pointer text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isProfileUpdating}
+                disabled={isProfileUpdating || !isFullNameDirty}
               >
                 {isProfileUpdating ? (
                   <>
