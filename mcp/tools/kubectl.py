@@ -285,6 +285,39 @@ async def k8s_rollout_undo(
 
 
 @mcp.tool(
+    title="View Kubernetes Rollout History",
+    tags=["k8s"],
+    annotations={"readOnlyHint": True},
+)
+async def k8s_rollout_history(
+    name: str = Field(description="The name of the resource to get rollout history for"),
+    resource_type: str = Field(
+        description="The type of resource to get rollout history for (deployment, daemonset, or statefulset)"
+    ),
+    namespace: Optional[str] = Field(
+        default="default", description="The namespace of the resource"
+    ),
+    revision: Optional[int] = Field(
+        default=None, description="Specific revision number to see details for. If not specified, shows all revisions"
+    ),
+) -> ToolOutput:
+    """View rollout history for a Kubernetes resource (deployment, daemonset, or statefulset)."""
+    valid_resource_types = ["deployment", "daemonset", "statefulset"]
+    if resource_type.lower() not in valid_resource_types:
+        raise ValueError(f"Invalid resource_type '{resource_type}'. Must be one of: {', '.join(valid_resource_types)}")
+    
+    cmd = f"rollout history {resource_type.lower()}/{name}"
+    
+    if namespace:
+        cmd += f" -n {namespace}"
+    
+    if revision is not None:
+        cmd += f" --revision={revision}"
+    
+    return await run_kubectl_command(cmd)
+
+
+@mcp.tool(
     title="Get Kubernetes Cluster Information",
     tags=["k8s"],
     annotations={"readOnlyHint": True},
