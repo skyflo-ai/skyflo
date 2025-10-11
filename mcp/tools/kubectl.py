@@ -252,6 +252,39 @@ async def k8s_rollout_status(
 
 
 @mcp.tool(
+    title="Rollback Kubernetes Resource",
+    tags=["k8s"],
+    annotations={"readOnlyHint": False},
+)
+async def k8s_rollout_undo(
+    name: str = Field(description="The name of the resource to rollback"),
+    resource_type: str = Field(
+        description="The type of resource to rollback (deployment, daemonset, or statefulset)"
+    ),
+    namespace: Optional[str] = Field(
+        default="default", description="The namespace of the resource"
+    ),
+    to_revision: Optional[int] = Field(
+        default=None, description="The revision number to rollback to. If not specified, rolls back to the previous revision"
+    ),
+) -> ToolOutput:
+    """Rollback a Kubernetes resource (deployment, daemonset, or statefulset) to a previous or specific revision."""
+    valid_resource_types = ["deployment", "daemonset", "statefulset"]
+    if resource_type.lower() not in valid_resource_types:
+        raise ValueError(f"Invalid resource_type '{resource_type}'. Must be one of: {', '.join(valid_resource_types)}")
+    
+    cmd = f"rollout undo {resource_type.lower()}/{name}"
+    
+    if namespace:
+        cmd += f" -n {namespace}"
+    
+    if to_revision is not None:
+        cmd += f" --to-revision={to_revision}"
+    
+    return await run_kubectl_command(cmd)
+
+
+@mcp.tool(
     title="Get Kubernetes Cluster Information",
     tags=["k8s"],
     annotations={"readOnlyHint": True},
