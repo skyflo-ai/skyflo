@@ -25,6 +25,7 @@ The workflow is a compact graph compiled with an optional Postgres checkpointer:
 - Stop requests are honored mid‑stream via Redis flags
 
 Checkpointer:
+
 - Postgres checkpointer via `langgraph-checkpoint-postgres` when `ENABLE_POSTGRES_CHECKPOINTER=true`
 - Falls back to in‑memory if Postgres is unavailable
 
@@ -58,7 +59,7 @@ All workflow events stream over SSE from `/api/v1/agent/chat` and `/api/v1/agent
 
 ### Setup
 
-1) Create `.env` from the example and set required variables.
+1. Create `.env` from the example and set required variables.
 
 ```bash
 # From engine/
@@ -66,13 +67,14 @@ cp .env.example .env
 ```
 
 Minimum to set for local dev:
+
 - `APP_NAME`, `APP_VERSION`, `APP_DESCRIPTION`
 - `POSTGRES_DATABASE_URL` (e.g. `postgres://postgres:postgres@localhost:5432/skyflo`)
 - `REDIS_URL` (e.g. `redis://localhost:6379/0`)
 - `JWT_SECRET`
 - LLM provider key, e.g. `OPENAI_API_KEY` when `LLM_MODEL=openai/gpt-4o`
 
-2) Install dependencies and the package in editable mode.
+2. Install dependencies and the package in editable mode.
 
 ```bash
 python -m venv .venv
@@ -80,7 +82,7 @@ source .venv/bin/activate
 uv pip install -e "."
 ```
 
-3) Apply database migrations (Tortoise + Aerich).
+3. Apply database migrations (Tortoise + Aerich).
 
 ```bash
 aerich upgrade
@@ -104,7 +106,7 @@ docker compose -f deployment/local.docker-compose.yaml up -d
 
 ```bash
 source .venv/bin/activate
-uvicorn api.asgi:app --host 0.0.0.0 --port 8080 --reload
+uvicorn src.api.asgi:app --host 0.0.0.0 --port 8080 --reload
 ```
 
 Service will be available at `http://localhost:8080`.
@@ -117,13 +119,14 @@ Base path: `/api/v1`
 - `POST /agent/chat` (SSE): stream tokens/events
 - `POST /agent/approvals/{call_id}` (SSE): approve/deny pending tool
 - `POST /agent/stop`: stop a specific run
+- `GET /agent/tools`: list available MCP tools with metadata (name, title, tags, annotations)
 - `POST /conversations`, `GET /conversations`, `GET/PATCH/DELETE /conversations/{id}`
 - Auth (`/auth/jwt/*`, `/auth/register/*`, `/auth/verify/*`, `/auth/reset-password/*`, `/auth/users/*`), plus:
   - `GET /auth/is_admin_user`
   - `GET /auth/me`, `PATCH /auth/me`
   - `PATCH /auth/users/me/password`
 - Team admin (`/team/*`): members list/add/update/remove (requires admin)
- - Integrations (`/integrations/*`): list/create/update/delete (admin only)
+- Integrations (`/integrations/*`): list/create/update/delete (admin only)
 
 ### SSE chat example
 
@@ -153,7 +156,7 @@ Defined in `src/api/config/settings.py` (Pydantic Settings, `.env` loaded). Key 
 - Redis & Rate limit: `REDIS_URL`, `RATE_LIMITING_ENABLED`, `RATE_LIMIT_PER_MINUTE`
 - Auth: `JWT_SECRET`, `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`
 - MCP: `MCP_SERVER_URL`
- - Integrations: `INTEGRATIONS_SECRET_NAMESPACE` (default `default`)
+- Integrations: `INTEGRATIONS_SECRET_NAMESPACE` (default `default`)
 - Workflow: `MAX_AUTO_CONTINUE_TURNS`, `LLM_MAX_ITERATIONS`, `LLM_TEMPERATURE`
 - LLM: `LLM_MODEL` (e.g. `openai/gpt-4o`), `LLM_HOST` (optional), provider API key envs like `OPENAI_API_KEY`
 
@@ -177,17 +180,17 @@ engine/
 
 ## Tech Stack
 
-| Component            | Technology                       |
-|----------------------|----------------------------------|
-| Web Framework        | FastAPI + Uvicorn                |
-| ORM                  | Tortoise ORM                     |
-| Migrations           | Aerich                           |
-| Authentication       | fastapi-users (+ tortoise)       |
-| Streaming            | SSE + Redis (pub/sub)            |
-| Rate limiting        | fastapi-limiter + Redis          |
-| AI Agent             | LangGraph                        |
-| LLM Integration      | LiteLLM                          |
-| Database             | PostgreSQL                       |
+| Component       | Technology                 |
+| --------------- | -------------------------- |
+| Web Framework   | FastAPI + Uvicorn          |
+| ORM             | Tortoise ORM               |
+| Migrations      | Aerich                     |
+| Authentication  | fastapi-users (+ tortoise) |
+| Streaming       | SSE + Redis (pub/sub)      |
+| Rate limiting   | fastapi-limiter + Redis    |
+| AI Agent        | LangGraph                  |
+| LLM Integration | LiteLLM                    |
+| Database        | PostgreSQL                 |
 
 ## Community and Support
 

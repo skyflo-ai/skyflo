@@ -2,7 +2,7 @@ import logging
 import json
 import asyncio
 import uuid
-from typing import Dict, Any, Optional, AsyncGenerator
+from typing import Dict, Any, Optional, AsyncGenerator, List
 from datetime import datetime
 
 from ..utils.clock import now_ms
@@ -21,6 +21,7 @@ from ..config import settings
 from .conversation import check_conversation_authorization
 from ..services.stop_service import request_stop, clear_stop
 from ..services.title_generator import generate_and_store_title
+from ..services.tool_executor import ToolExecutor
 from ..integrations.jenkins import strip_jenkins_metadata_tool_args
 
 logger = logging.getLogger(__name__)
@@ -391,6 +392,13 @@ class ApprovalDecision(BaseModel):
     )
 
 
+class ToolMetadata(BaseModel):
+    name: str = Field(..., description="Tool name")
+    title: Optional[str] = Field(None, description="Tool title")
+    tags: Optional[list] = Field(default_factory=list, description="Tool tags")
+    annotations: Optional[dict] = Field(default_factory=dict, description="Tool annotations")
+
+
 approval_service = ApprovalService()
 
 
@@ -470,6 +478,42 @@ async def decide_approval(
     except Exception as e:
         logger.exception(f"Error processing approval decision: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing approval: {str(e)}")
+
+
+@router.get("/tools", response_model=List[ToolMetadata], dependencies=[rate_limit_dependency])
+async def get_tools(user=Depends(fastapi_users.current_user(optional=True))):
+    """Get the MCP tool catalog for UI and debugging."""
+    try:
+        tool_executor = ToolExecutor()
+        
+        try:
+            tools_data = await tool_executor.list_tools()
+            raw_tools = tools_data.get("tools", [])
+            
+            tool_catalog = []
+            for tool in raw_tools:
+                tags = []
+                if isinstance(tool.get("meta"), dict):
+                    fastmcp_meta = tool["meta"].get("_fastmcp", {})
+                    if isinstance(fastmcp_meta, dict):
+                        tags = fastmcp_meta.get("tags", [])
+                
+                tool_metadata = ToolMetadata(
+                    name=tool.get("name", ""),
+                    title=tool.get("title"),
+                    tags=tags if tags else [],
+                    annotations=tool.get("annotations", {})
+                )
+                tool_catalog.append(tool_metadata)
+            
+            return tool_catalog
+            
+        finally:
+            await tool_executor.close()
+            
+    except Exception as e:
+        logger.exception(f"Error fetching tool catalog: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching tool catalog: {str(e)}")
 
 
 class StopRequest(BaseModel):
