@@ -156,3 +156,49 @@ input:-webkit-autofill:active {
   animation: gradient-move 3s ease infinite;
 }
 
+
+/* Liquid glass effect utilities */
+.lg-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+}
+
+.lg-effect {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  filter: url(#glass-distortion);
+  isolation: isolate;
+}
+
+.lg-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(12, 12, 24, 0.25);
+}
+
+.lg-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(10, 12, 18, 0.22) 0%, rgba(10, 12, 18, 0.18) 100%);
+}
+
+.lg-shine {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  box-shadow: inset 1px 1px 1px 0 rgba(80, 80, 80, 0.5),
+  inset -1px -1px 1px 1px rgba(80, 80, 80, 0.5);
+}
+
+.lg-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: radial-gradient(120% 120% at 50% 50%, rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0) 60%);
+}

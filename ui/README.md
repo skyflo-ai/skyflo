@@ -40,6 +40,8 @@ ui/
 │   │   │   ├── ChatInput.tsx      # Composer with stop+send
 │   │   │   ├── ChatHeader.tsx     # Branding/header
 │   │   │   ├── ChatSuggestions.tsx
+│   │   │   ├── PendingApprovalsBar.tsx
+│   │   │   ├── QueuedMessagesBar.tsx
 │   │   │   └── ToolVisualization.tsx
 │   │   ├── settings/              # Profile/Team components
 │   │   ├── navbar/

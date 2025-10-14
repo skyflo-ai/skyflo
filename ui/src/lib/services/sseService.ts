@@ -283,6 +283,7 @@ export class ChatService {
           args: event.args,
           status: "awaiting_approval",
           timestamp: event.timestamp,
+          requires_approval: true,
         };
         this.toolExecutions.set(event.call_id, awaitingApprovalTool);
         this.callbacks.onToolAwaitingApproval?.(awaitingApprovalTool);

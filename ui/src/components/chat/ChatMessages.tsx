@@ -19,6 +19,7 @@ interface ChatMessagesProps {
     approve: boolean,
     reason?: string
   ) => void;
+  disableApprovalActions?: boolean;
 }
 
 const messageVariants = {
@@ -42,6 +43,7 @@ export function ChatMessages({
   waitingForFirstUpdate,
   autoScroll = true,
   onApprovalAction,
+  disableApprovalActions = false,
 }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -86,6 +88,7 @@ export function ChatMessages({
                   seg.toolExecution.status === "awaiting_approval"
                 }
                 onApprovalAction={onApprovalAction}
+                disableActions={disableApprovalActions}
               />
             </motion.div>
           );

@@ -51,7 +51,7 @@ COPY --from=builder --chown=skyflo:skyflogroup /app/.env.production ./.env
 EXPOSE 3000
 
 LABEL org.opencontainers.image.source=https://github.com/skyflo-ai/skyflo
-LABEL org.opencontainers.image.description="UI for Skyflo.ai - Open Source AI Agent for Cloud Native"
+LABEL org.opencontainers.image.description="UI for Skyflo.ai - Open Source AI Agent for Cloud & DevOps"
 
 # Switch to non-root user
 USER skyflo

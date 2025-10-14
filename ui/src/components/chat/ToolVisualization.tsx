@@ -28,6 +28,7 @@ interface ToolVisualizationProps {
     approve: boolean,
     reason?: string
   ) => void;
+  disableActions?: boolean;
 }
 
 const expandVariants = {
@@ -109,6 +110,7 @@ export function ToolVisualization({
   isExpanded = false,
   onToggleExpand,
   onApprovalAction,
+  disableActions = false,
 }: ToolVisualizationProps) {
   const [internalExpanded, setInternalExpanded] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
@@ -122,11 +124,14 @@ export function ToolVisualization({
     }
   }, [toolExecution.status]);
 
-  const expanded = onToggleExpand
+  const expanded = disableActions
+    ? false
+    : onToggleExpand
     ? isExpanded || toolExecution.status === "awaiting_approval"
     : internalExpanded || toolExecution.status === "awaiting_approval";
-  const toggleExpanded =
-    onToggleExpand || (() => setInternalExpanded(!internalExpanded));
+  const toggleExpanded = disableActions
+    ? undefined
+    : onToggleExpand || (() => setInternalExpanded(!internalExpanded));
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString();
@@ -137,7 +142,7 @@ export function ToolVisualization({
   };
 
   const handleApprove = async (reason?: string) => {
-    if (isApproving || isDenying) return;
+    if (isApproving || isDenying || disableActions) return;
 
     setIsApproving(true);
     setApprovalError(null);
@@ -158,7 +163,7 @@ export function ToolVisualization({
   };
 
   const handleDeny = async (reason?: string) => {
-    if (isApproving || isDenying) return;
+    if (isApproving || isDenying || disableActions) return;
 
     setIsDenying(true);
     setApprovalError(null);
@@ -218,7 +223,8 @@ export function ToolVisualization({
       >
         <motion.div
           className={cn(
-            "p-3 cursor-pointer",
+            "p-3",
+            !disableActions && "cursor-pointer",
             (toolExecution.status === "executing" ||
               toolExecution.status === "awaiting_approval") &&
               "animate-pulse"
@@ -280,7 +286,7 @@ export function ToolVisualization({
             </div>
           </div>
         </motion.div>
-        {toolExecution.status === "awaiting_approval" && (
+        {toolExecution.status === "awaiting_approval" && !disableActions && (
           <div className="px-4 py-3 text-xs text-slate-300">
             <div className="flex items-center justify-left space-x-2">
               Review the tool arguments below before making your decision
@@ -328,7 +334,7 @@ export function ToolVisualization({
           )}
         </AnimatePresence>
 
-        {toolExecution.status === "awaiting_approval" && (
+        {toolExecution.status === "awaiting_approval" && !disableActions && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -338,7 +344,7 @@ export function ToolVisualization({
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
                 <motion.button
                   onClick={() => handleApprove()}
-                  disabled={isApproving || isDenying}
+                  disabled={isApproving || isDenying || disableActions}
                   className={cn(
                     "flex items-center justify-center space-x-2 px-6 py-2.5 rounded-lg font-medium text-sm transition-[border-color,background-color,transform] duration-200",
                     "bg-green-600/20 border border-green-600/40",
@@ -361,7 +367,7 @@ export function ToolVisualization({
 
                 <motion.button
                   onClick={() => handleDeny("User rejected the tool execution")}
-                  disabled={isApproving || isDenying}
+                  disabled={isApproving || isDenying || disableActions}
                   className={cn(
                     "flex items-center justify-center space-x-2 px-6 py-2.5 rounded-lg font-medium text-sm transition-[border-color,background-color,transform] duration-100",
                     "bg-red-600/20 border border-red-600/40",

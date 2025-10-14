@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ChatService } from "@/lib/services/sseService";
 import { ToolExecution, ChatMessage } from "@/types/chat";
 import {
@@ -10,8 +10,9 @@ import {
 } from "../../types/chat";
 import { ChatMessages } from "./ChatMessages";
 import { ChatInput } from "./ChatInput";
+import { PendingApprovalsBar } from "./PendingApprovalsBar";
+import { QueuedMessagesBar } from "./QueuedMessagesBar";
 import { stopConversation } from "@/lib/approvals";
-import { MdArrowUpward, MdDelete } from "react-icons/md";
 
 interface ChatInterfaceProps {
   conversationId: string;
@@ -88,6 +89,15 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const footerRef = useRef<HTMLDivElement | null>(null);
   const [footerHeight, setFooterHeight] = useState<number>(96);
   const immediateSubmitRef = useRef(false);
+  const approvalQueueRef = useRef<string[]>([]);
+  type BulkDecision = "approve" | "deny";
+  const isBulkActionRef = useRef(false);
+  const bulkDecisionRef = useRef<BulkDecision | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<{
+    done: number;
+    total: number;
+    decision: BulkDecision;
+  } | null>(null);
 
   const removeQueuedMessage = useCallback((id: string) => {
     setQueuedMessages((q) => q.filter((m) => m.id !== id));
@@ -106,6 +116,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     result: execution.result,
     timestamp: execution.timestamp,
     error: execution.error,
+    requires_approval: (execution as any).requires_approval,
   });
 
   const updateMessageWithTool = (execution: ToolExecution) => {
@@ -119,9 +130,16 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       );
       const updatedSegments: MessageSegment[] =
         segIndex >= 0
-          ? prevSegments.map((s, i) =>
-              s.kind === "tool" && i === segIndex ? { ...s, toolExecution } : s
-            )
+          ? prevSegments.map((s, i) => {
+              if (s.kind === "tool" && i === segIndex) {
+                const merged = {
+                  ...(s as any).toolExecution,
+                  ...toolExecution,
+                };
+                return { ...s, toolExecution: merged } as any;
+              }
+              return s as any;
+            })
           : [
               ...prevSegments,
               {
@@ -147,9 +165,16 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             (s) => s.kind === "tool" && s.id === execution.call_id
           );
           if (segIndex >= 0) {
-            const newSegments = msg.segments.map((s, i) =>
-              s.kind === "tool" && i === segIndex ? { ...s, toolExecution } : s
-            );
+            const newSegments = msg.segments.map((s, i) => {
+              if (s.kind === "tool" && i === segIndex) {
+                const merged = {
+                  ...(s as any).toolExecution,
+                  ...toolExecution,
+                };
+                return { ...s, toolExecution: merged } as any;
+              }
+              return s;
+            });
             updated[idx] = { ...msg, segments: newSegments } as any;
             break;
           }
@@ -166,7 +191,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
       const updatedSegments: MessageSegment[] = (prev.segments || []).map((s) =>
         s.kind === "tool" && s.id === execution.call_id
-          ? { ...s, toolExecution }
+          ? ({
+              ...s,
+              toolExecution: { ...(s as any).toolExecution, ...toolExecution },
+            } as any)
           : s
       );
 
@@ -184,8 +212,17 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             (s: any) => s.kind === "tool" && s.id === execution.call_id
           );
           if (segIndex >= 0) {
-            const newSegments = (msg as any).segments.map((s: any, i: number) =>
-              s.kind === "tool" && i === segIndex ? { ...s, toolExecution } : s
+            const newSegments = (msg as any).segments.map(
+              (s: any, i: number) => {
+                if (s.kind === "tool" && i === segIndex) {
+                  const merged = {
+                    ...(s as any).toolExecution,
+                    ...toolExecution,
+                  };
+                  return { ...s, toolExecution: merged } as any;
+                }
+                return s;
+              }
             );
             updated[idx] = { ...(msg as any), segments: newSegments } as any;
             break;
@@ -228,7 +265,14 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       const updatedSegments: MessageSegment[] = priorSegments.map((s: any) => {
         if (s.kind !== "tool") return s;
         const match = executions.find((e) => e.call_id === s.id);
-        return match ? { ...s, toolExecution: convertToolExecution(match) } : s;
+        if (match) {
+          const newExec = convertToolExecution(match);
+          return {
+            ...s,
+            toolExecution: { ...(s as any).toolExecution, ...newExec },
+          } as any;
+        }
+        return s;
       });
 
       for (const e of executions) {
@@ -298,6 +342,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         setError(errorMsg);
         setIsStreaming(false);
         setWaitingForFirstUpdate(false);
+        isBulkActionRef.current = false;
+        approvalQueueRef.current = [];
+        bulkDecisionRef.current = null;
+        setBulkProgress(null);
       },
 
       onComplete: () => {
@@ -305,6 +353,43 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         hasFinalizedRef.current = true;
 
         setIsStreaming(false);
+
+        if (isBulkActionRef.current && approvalQueueRef.current.length > 0) {
+          setTimeout(() => {
+            const next = approvalQueueRef.current.shift();
+            if (!next) {
+              isBulkActionRef.current = false;
+              bulkDecisionRef.current = null;
+              setBulkProgress(null);
+              return;
+            }
+            setError(null);
+            setIsStreaming(true);
+            hasFinalizedRef.current = false;
+            setBulkProgress((p) =>
+              p
+                ? {
+                    done: (p.done ?? 0) + 1,
+                    total: p.total ?? 0,
+                    decision: p.decision,
+                  }
+                : null
+            );
+            void chatServiceRef.current?.startApprovalStream(
+              next,
+              bulkDecisionRef.current === "approve",
+              undefined,
+              conversationId
+            );
+          }, 50);
+          return;
+        }
+
+        if (isBulkActionRef.current && approvalQueueRef.current.length === 0) {
+          isBulkActionRef.current = false;
+          bulkDecisionRef.current = null;
+          setBulkProgress(null);
+        }
 
         setCurrentMessage((prev) => {
           if (prev) {
@@ -390,6 +475,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     } finally {
       setIsStreaming(false);
       setWaitingForFirstUpdate(false);
+      isBulkActionRef.current = false;
+      approvalQueueRef.current = [];
+      setBulkProgress(null);
+      bulkDecisionRef.current = null;
       setCurrentRunId(null);
       setCurrentMessage((prev) => {
         if (!prev) return null;
@@ -579,6 +668,74 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     []
   );
 
+  const approvableTools = useMemo(() => {
+    const byId = new Map<string, MessageSegment>();
+
+    const addSegments = (segs: MessageSegment[] | undefined | null) => {
+      if (!Array.isArray(segs) || segs.length === 0) return;
+      for (const s of segs) {
+        if (s.kind !== "tool") continue;
+        if (!byId.has(s.id)) byId.set(s.id, s);
+      }
+    };
+
+    addSegments(currentMessage?.segments as any);
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i] as any;
+      if (
+        msg?.type === "assistant" &&
+        Array.isArray(msg.segments) &&
+        msg.segments.length > 0
+      ) {
+        addSegments(msg.segments as any);
+        break;
+      }
+    }
+
+    const segments = Array.from(byId.values());
+    return segments
+      .filter((s: any) => s.kind === "tool")
+      .map((s: any) => s.toolExecution as ToolExecutionType)
+      .filter(
+        (t) =>
+          (t.status === "pending" || t.status === "awaiting_approval") &&
+          (t as any).requires_approval
+      );
+  }, [currentMessage?.segments, messages]);
+
+  const handleBulkAction = useCallback(
+    (decision: BulkDecision) => {
+      if (!approvableTools.length || isBulkActionRef.current) return;
+      isBulkActionRef.current = true;
+      bulkDecisionRef.current = decision;
+      approvalQueueRef.current = approvableTools.map((t) => t.call_id);
+      setBulkProgress({
+        done: 0,
+        total: approvalQueueRef.current.length,
+        decision,
+      });
+
+      const next = approvalQueueRef.current.shift();
+      if (!next) {
+        isBulkActionRef.current = false;
+        bulkDecisionRef.current = null;
+        setBulkProgress(null);
+        return;
+      }
+      setError(null);
+      setIsStreaming(true);
+      hasFinalizedRef.current = false;
+      void chatServiceRef.current?.startApprovalStream(
+        next,
+        decision === "approve",
+        undefined,
+        conversationId
+      );
+    },
+    [approvableTools, conversationId]
+  );
+
   return (
     <div className="relative h-full w-full">
       <div
@@ -619,6 +776,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             waitingForFirstUpdate={waitingForFirstUpdate}
             autoScroll={isAtBottom}
             onApprovalAction={handleApprovalAction}
+            disableApprovalActions={isBulkActionRef.current}
           />
         </div>
       </div>
@@ -627,47 +785,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         ref={footerRef}
         className="absolute bottom-0 left-0 right-0 w-full max-w-5xl mx-auto px-4"
       >
-        {queuedMessages.length > 0 && (
-          <div className="mb-2 rounded-2xl border border-blue-400/20 bg-[#111318] py-2">
-            <div className="flex items-center justify-between px-4 py-2 text-xs text-[#8693a3] tracking-wide">
-              <span>{queuedMessages.length} Queued</span>
-            </div>
-            <ul className="">
-              {queuedMessages.map((m) => (
-                <li
-                  key={m.id}
-                  className="flex items-center justify-between bg-[#191a1f] rounded-xl px-3 py-2 mt-1"
-                >
-                  <span className="truncate text-sm text-white/90">
-                    {m.content}
-                  </span>
-                  <div className="ml-2 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => removeQueuedMessage(m.id)}
-                      aria-label="Remove"
-                      title="Remove"
-                      className="rounded-full border border-red-400/40 bg-red-500/10 p-1.5 hover:bg-red-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
-                    >
-                      <MdDelete className="h-4 w-4 text-red-300" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => submitQueuedMessageNow(m.id)}
-                      aria-label="Submit now"
-                      title="Submit now"
-                      className="rounded-full border border-blue-400/40 bg-blue-500/10 p-1.5 hover:bg-blue-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
-                    >
-                      <MdArrowUpward className="h-4 w-4 text-blue-300" />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="xs:ml-[0px] ml-[-8px] bg-dark rounded-t-3xl">
+        <div className="xs:ml-[0px] ml-[-8px]">
           <ChatInput
             inputValue={inputValue}
             setInputValue={setInputValue}
@@ -675,6 +793,30 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             isStreaming={isStreaming}
             hasMessages={messages.length > 0}
             onCancel={handleCancel}
+            topSlot={
+              (queuedMessages.length > 0 || approvableTools.length >= 2) && (
+                <div className="space-y-2">
+                  {queuedMessages.length > 0 && (
+                    <QueuedMessagesBar
+                      items={queuedMessages}
+                      onSubmitNow={submitQueuedMessageNow}
+                      onRemove={removeQueuedMessage}
+                    />
+                  )}
+
+                  {approvableTools.length > 1 && (
+                    <div>
+                      <PendingApprovalsBar
+                        count={approvableTools.length}
+                        onAction={handleBulkAction}
+                        progress={bulkProgress}
+                        disabled={isBulkActionRef.current}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            }
           />
         </div>
       </div>
