@@ -24,7 +24,7 @@ dependencies = [
     "aiohttp>=3.11.14",
     "fastapi-websocket-pubsub>=0.3.9",
     "tortoise-orm>=0.24.2",
-    "aerich>=0.8.2",
+    "aerich==0.8.2",
     "broadcaster>=0.3.1",
     "redis>=5.0.1",
     "fastapi-limiter>=0.1.6",

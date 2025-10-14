@@ -1,21 +1,24 @@
-import { HiMiniSparkles } from "react-icons/hi2";
-
 const ChatHeader = () => {
   return (
-    <div className="space-y-6 mb-10 relative">
-      <div className="flex items-center justify-center">
-        <div className="ml-3 text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-100">
-            Hi! I'm{" "}
-            <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent px-1 relative">
+    <div className="relative mb-10 space-y-6">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 flex items-start justify-center"
+      >
+        <div className="mt-[-2rem] h-40 w-[32rem] bg-gradient-to-r from-[#1A2C48]/50 via-[#0F182A]/60 to-[#1A2C48]/50 blur-3xl" />
+      </div>
+
+      <div className="text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-gray-100">
+          I'm{" "}
+          <span className="relative whitespace-nowrap px-1">
+            <span className="bg-gradient-to-r from-[#00B7FF] via-[#0094E8] to-[#0056B3] bg-clip-text text-transparent">
               Sky
             </span>
-          </h1>
-        </div>
-      </div>
-      <div className="text-center space-y-4">
-        <p className="text-gray-400 text-xs max-w-md mx-auto leading-relaxed font-semibold tracking-wide">
-          Your AI-Powered Cloud Native Co-Pilot
+          </span>
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-gray-400">
+          Your DevOps Copilot for Kubernetes & Jenkins
         </p>
       </div>
     </div>
