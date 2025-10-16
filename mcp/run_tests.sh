@@ -6,7 +6,7 @@
 #   ./run_tests.sh
 #   ./run_tests.sh --coverage 80
 
-set -e
+set -euo pipefail
 
 # Default values
 COVERAGE_THRESHOLD=30
@@ -28,18 +28,31 @@ done
 
 echo "🐍 Setting up MCP test environment..."
 
-# Check if virtual environment exists, create if not
-if [ ! -f "test_env/bin/activate" ]; then
-    echo "📦 Creating virtual environment..."
-    python3 -m venv test_env
+if [ -f ".venv/bin/activate" ]; then
+    echo "🔑 Using existing .venv"
+    source .venv/bin/activate
+
+    if command -v uv >/dev/null 2>&1; then
+        echo "🔄 Syncing dependencies with uv (including dev extras)"
+        uv sync --extra dev
+    else
+        echo "⚠️  'uv' not found. Installing dev deps with pip"
+        python3 -m pip install -e ".[dev]"
+    fi
+else
+    echo "📦 Creating .venv and installing dependencies (per README)"
+    python3 -m venv .venv
+    source .venv/bin/activate
+
+    if command -v uv >/dev/null 2>&1; then
+        echo "📥 Installing with uv (including dev extras)"
+        uv sync --extra dev
+    else
+        echo "📥 Installing with pip (uv not found)"
+        python3 -m pip install -e .
+        python3 -m pip install -e ".[dev]"
+    fi
 fi
-
-# Activate virtual environment
-source test_env/bin/activate
-
-# Install dependencies
-echo "📦 Installing dependencies..."
-pip install -e ".[dev]" > /dev/null 2>&1
 
 # Run tests with coverage
 echo "🧪 Running tests with coverage (threshold: $COVERAGE_THRESHOLD%)..."
