@@ -386,6 +386,80 @@ async def jenkins_update_build(
 
 
 @mcp.tool(
+    title="Jenkins: Stop Build", tags=["jenkins"], annotations={"readOnlyHint": False}
+)
+async def jenkins_stop_build(
+    api_url: str = Field(description="Base Jenkins URL"),
+    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
+    job_full_name: str = Field(description="Full job path"),
+    build: Optional[str] = Field(
+        default="lastBuild", description="Build number or 'lastBuild'"
+    ),
+) -> ToolOutput:
+    """Stop/cancel a running Jenkins build.
+    
+    This tool attempts to stop a running build. If the build is not currently running,
+    it will return a clear message indicating the current state.
+    """
+    client = await _with_client(api_url, credentials_ref)
+    try:
+        info_path = f"{build_job_path(job_full_name)}/{build or 'lastBuild'}/api/json"
+        info_resp = await client.get(info_path, params={"tree": "number,result,building,url"})
+        
+        if not info_resp.is_success:
+            return normalize_response(info_resp)
+        
+        build_info = info_resp.json()
+        build_number = build_info.get("number")
+        is_building = build_info.get("building", False)
+        result = build_info.get("result")
+        build_url = build_info.get("url", "")
+
+        if not is_building:
+            status_msg = "completed" if result else "not running"
+            message = f"Build #{build_number} is {status_msg} and cannot be stopped"
+            if result:
+                message += f" (result: {result})"
+            
+            return {
+                "output": json.dumps({
+                    "status": 200,
+                    "body": {
+                        "message": message,
+                        "buildNumber": build_number,
+                        "building": False,
+                        "result": result,
+                        "url": build_url
+                    }
+                }),
+                "error": False
+            }
+        
+        stop_path = f"{build_job_path(job_full_name)}/{build_number}/stop"
+        stop_resp = await client.post(stop_path)
+        
+        if stop_resp.is_success:
+            return {
+                "output": json.dumps({
+                    "status": stop_resp.status_code,
+                    "body": {
+                        "message": f"Successfully requested stop for build #{build_number}",
+                        "buildNumber": build_number,
+                        "building": True,
+                        "stopRequested": True,
+                        "url": build_url
+                    }
+                }),
+                "error": False
+            }
+        else:
+            return normalize_response(stop_resp)
+            
+    finally:
+        await client.close()
+
+
+@mcp.tool(
     title="Jenkins: Get Build Log", tags=["jenkins"], annotations={"readOnlyHint": True}
 )
 async def jenkins_get_build_log(
