@@ -115,6 +115,15 @@ class JenkinsClient:
         await self.client.aclose()
 
 
+def is_jenkins_post_success(resp: httpx.Response) -> bool:
+    """Check if a Jenkins POST request was successful.
+
+    Jenkins sometimes returns redirects (302, 303) for successful POST operations,
+    so we treat both successful responses and redirects as success.
+    """
+    return resp.is_success or resp.status_code in [302, 303]
+
+
 def build_job_path(job_full_name: str) -> str:
     # Convert 'Folder/Sub/My Job' -> '/job/Folder/job/Sub/job/My%20Job'
     if not job_full_name:
@@ -224,7 +233,7 @@ async def jenkins_trigger_build(
             f"{path_base}/buildWithParameters" if parameters else f"{path_base}/build"
         )
         resp = await client.post(path, data=parameters or {})
-        if resp.status_code not in (201, 202):
+        if not is_jenkins_post_success(resp):
             return normalize_response(resp)
 
         queue_url = resp.headers.get("Location")
@@ -367,13 +376,13 @@ async def jenkins_update_build(
             last_resp = await client.post(
                 f"{target}/submitDescription", data={"description": description}
             )
-            if not last_resp.is_success:
+            if not is_jenkins_post_success(last_resp):
                 return normalize_response(last_resp)
         if displayName is not None:
             last_resp = await client.post(
                 f"{target}/submitDisplayName", data={"displayName": displayName}
             )
-            if not last_resp.is_success:
+            if not is_jenkins_post_success(last_resp):
                 return normalize_response(last_resp)
         if last_resp is None:
             return {
@@ -383,6 +392,106 @@ async def jenkins_update_build(
                 "error": True,
             }
         return normalize_response(last_resp)
+    finally:
+        await client.close()
+
+
+@mcp.tool(
+    title="Jenkins: Stop Build", tags=["jenkins"], annotations={"readOnlyHint": False}
+)
+async def jenkins_stop_build(
+    api_url: str = Field(description="Base Jenkins URL"),
+    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
+    jobFullName: str = Field(description="Full job path"),
+    build: Optional[str] = Field(
+        default="lastBuild", description="Build number or 'lastBuild'"
+    ),
+) -> ToolOutput:
+    """Stop/cancel a running Jenkins build.
+    
+    This tool attempts to stop a running build. If the build is not currently running,
+    it will return a clear message indicating the current state.
+    """
+    
+    client = await _with_client(api_url, credentials_ref)
+    try:
+        info_path = f"{build_job_path(jobFullName)}/{build or 'lastBuild'}/api/json"
+        info_resp = await client.get(info_path, params={"tree": "number,result,building,url"})
+        
+        if not info_resp.is_success:
+            return normalize_response(info_resp)
+        
+        build_info = info_resp.json()
+        build_number = build_info.get("number")
+        is_building = build_info.get("building", False)
+        result = build_info.get("result")
+        build_url = build_info.get("url", "")
+
+        if not is_building:
+            status_msg = "completed" if result else "not running"
+            message = f"Build #{build_number} is {status_msg} and cannot be stopped"
+            if result:
+                message += f" (result: {result})"
+            
+            return {
+                "output": json.dumps({
+                    "status": 200,
+                    "body": {
+                        "message": message,
+                        "buildNumber": build_number,
+                        "building": False,
+                        "result": result,
+                        "url": build_url
+                    }
+                }),
+                "error": False
+            }
+        
+        stop_path = f"{build_job_path(jobFullName)}/{build_number}/stop"
+        stop_resp = await client.post(stop_path)
+
+        # Check if stop request was accepted
+        if not is_jenkins_post_success(stop_resp):
+            return normalize_response(stop_resp)
+        
+        # Wait a moment for Jenkins to process the stop request
+        await asyncio.sleep(1)
+        
+        updated_build_info_resp = await client.get(info_path, params={"tree": "number,result,building,url"})
+        
+        if not updated_build_info_resp.is_success:
+            return {
+                "output": json.dumps({
+                    "status": stop_resp.status_code,
+                    "body": {
+                        "message": f"Stop command sent for build #{build_number} (status: {stop_resp.status_code}). Unable to verify completion.",
+                        "buildNumber": build_number,
+                        "stopResponseCode": stop_resp.status_code,
+                        "url": build_url
+                    }
+                }),
+                "error": False
+            }
+        
+        updated_build_info = updated_build_info_resp.json()
+        is_building_after_stop = updated_build_info.get("building", False)
+        result_after_stop = updated_build_info.get("result")
+
+        return {
+            "output": json.dumps({
+                "status": 200,
+                "body": {
+                    "message": f"Successfully stopped build #{build_number}" if not is_building_after_stop else f"Stop requested for build #{build_number} (still stopping...)",
+                    "buildNumber": build_number,
+                    "building": is_building_after_stop,
+                    "result": result_after_stop,
+                    "stopResponseCode": stop_resp.status_code,
+                    "url": build_url
+                }
+            }),
+            "error": False
+        }
+            
     finally:
         await client.close()
 
