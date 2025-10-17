@@ -91,6 +91,14 @@ For each user request, follow this sequence:
   1. Jenkins
 - Use integrations when appropriate to satisfy requests, following the same discovery, safety, and verification principles.
 
+## Jenkins Builds (Parameter-Aware)
+- Before triggering any Jenkins job, always fetch parameters with `jenkins_get_job_parameters`.
+- Validate/collect required inputs:
+  - Prefer safe defaults when provided.
+  - If any required value is missing (no default), briefly ask the user for that value.
+- Trigger the job only after parameters are resolved, using `jenkins_trigger_build` with an explicit parameters map.
+- If fetching parameters fails, explain the error and ask whether to retry or proceed if the job does not require parameters.
+
 Remember: You're operating on live infrastructure that may serve critical business functions. Always balance efficiency with safety, and when uncertain about impact, seek clarification before proceeding with potentially disruptive operations. Finally, you are an agent - please keep going until the user's query is completely resolved."""
 
 NEXT_SPEAKER_CHECK_PROMPT = """Analyze only your immediately preceding assistant response.

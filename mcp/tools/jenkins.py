@@ -6,7 +6,9 @@ import asyncio
 import base64
 import json
 import subprocess
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, List
+import xml.etree.ElementTree as ET
+
 
 import httpx
 from pydantic import Field
@@ -502,5 +504,115 @@ async def jenkins_whoami(
     try:
         resp = await client.get("/me/api/json")
         return normalize_response(resp)
+    finally:
+        await client.close()
+
+# -----------------------------
+# Tools: Job Parameter Helpers
+# -----------------------------
+
+
+def _normalize_param_type(raw_type: Optional[str]) -> str:
+    if not raw_type:
+        return "string"
+    short = raw_type.split(".")[-1]
+    mapping = {
+        "StringParameterDefinition": "string",
+        "BooleanParameterDefinition": "boolean",
+        "ChoiceParameterDefinition": "choice",
+        "TextParameterDefinition": "text",
+        "PasswordParameterDefinition": "password",
+        "FileParameterDefinition": "file",
+    }
+    return mapping.get(short, "string")
+
+def _parse_config_xml(xml_text: str) -> List[dict]:
+    params = []
+    ns = {"jenkins": "http://hudson.model"}
+    root = ET.fromstring(xml_text)
+    for param_def in root.findall(".//parameterDefinitions/*", ns):
+        ptype = param_def.tag.split(".")[-1]
+        name = param_def.findtext("name") or ""
+        desc = param_def.findtext("description") or ""
+        default = param_def.findtext("defaultValue")
+        # Jenkins writes choices in multiple shapes; collect any string-like children
+        choices_el = param_def.find("choices")
+        choices: List[str] = []
+        if choices_el is not None:
+            # Common: <choices><string>opt</string>...</choices>
+            for c in choices_el.findall(".//string"):
+                if c.text is not None:
+                    choices.append(c.text)
+            # Fallback: any direct child text nodes
+            if not choices:
+                for child in list(choices_el):
+                    if child.text:
+                        choices.append(child.text)
+        params.append({
+            "name": name,
+            "type": _normalize_param_type(ptype),
+            "description": desc,
+            "default": default,
+            "choices": choices if choices else None,
+        })
+    return params
+
+
+# -----------------------------
+# Tools: Get Job Parameters
+# -----------------------------
+
+
+@mcp.tool(
+    title="Jenkins: Get Job Parameters",
+    tags=["jenkins"],
+    annotations={"readOnlyHint": True},
+)
+async def jenkins_get_job_parameters(
+    api_url: str = Field(description="Base Jenkins URL"),
+    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
+    jobFullName: str = Field(description="Full job path"),
+    verify: Optional[bool] = Field(default=True, description="TLS verify"),
+) -> ToolOutput:
+    client = await _with_client(api_url, credentials_ref, verify=verify)
+    try:
+        # Try JSON first
+        tree = "actions[parameterDefinitions[name,description,defaultParameterValue[value],choices,type,_class]]"
+        resp = await client.get(f"{build_job_path(jobFullName)}/api/json", params={"tree": tree})
+        params = []
+        if resp.is_success:
+            data = resp.json()
+            for action in data.get("actions", []):
+                defs = action.get("parameterDefinitions")
+                if defs:
+                    for d in defs:
+                        name = d.get("name")
+                        desc = d.get("description")
+                        raw_type = d.get("_class") or d.get("type")
+                        default = (d.get("defaultParameterValue") or {}).get("value")
+                        choices_field = d.get("choices")
+                        if isinstance(choices_field, dict) and "values" in choices_field:
+                            choices = choices_field.get("values")
+                        elif isinstance(choices_field, list):
+                            choices = choices_field
+                        elif isinstance(choices_field, str):
+                            choices = [c.strip() for c in choices_field.splitlines() if c.strip()]
+                        else:
+                            choices = None
+                        params.append({
+                            "name": name,
+                            "type": _normalize_param_type(raw_type),
+                            "description": desc,
+                            "default": default,
+                            "choices": choices,
+                        })
+        # Fallback to XML
+        if not params:
+            xml_resp = await client.get(f"{build_job_path(jobFullName)}/config.xml")
+            if xml_resp.is_success:
+                params = _parse_config_xml(xml_resp.text)
+        return {"output": json.dumps(params), "error": False}
+    except Exception as e:
+        return {"output": json.dumps({"error": str(e)}), "error": True}
     finally:
         await client.close()
