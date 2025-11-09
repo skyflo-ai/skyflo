@@ -93,6 +93,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   type BulkDecision = "approve" | "deny";
   const isBulkActionRef = useRef(false);
   const bulkDecisionRef = useRef<BulkDecision | null>(null);
+  const isApprovalActionRef = useRef(false);
+  const approvalDecisionRef = useRef<boolean | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{
     done: number;
     total: number;
@@ -231,6 +233,37 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       }
       return updated;
     });
+
+    // For denied tools in approval actions, finalize the stream
+    if (execution.status === "denied" && isApprovalActionRef.current) {
+      setTimeout(() => {
+        if (hasFinalizedRef.current) return;
+        hasFinalizedRef.current = true;
+        setIsStreaming(false);
+        setCurrentMessage((prev) => {
+          if (prev) {
+            const finalMessage = {
+              ...prev,
+              isStreaming: false,
+            };
+            setMessages((msgs) => {
+              const last = msgs[msgs.length - 1];
+              if (
+                last &&
+                last.type === "assistant" &&
+                last.content === finalMessage.content
+              ) {
+                return msgs;
+              }
+              return [...msgs, finalMessage];
+            });
+          }
+          return null;
+        });
+        isApprovalActionRef.current = false;
+        approvalDecisionRef.current = null;
+      }, 100); // Small delay to allow any remaining content
+    }
   };
 
   const addPendingTools = (executions: ToolExecution[]) => {
@@ -346,13 +379,12 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         approvalQueueRef.current = [];
         bulkDecisionRef.current = null;
         setBulkProgress(null);
+        isApprovalActionRef.current = false;
+        approvalDecisionRef.current = null;
       },
 
       onComplete: () => {
         if (hasFinalizedRef.current) return;
-        hasFinalizedRef.current = true;
-
-        setIsStreaming(false);
 
         if (isBulkActionRef.current && approvalQueueRef.current.length > 0) {
           setTimeout(() => {
@@ -361,11 +393,31 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               isBulkActionRef.current = false;
               bulkDecisionRef.current = null;
               setBulkProgress(null);
+              hasFinalizedRef.current = true;
+              setIsStreaming(false);
+              setCurrentMessage((prev) => {
+                if (prev) {
+                  const finalMessage = {
+                    ...prev,
+                    isStreaming: false,
+                  };
+                  setMessages((msgs) => {
+                    const last = msgs[msgs.length - 1];
+                    if (
+                      last &&
+                      last.type === "assistant" &&
+                      last.content === finalMessage.content
+                    ) {
+                      return msgs;
+                    }
+                    return [...msgs, finalMessage];
+                  });
+                }
+                return null;
+              });
               return;
             }
             setError(null);
-            setIsStreaming(true);
-            hasFinalizedRef.current = false;
             setBulkProgress((p) =>
               p
                 ? {
@@ -384,6 +436,41 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           }, 50);
           return;
         }
+
+        if (isApprovalActionRef.current) {
+          isApprovalActionRef.current = false;
+          approvalDecisionRef.current = null;
+
+          // For both approve and deny actions, finalize the conversation
+          // The approval stream completes the current conversation turn
+          hasFinalizedRef.current = true;
+          setIsStreaming(false);
+          setCurrentMessage((prev) => {
+            if (prev) {
+              const finalMessage = {
+                ...prev,
+                isStreaming: false,
+              };
+              setMessages((msgs) => {
+                const last = msgs[msgs.length - 1];
+                if (
+                  last &&
+                  last.type === "assistant" &&
+                  last.content === finalMessage.content
+                ) {
+                  return msgs;
+                }
+                return [...msgs, finalMessage];
+              });
+            }
+            return null;
+          });
+          return;
+        }
+
+        // For regular conversation completion or bulk actions that are done
+        hasFinalizedRef.current = true;
+        setIsStreaming(false);
 
         if (isBulkActionRef.current && approvalQueueRef.current.length === 0) {
           isBulkActionRef.current = false;
@@ -479,6 +566,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       approvalQueueRef.current = [];
       setBulkProgress(null);
       bulkDecisionRef.current = null;
+      isApprovalActionRef.current = false;
+      approvalDecisionRef.current = null;
       setCurrentRunId(null);
       setCurrentMessage((prev) => {
         if (!prev) return null;
@@ -648,6 +737,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         setError(null);
         setIsStreaming(true);
         hasFinalizedRef.current = false;
+        isApprovalActionRef.current = true;
+        approvalDecisionRef.current = approve;
 
         await chatServiceRef.current?.startApprovalStream(
           callId,
@@ -662,6 +753,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             : `Failed to ${approve ? "approve" : "deny"} tool call`
         );
         setIsStreaming(false);
+        isApprovalActionRef.current = false;
+        approvalDecisionRef.current = null;
         throw error;
       }
     },
