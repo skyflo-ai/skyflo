@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # One week in minutes
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    MCP_SERVER_URL: str = "http://127.0.0.1:8888"
+    MCP_SERVER_URL: str = "http://127.0.0.1:8888/mcp"
 
     INTEGRATIONS_SECRET_NAMESPACE: Optional[str] = Field(default="default")
 

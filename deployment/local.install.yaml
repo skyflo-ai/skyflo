@@ -990,7 +990,7 @@ spec:
         image: skyfloai/mcp:latest
         imagePullPolicy: Never
         ports:
-        - containerPort: 8081
+        - containerPort: 8888
           name: http
         readinessProbe:
           httpGet:
@@ -1033,7 +1033,7 @@ metadata:
   namespace: ${NAMESPACE}
 spec:
   ports:
-  - port: 8081
+  - port: 8888
     targetPort: http
     protocol: TCP
     name: http

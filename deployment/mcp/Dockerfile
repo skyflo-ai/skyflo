@@ -74,7 +74,7 @@ ENV PATH="/app/venv/bin:/usr/local/bin:/home/skyflo/.local/bin:${PATH}" \
     PYTHONPATH="/app"
 
 # Expose the API port
-EXPOSE 8081
+EXPOSE 8888
 
 LABEL org.opencontainers.image.source=https://github.com/skyflo-ai/skyflo
 LABEL org.opencontainers.image.description="Skyflo.ai MCP Server - Open Source AI Agent for Cloud & DevOps"

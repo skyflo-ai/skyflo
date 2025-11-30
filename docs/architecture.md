@@ -23,7 +23,7 @@ MCP server that exposes standardized cloud-native tools for the Engine to execut
    - Built with FastMCP; single entrypoint registers tools and metadata
    - Tool categories: `kubectl`, `argo` (Rollouts), `helm`, and `jenkins` (CI)
    - Safety checks, validation, and clear parameter docs (Pydantic)
-   - Supports HTTP and SSE transports; automatic tool discovery and registration
+   - Uses FastMCP Streamable HTTP transport for Engine communication; automatic tool discovery and registration
    - Executes commands securely against cluster resources
 
 3. **Command Center** (`/ui`):

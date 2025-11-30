@@ -1,10 +1,9 @@
+import json
 import logging
-from contextlib import AsyncExitStack
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from mcp.client.session import ClientSession
-from mcp.client.sse import sse_client
-from mcp.types import CallToolResult, ListToolsResult, Tool
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
 
 from ..config import settings
 
@@ -12,74 +11,71 @@ logger = logging.getLogger(__name__)
 
 
 class MCPClient:
-    def __init__(
-        self, event_callback: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None
-    ):
-        self.base_url = settings.MCP_SERVER_URL.rstrip("/")
-        self.sse_url = f"{self.base_url}/sse"
-        self.session: Optional[ClientSession] = None
-        self.exit_stack: Optional[AsyncExitStack] = None
-        self.event_callback = event_callback
+    def __init__(self):
+        self.mcp_url = settings.MCP_SERVER_URL.rstrip("/")
 
-    async def _ensure_client(self) -> None:
-        if self.session:
-            return
-        try:
-            self.exit_stack = AsyncExitStack()
-            read, write = await self.exit_stack.enter_async_context(sse_client(self.sse_url))
-            self.session = await self.exit_stack.enter_async_context(ClientSession(read, write))
-            init_result = await self.session.initialize()
-        except Exception as e:
-            logger.error(f"Failed to connect to MCP server: {e}")
-            await self.close()
-            raise
-
-    async def close(self) -> None:
-        try:
-            if self.exit_stack:
-                try:
-                    await self.exit_stack.aclose()
-                except Exception as close_error:
-                    msg = str(close_error).lower()
-                    if "cancel scope" in msg or "different task" in msg or "task scope" in msg:
-                        await self._manual_cleanup()
-                    else:
-                        raise close_error
-        except Exception as e:
-            logger.error(f"Error closing MCP client: {e}")
-        finally:
-            self.session = None
-            self.exit_stack = None
-
-    async def _manual_cleanup(self) -> None:
-        if self.session:
-            if hasattr(self.session, "close"):
-                await self.session.close()
-            elif hasattr(self.session, "__aexit__"):
-                await self.session.__aexit__(None, None, None)
+    def _get_client(self) -> Client:
+        transport = StreamableHttpTransport(url=self.mcp_url)
+        return Client(transport)
 
     async def __aenter__(self) -> "MCPClient":
-        await self._ensure_client()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await self.close()
+        pass
 
-    async def list_tools_raw(self) -> List[Tool]:
-        await self._ensure_client()
-        result: ListToolsResult = await self.session.list_tools()
-        return result.tools
+    async def list_tools_raw(self) -> List[Dict[str, Any]]:
+        client = self._get_client()
+        async with client:
+            tools = await client.list_tools()
+            return [t.model_dump() for t in tools]
+
+    def _get_tool_name(self, tool: Any) -> str:
+        """Safely extract tool name from dict or object."""
+        if isinstance(tool, dict):
+            return str(tool.get("name", ""))
+        return str(getattr(tool, "name", ""))
 
     async def get_tools(self, category: Optional[str] = None) -> Dict[str, Any]:
         try:
             tools = await self.list_tools_raw()
             if category:
                 c = category.lower()
-                tools = [t for t in tools if c in t.name.lower()]
-            return {"tools": [t.model_dump() for t in tools]}
+                tools = [t for t in tools if c in self._get_tool_name(t).lower()]
+            return {"tools": tools}
         except Exception as e:
             logger.error(f"Error fetching tools: {e}")
             return {"tools": []}
+
+    def _parse_content_item(self, content_item: Any) -> Tuple[Dict[str, Any], bool]:
+        """Parse a single content item and return (parsed_dict, is_error)."""
+        cd = content_item.model_dump() if hasattr(content_item, "model_dump") else content_item
+
+        if cd.get("type") != "text":
+            return cd, False
+
+        text_content = cd.get("text", "")
+
+        # Check if text_content is already a dict with output/error format
+        if isinstance(text_content, dict) and "output" in text_content and "error" in text_content:
+            return {
+                "type": "text",
+                "text": text_content.get("output", ""),
+            }, bool(text_content.get("error"))
+
+        # Try parsing as JSON string
+        if isinstance(text_content, str):
+            try:
+                parsed = json.loads(text_content)
+                if isinstance(parsed, dict) and "output" in parsed and "error" in parsed:
+                    return {
+                        "type": "text",
+                        "text": parsed.get("output", text_content),
+                    }, bool(parsed.get("error"))
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass
+
+        return cd, False
 
     async def call_tool(
         self,
@@ -88,8 +84,6 @@ class MCPClient:
         action: Optional[str] = None,
         conversation_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        await self._ensure_client()
-
         try:
             inferred_parameters = parameters.copy()
             if (
@@ -105,55 +99,22 @@ class MCPClient:
                     "get_nodes": "node",
                 }.get(action, inferred_parameters.get("resource_type"))
 
-            result: CallToolResult = await self.session.call_tool(
-                name=tool_name, arguments=inferred_parameters
-            )
+            client = self._get_client()
+            async with client:
+                result = await client.call_tool_mcp(name=tool_name, arguments=inferred_parameters)
 
-            is_error = False
-            content_blocks: List[Dict[str, Any]] = []
+                is_error = result.isError or False
+                content_blocks: List[Dict[str, Any]] = []
 
-            for content in result.content:
-                cd = content.model_dump()
-                if cd.get("type") == "text":
-                    text_content = cd.get("text", "")
-                    if (
-                        isinstance(text_content, Dict)
-                        and "output" in text_content
-                        and "error" in text_content
-                    ):
-                        is_error = bool(text_content.get("error")) or is_error
-                        content_blocks.append(
-                            {"type": "text", "text": text_content.get("output", "")}
-                        )
-                    else:
-                        try:
-                            import json
+                for content_item in result.content:
+                    parsed_item, item_is_error = self._parse_content_item(content_item)
+                    is_error = is_error or item_is_error
+                    content_blocks.append(parsed_item)
 
-                            if isinstance(text_content, str):
-                                parsed = json.loads(text_content)
-                                if (
-                                    isinstance(parsed, Dict)
-                                    and "output" in parsed
-                                    and "error" in parsed
-                                ):
-                                    is_error = bool(parsed.get("error")) or is_error
-                                    content_blocks.append(
-                                        {"type": "text", "text": parsed.get("output", text_content)}
-                                    )
-                                else:
-                                    content_blocks.append(cd)
-                            else:
-                                content_blocks.append(cd)
-                        except (json.JSONDecodeError, TypeError, ValueError):
-                            content_blocks.append(cd)
-                else:
-                    content_blocks.append(cd)
-
-            result_dict = {
-                "content": content_blocks,
-                "isError": is_error or (getattr(result, "isError", False)),
-            }
-            return result_dict
+                return {
+                    "content": content_blocks,
+                    "isError": is_error,
+                }
 
         except Exception as e:
             logger.error(f"Error calling tool {tool_name}: {e}")
