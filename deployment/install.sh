@@ -198,7 +198,7 @@ set_runtime_defaults() {
     fi
 
     if [ -z "$MCP_SERVER_URL" ]; then
-        MCP_SERVER_URL="http://skyflo-ai-mcp:8081"
+        MCP_SERVER_URL="http://skyflo-ai-mcp:8888/mcp"
         print_colored "yellow" "ℹ Using default MCP server URL"
     fi
 

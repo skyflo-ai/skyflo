@@ -64,7 +64,7 @@ class WorkflowGraph:
         self.event_callback = event_callback
 
         self.approval_service = ApprovalService()
-        self.mcp_client = MCPClient(event_callback=self.event_callback)
+        self.mcp_client = MCPClient()
         self.tool_executor = ToolExecutor(
             approvals=self.approval_service,
             sse_publish=self.event_callback,
@@ -383,8 +383,6 @@ class WorkflowGraph:
         try:
             await self.tool_executor.close()
             await self.approval_service.close()
-            if hasattr(self, "mcp_client") and self.mcp_client:
-                await self.mcp_client.close()
 
             if self.checkpointer and hasattr(self.checkpointer, "aclose"):
                 await self.checkpointer.aclose()

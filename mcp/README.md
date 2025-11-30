@@ -1,6 +1,6 @@
 # MCP Server for Skyflo.ai
 
-This is the MCP server for Skyflo.ai. It unifies Kubernetes (kubectl, Argo Rollouts, Helm) and CI/CD systems (starting with Jenkins) behind a FastMCP server, enabling natural-language execution by the [Engine](../engine) with integration-aware tool discovery, and secure credential resolution over HTTP or SSE.
+This is the MCP server for Skyflo.ai. It unifies Kubernetes (kubectl, Argo Rollouts, Helm) and CI/CD systems (starting with Jenkins) behind a FastMCP server, enabling natural-language execution by the [Engine](../engine) with integration-aware tool discovery, and secure credential resolution over HTTP via Streamable HTTP transport.
 
 ## Architecture
 
@@ -15,7 +15,7 @@ The FastMCP server serves as the core tool execution engine:
 - Implements safety mechanisms and validation checks
 - Handles both synchronous and asynchronous operations
 - Supports comprehensive tool documentation and metadata
-- Built-in HTTP and SSE transport support
+- Built-in Streamable HTTP transport support
 - Automatic tool discovery and registration
 
 ## Features
@@ -66,14 +66,11 @@ uv pip install -e .
 3. Start the server:
 
 ```console
-# Start with HTTP transport (default)
+# Start with HTTP transport
 uv run python main.py --host 0.0.0.0 --port 8888
-
-# Or start with SSE transport
-uv run python main.py --sse --host 0.0.0.0 --port 8888
 ```
 
-The server provides MCP (Model Communication Protocol) interface for AI agents to interact with cloud-native tools.
+The server uses Streamable HTTP transport and provides MCP (Model Communication Protocol) interface for AI agents to interact with cloud-native tools.
 
 ## Testing
 

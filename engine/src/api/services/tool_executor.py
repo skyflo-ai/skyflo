@@ -44,7 +44,7 @@ class ToolExecutor:
 
     async def _get_mcp_client(self) -> MCPClient:
         if self._mcp_client is None:
-            self._mcp_client = MCPClient(event_callback=self.sse_publish)
+            self._mcp_client = MCPClient()
             self._owns_client = True
         return self._mcp_client
 
@@ -63,8 +63,6 @@ class ToolExecutor:
             return None
 
     async def close(self) -> None:
-        if self._mcp_client and self._owns_client:
-            await self._mcp_client.close()
         self._mcp_client = None
         await self.approvals.close()
 
