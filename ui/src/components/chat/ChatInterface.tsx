@@ -93,6 +93,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   type BulkDecision = "approve" | "deny";
   const isBulkActionRef = useRef(false);
   const bulkDecisionRef = useRef<BulkDecision | null>(null);
+  const isApprovalActionRef = useRef(false);
+  const approvalDecisionRef = useRef<boolean | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{
     done: number;
     total: number;
@@ -346,12 +348,24 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         approvalQueueRef.current = [];
         bulkDecisionRef.current = null;
         setBulkProgress(null);
+        isApprovalActionRef.current = false;
+        approvalDecisionRef.current = null;
       },
 
       onComplete: () => {
         if (hasFinalizedRef.current) return;
-        hasFinalizedRef.current = true;
 
+        // If this is an approval action (single or bulk), don't finalize yet
+        // Keep the message open for continuation
+        if (isApprovalActionRef.current) {
+          isApprovalActionRef.current = false;
+          approvalDecisionRef.current = null;
+          // Don't set hasFinalizedRef or finalize the message
+          // The stream will continue with the same message
+          return;
+        }
+
+        hasFinalizedRef.current = true;
         setIsStreaming(false);
 
         if (isBulkActionRef.current && approvalQueueRef.current.length > 0) {
@@ -366,6 +380,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             setError(null);
             setIsStreaming(true);
             hasFinalizedRef.current = false;
+            isApprovalActionRef.current = true;
+            approvalDecisionRef.current = bulkDecisionRef.current === "approve";
             setBulkProgress((p) =>
               p
                 ? {
@@ -479,6 +495,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       approvalQueueRef.current = [];
       setBulkProgress(null);
       bulkDecisionRef.current = null;
+      isApprovalActionRef.current = false;
+      approvalDecisionRef.current = null;
       setCurrentRunId(null);
       setCurrentMessage((prev) => {
         if (!prev) return null;
@@ -646,6 +664,34 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     async (callId: string, approve: boolean, reason?: string) => {
       try {
         setError(null);
+        isApprovalActionRef.current = true;
+        approvalDecisionRef.current = approve;
+        
+        // Ensure currentMessage contains the message with the tool call
+        // so that new content can be appended to it
+        setCurrentMessage((prev) => {
+          if (prev) {
+            // Already have a current message, just mark it as streaming
+            return { ...prev, isStreaming: true };
+          }
+          
+          // Find the last assistant message with the tool call
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            if (msg.type === "assistant" && Array.isArray(msg.segments)) {
+              const hasToolCall = msg.segments.some(
+                (s) => s.kind === "tool" && s.id === callId
+              );
+              if (hasToolCall) {
+                // Move this message to currentMessage and remove from messages
+                setMessages((msgs) => msgs.filter((_, idx) => idx !== i));
+                return { ...msg, isStreaming: true };
+              }
+            }
+          }
+          return prev;
+        });
+        
         setIsStreaming(true);
         hasFinalizedRef.current = false;
 
@@ -662,10 +708,12 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             : `Failed to ${approve ? "approve" : "deny"} tool call`
         );
         setIsStreaming(false);
+        isApprovalActionRef.current = false;
+        approvalDecisionRef.current = null;
         throw error;
       }
     },
-    []
+    [messages, conversationId]
   );
 
   const approvableTools = useMemo(() => {
@@ -724,6 +772,34 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         return;
       }
       setError(null);
+      isApprovalActionRef.current = true;
+      approvalDecisionRef.current = decision === "approve";
+      
+      // Ensure currentMessage contains the message with tool calls
+      // so that new content can be appended to it
+      setCurrentMessage((prev) => {
+        if (prev) {
+          // Already have a current message, just mark it as streaming
+          return { ...prev, isStreaming: true };
+        }
+        
+        // Find the last assistant message with tool calls
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const msg = messages[i];
+          if (msg.type === "assistant" && Array.isArray(msg.segments)) {
+            const hasToolCalls = msg.segments.some(
+              (s) => s.kind === "tool" && (s as any).toolExecution?.requires_approval
+            );
+            if (hasToolCalls) {
+              // Move this message to currentMessage and remove from messages
+              setMessages((msgs) => msgs.filter((_, idx) => idx !== i));
+              return { ...msg, isStreaming: true };
+            }
+          }
+        }
+        return prev;
+      });
+      
       setIsStreaming(true);
       hasFinalizedRef.current = false;
       void chatServiceRef.current?.startApprovalStream(
@@ -733,7 +809,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         conversationId
       );
     },
-    [approvableTools, conversationId]
+    [approvableTools, conversationId, messages]
   );
 
   return (
