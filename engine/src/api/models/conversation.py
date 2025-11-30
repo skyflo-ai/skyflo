@@ -54,6 +54,18 @@ class Message(Model):
         return f"<Message {self.id} role={self.role}>"
 
 
+class TokenUsageMetrics(BaseModel):
+    """Captured token and latency metrics for an assistant response."""
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    cached_tokens: int = 0
+    cost: float = 0.0
+    ttft_ms: Optional[int] = None
+    ttr_ms: Optional[int] = None
+
+
 class MessageCreate(BaseModel):
     """Schema for message creation."""
 
@@ -71,6 +83,7 @@ class MessageRead(BaseModel):
     content: str
     sequence: int
     message_metadata: Optional[Dict[str, Any]] = None
+    token_usage: Optional[TokenUsageMetrics] = None
     created_at: datetime
 
     class Config:

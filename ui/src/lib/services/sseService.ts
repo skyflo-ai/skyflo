@@ -4,8 +4,10 @@ import {
   ReadyEvent,
   CompletedEvent,
   WorkflowCompleteEvent,
+  TokenUsageEvent,
+  TTFTEvent,
 } from "@/types/events";
-import { ChatMessage, ToolExecution } from "@/types/chat";
+import { ChatMessage, ToolExecution, TokenUsage } from "@/types/chat";
 
 export interface ChatServiceCallbacks {
   onMessage?: (message: ChatMessage) => void;
@@ -22,6 +24,8 @@ export interface ChatServiceCallbacks {
     progress?: number
   ) => void;
   onToken?: (token: string, conversationId: string) => void;
+  onTokenUsage?: (usage: TokenUsage, source: "turn_check" | "main") => void;
+  onTTFT?: (duration: number, runId: string) => void;
   onError?: (error: string) => void;
   onComplete?: () => void;
   onReady?: (runId: string) => void;
@@ -387,6 +391,26 @@ export class ChatService {
         }
         this.callbacks.onToken?.(event.text, event.conversation_id);
         break;
+
+      case "token.usage": {
+        const usageEvent = event as TokenUsageEvent;
+        this.callbacks.onTokenUsage?.(
+          {
+            prompt_tokens: usageEvent.prompt_tokens,
+            completion_tokens: usageEvent.completion_tokens,
+            total_tokens: usageEvent.total_tokens,
+            cached_tokens: usageEvent.cached_tokens ?? 0,
+          },
+          usageEvent.source
+        );
+        break;
+      }
+
+      case "ttft": {
+        const ttftEvent = event as TTFTEvent;
+        this.callbacks.onTTFT?.(ttftEvent.duration, ttftEvent.run_id);
+        break;
+      }
 
       case "error":
         this.callbacks.onError?.(event.error);

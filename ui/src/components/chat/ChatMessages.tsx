@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import { ChatMessage } from "../../types/chat";
 import { ToolVisualization } from "./ToolVisualization";
+import { TokenUsageDisplay } from "./TokenUsageDisplay";
 import { markdownComponents } from "../ui/markdown-components";
 
 interface ChatMessagesProps {
@@ -46,6 +47,11 @@ export function ChatMessages({
   disableApprovalActions = false,
 }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+
+  const assistantMessageCount =
+    messages.filter((m) => m.type === "assistant").length +
+    (currentMessage?.type === "assistant" ? 1 : 0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -59,40 +65,53 @@ export function ChatMessages({
 
   const renderAssistantSegments = (message: ChatMessage) => {
     const segments = message.segments || [];
+    const isHovered = hoveredMessageId === message.id;
+    const usage = message.tokenUsage;
+    const showUsage = !!usage && assistantMessageCount > 1;
 
     return (
-      <div className="space-y-2 px-4">
-        {segments.map((seg) => {
-          if (seg.kind === "text") {
-            return (
-              <div key={seg.id} className={cn("prose prose-invert max-w-none")}>
-                <ReactMarkdown
-                  className="text-base leading-relaxed"
-                  components={markdownComponents}
+      <div className={cn("relative", showUsage && "pb-10")}>
+        <div className="space-y-2 px-4">
+          {segments.map((seg) => {
+            if (seg.kind === "text") {
+              return (
+                <div
+                  key={seg.id}
+                  className={cn("prose prose-invert max-w-none")}
                 >
-                  {seg.text}
-                </ReactMarkdown>
-              </div>
+                  <ReactMarkdown
+                    className="text-base leading-relaxed"
+                    components={markdownComponents}
+                  >
+                    {seg.text}
+                  </ReactMarkdown>
+                </div>
+              );
+            }
+            return (
+              <motion.div
+                key={seg.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+              >
+                <ToolVisualization
+                  toolExecution={seg.toolExecution}
+                  isExpanded={
+                    seg.toolExecution.status === "executing" ||
+                    seg.toolExecution.status === "awaiting_approval"
+                  }
+                  onApprovalAction={onApprovalAction}
+                  disableActions={disableApprovalActions}
+                />
+              </motion.div>
             );
-          }
-          return (
-            <motion.div
-              key={seg.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-            >
-              <ToolVisualization
-                toolExecution={seg.toolExecution}
-                isExpanded={
-                  seg.toolExecution.status === "executing" ||
-                  seg.toolExecution.status === "awaiting_approval"
-                }
-                onApprovalAction={onApprovalAction}
-                disableActions={disableApprovalActions}
-              />
-            </motion.div>
-          );
-        })}
+          })}
+        </div>
+        {showUsage && (
+          <div className="absolute left-1/2 bottom-2 -translate-x-1/2">
+            <TokenUsageDisplay usage={usage} visible={isHovered} />
+          </div>
+        )}
       </div>
     );
   };
@@ -116,6 +135,12 @@ export function ChatMessages({
                 "flex items-start",
                 message.type === "user" ? "flex-row-reverse" : ""
               )}
+              onMouseEnter={() =>
+                message.type === "assistant" && setHoveredMessageId(message.id)
+              }
+              onMouseLeave={() =>
+                message.type === "assistant" && setHoveredMessageId(null)
+              }
             >
               <div
                 className={cn(

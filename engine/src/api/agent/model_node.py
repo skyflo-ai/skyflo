@@ -5,7 +5,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple, Callable, Awaitable, Literal
 
-from litellm import acompletion
+from litellm import acompletion, completion_cost, cost_per_token
 from litellm.exceptions import RateLimitError
 from pydantic import BaseModel, Field
 
@@ -20,6 +20,7 @@ from ..utils.sanitization import (
 from .prompts import NEXT_SPEAKER_CHECK_PROMPT
 from .stop import StopRequested
 from ..services.stop_service import should_stop
+from ..utils.clock import now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,11 @@ class NextSpeakerDecision(BaseModel):
 
 
 async def decide_next_speaker(
-    messages: List[Dict[str, Any]], model: str, api_key: Optional[str] = None
+    messages: List[Dict[str, Any]],
+    model: str,
+    api_key: Optional[str] = None,
+    event_callback: Optional[EventCallback] = None,
+    conversation_id: Optional[str] = None,
 ) -> str:
     curated = messages[-6:] if len(messages) > 6 else messages
     curated = sanitize_messages_for_openai(curated)
@@ -43,7 +48,7 @@ async def decide_next_speaker(
         "messages": judge_messages,
         "response_format": NextSpeakerDecision,
         "temperature": 0.0,
-        "max_tokens": 200,
+        "drop_params": True,
     }
 
     if api_key:
@@ -51,6 +56,47 @@ async def decide_next_speaker(
 
     try:
         resp = await acompletion(**completion_kwargs)
+
+        if event_callback and hasattr(resp, "usage") and resp.usage:
+            usage = resp.usage
+
+            def get_val(obj, key, default=None):
+                val = getattr(obj, key, None)
+                if val is None and hasattr(obj, "get"):
+                    val = obj.get(key)
+                return val if val is not None else default
+
+            prompt_tokens = get_val(usage, "prompt_tokens", 0)
+            completion_tokens = get_val(usage, "completion_tokens", 0)
+            total_tokens = get_val(usage, "total_tokens", 0)
+
+            cached_tokens = None
+            details = get_val(usage, "prompt_tokens_details")
+            if details:
+                cached_tokens = get_val(details, "cached_tokens")
+
+            cost = 0.0
+            try:
+                cost = completion_cost(completion_response=resp)
+            except Exception as e:
+                logger.debug(f"Error calculating cost: {e}")
+                pass
+
+            await event_callback(
+                {
+                    "type": "token.usage",
+                    "source": "turn_check",
+                    "model": model,
+                    "prompt_tokens": prompt_tokens or 0,
+                    "completion_tokens": completion_tokens or 0,
+                    "total_tokens": total_tokens or 0,
+                    "cached_tokens": cached_tokens,
+                    "cost": cost,
+                    "conversation_id": conversation_id,
+                    "timestamp": now_ms(),
+                }
+            )
+
         parsed = NextSpeakerDecision.model_validate_json(resp.choices[0].message.content)
         return parsed.next_speaker
     except Exception as e:
@@ -64,9 +110,26 @@ async def run_model_turn(
     run_id: Optional[str] = None,
     max_retries: int = 3,
     tools_provider: Optional[Callable[[], Awaitable[List[Dict[str, Any]]]]] = None,
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    start_time: Optional[float] = None,
+    ttft_emitted: bool = False,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], bool]:
     retry_count = 0
     last_exception = None
+    new_ttft_emitted = False
+
+    async def emit_ttft_if_needed():
+        nonlocal new_ttft_emitted
+        if not ttft_emitted and not new_ttft_emitted and start_time:
+            ttft_duration = now_ms() - int(start_time * 1000)
+            await event_callback(
+                {
+                    "type": "ttft",
+                    "duration": ttft_duration,
+                    "timestamp": now_ms(),
+                    "run_id": run_id,
+                }
+            )
+            new_ttft_emitted = True
 
     while retry_count <= max_retries:
         try:
@@ -99,11 +162,12 @@ async def run_model_turn(
                 "model": model,
                 "messages": prepared_messages,
                 "stream": True,
+                "stream_options": {"include_usage": True},
                 "tools": tools if tools else None,
                 "tool_choice": "auto" if tools else None,
                 "temperature": temperature,
-                "max_tokens": 4000,
                 "timeout": 120,
+                "drop_params": True,
             }
 
             if api_key:
@@ -119,6 +183,7 @@ async def run_model_turn(
                         "model": model,
                         "conversation_id": conversation_id,
                         "tools_available": len(tools),
+                        "run_id": run_id,
                     }
                 )
 
@@ -129,13 +194,17 @@ async def run_model_turn(
             content_buffer = ""
             tool_calls_buffer = {}
             tokens_generated = 0
+            stream_usage = None
 
             try:
                 async for chunk in response:
-                    # Check for stop using run_id for the new architecture
                     if run_id and tokens_generated % 25 == 0:
                         if await should_stop(run_id):
                             raise StopRequested()
+
+                    if hasattr(chunk, "usage") and chunk.usage:
+                        stream_usage = chunk.usage
+
                     if not chunk.choices:
                         continue
 
@@ -147,16 +216,22 @@ async def run_model_turn(
                         tokens_generated += 1
 
                         if event_callback:
+                            await emit_ttft_if_needed()
+
                             await event_callback(
                                 {
                                     "type": "token",
                                     "text": delta.content,
                                     "conversation_id": conversation_id,
                                     "tokens_generated": tokens_generated,
+                                    "run_id": run_id,
                                 }
                             )
 
                     if hasattr(delta, "tool_calls") and delta.tool_calls:
+                        if event_callback:
+                            await emit_ttft_if_needed()
+
                         for tool_call in delta.tool_calls:
                             if not hasattr(tool_call, "index"):
                                 continue
@@ -190,6 +265,47 @@ async def run_model_turn(
                 logger.error(f"Error during streaming: {stream_error}")
                 if not (content_buffer or tool_calls_buffer):
                     raise stream_error
+
+            if event_callback and stream_usage:
+                cached_tokens = None
+                if (
+                    hasattr(stream_usage, "prompt_tokens_details")
+                    and stream_usage.prompt_tokens_details
+                ):
+                    cached_tokens = getattr(
+                        stream_usage.prompt_tokens_details, "cached_tokens", None
+                    )
+
+                prompt_tokens = getattr(stream_usage, "prompt_tokens", 0) or 0
+                completion_tokens = getattr(stream_usage, "completion_tokens", 0) or 0
+
+                cost = 0.0
+                try:
+                    p_cost, c_cost = cost_per_token(
+                        model=model,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        cache_read_input_tokens=cached_tokens or 0,
+                    )
+                    cost = p_cost + c_cost
+                except Exception as e:
+                    logger.debug(f"Error calculating cost: {e}")
+
+                await event_callback(
+                    {
+                        "type": "token.usage",
+                        "source": "main",
+                        "model": model,
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "total_tokens": getattr(stream_usage, "total_tokens", 0) or 0,
+                        "cached_tokens": cached_tokens,
+                        "cost": cost,
+                        "conversation_id": conversation_id,
+                        "timestamp": now_ms(),
+                        "run_id": run_id,
+                    }
+                )
 
             assistant_message: Dict[str, Any] = {
                 "role": "assistant",
@@ -253,10 +369,11 @@ async def run_model_turn(
                         "tokens_generated": tokens_generated,
                         "tool_calls": len(tool_calls),
                         "content": content_buffer,
+                        "run_id": run_id,
                     }
                 )
 
-            return assistant_messages, tool_calls
+            return assistant_messages, tool_calls, (ttft_emitted or new_ttft_emitted)
 
         except RateLimitError as e:
             retry_count += 1
@@ -396,16 +513,23 @@ class ModelNode:
             if not messages:
                 return {"messages": [], "pending_tools": [], "error": "No messages provided"}
 
-            assistant_msgs, tool_calls = await run_model_turn(
+            start_time = get_state_value(state, "start_time")
+            ttft_emitted = get_state_value(state, "ttft_emitted", False)
+
+            assistant_msgs, tool_calls, new_ttft_emitted = await run_model_turn(
                 messages=messages,
                 event_callback=self.event_callback,
                 conversation_id=conversation_id,
                 run_id=run_id,
                 max_retries=3,
                 tools_provider=self.tools_provider,
+                start_time=start_time,
+                ttft_emitted=ttft_emitted,
             )
 
             updated_state = {"messages": assistant_msgs}
+            if new_ttft_emitted:
+                updated_state["ttft_emitted"] = True
 
             if tool_calls:
                 updated_state["pending_tools"] = tool_calls
@@ -416,7 +540,13 @@ class ModelNode:
                 api_key = get_api_key_for_provider(provider)
 
                 decision_context = get_state_value(state, "messages", []) + assistant_msgs
-                decision = await decide_next_speaker(decision_context, model, api_key)
+                decision = await decide_next_speaker(
+                    decision_context,
+                    model,
+                    api_key,
+                    event_callback=self.event_callback,
+                    conversation_id=conversation_id,
+                )
 
                 if decision == "model":
                     if get_state_value(state, "awaiting_approval", False):

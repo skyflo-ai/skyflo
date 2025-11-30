@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ChatService } from "@/lib/services/sseService";
-import { ToolExecution, ChatMessage } from "@/types/chat";
+import { ToolExecution, ChatMessage, TokenUsage } from "@/types/chat";
 import {
   ChatMessage as ChatMessageType,
   ToolExecution as ToolExecutionType,
@@ -13,6 +13,60 @@ import { ChatInput } from "./ChatInput";
 import { PendingApprovalsBar } from "./PendingApprovalsBar";
 import { QueuedMessagesBar } from "./QueuedMessagesBar";
 import { stopConversation } from "@/lib/approvals";
+
+const createEmptyUsage = (): TokenUsage => ({
+  prompt_tokens: 0,
+  completion_tokens: 0,
+  total_tokens: 0,
+  cached_tokens: 0,
+  ttft: 0,
+  ttr: 0,
+});
+
+const mapTokenUsage = (raw: any): TokenUsage | undefined => {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  return {
+    prompt_tokens: Number(raw.prompt_tokens) || 0,
+    completion_tokens: Number(raw.completion_tokens) || 0,
+    total_tokens: Number(raw.total_tokens) || 0,
+    cached_tokens: Number(raw.cached_tokens) || 0,
+    ttft: raw.ttft_ms ?? raw.ttft ?? undefined,
+    ttr: raw.ttr_ms ?? raw.ttr ?? undefined,
+  };
+};
+
+const accumulateUsage = (
+  target: TokenUsage,
+  addition?: TokenUsage
+): TokenUsage => {
+  if (!addition) {
+    return target;
+  }
+
+  return {
+    prompt_tokens: target.prompt_tokens + (addition.prompt_tokens || 0),
+    completion_tokens:
+      target.completion_tokens + (addition.completion_tokens || 0),
+    total_tokens: target.total_tokens + (addition.total_tokens || 0),
+    cached_tokens: target.cached_tokens + (addition.cached_tokens || 0),
+    ttft: addition.ttft ?? target.ttft,
+    ttr: addition.ttr ?? target.ttr,
+  };
+};
+
+const hasUsageMetrics = (usage?: TokenUsage): boolean => {
+  if (!usage) return false;
+  return (
+    usage.prompt_tokens > 0 ||
+    usage.completion_tokens > 0 ||
+    usage.total_tokens > 0 ||
+    usage.cached_tokens > 0 ||
+    !!usage.ttft ||
+    !!usage.ttr
+  );
+};
 
 interface ChatInterfaceProps {
   conversationId: string;
@@ -31,6 +85,24 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const [queuedMessages, setQueuedMessages] = useState<
     { id: string; content: string; timestamp: number }[]
   >([]);
+  const [liveUsage, setLiveUsage] = useState<TokenUsage>(() =>
+    createEmptyUsage()
+  );
+  const liveUsageRef = useRef<TokenUsage>(createEmptyUsage());
+  const requestStartTimeRef = useRef<number | null>(null);
+  const updateLiveUsage = useCallback(
+    (updater: (prev: TokenUsage) => TokenUsage) => {
+      setLiveUsage((prev) => {
+        const next = updater(prev);
+        liveUsageRef.current = next;
+        return next;
+      });
+    },
+    []
+  );
+  const resetLiveUsage = useCallback(() => {
+    updateLiveUsage(() => createEmptyUsage());
+  }, [updateLiveUsage]);
 
   useEffect(() => {
     if (!isStreaming) {
@@ -93,6 +165,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   type BulkDecision = "approve" | "deny";
   const isBulkActionRef = useRef(false);
   const bulkDecisionRef = useRef<BulkDecision | null>(null);
+  const isApprovalActionRef = useRef(false);
+  const approvalDecisionRef = useRef<boolean | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{
     done: number;
     total: number;
@@ -231,6 +305,37 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       }
       return updated;
     });
+
+    // For denied tools in approval actions, finalize the stream
+    if (execution.status === "denied" && isApprovalActionRef.current) {
+      setTimeout(() => {
+        if (hasFinalizedRef.current) return;
+        hasFinalizedRef.current = true;
+        setIsStreaming(false);
+        setCurrentMessage((prev) => {
+          if (prev) {
+            const finalMessage = {
+              ...prev,
+              isStreaming: false,
+            };
+            setMessages((msgs) => {
+              const last = msgs[msgs.length - 1];
+              if (
+                last &&
+                last.type === "assistant" &&
+                last.content === finalMessage.content
+              ) {
+                return msgs;
+              }
+              return [...msgs, finalMessage];
+            });
+          }
+          return null;
+        });
+        isApprovalActionRef.current = false;
+        approvalDecisionRef.current = null;
+      }, 100); // Small delay to allow any remaining content
+    }
   };
 
   const addPendingTools = (executions: ToolExecution[]) => {
@@ -251,6 +356,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           timestamp: Date.now(),
           isStreaming: true,
           segments: seededSegments,
+          tokenUsage: { ...liveUsageRef.current },
         } as ChatMessageType;
       }
 
@@ -313,6 +419,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               segments: [
                 { kind: "text", id: crypto.randomUUID(), text: token },
               ],
+              tokenUsage: { ...liveUsageRef.current },
             };
           }
           const segments = prev.segments ? [...prev.segments] : [];
@@ -346,13 +453,24 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         approvalQueueRef.current = [];
         bulkDecisionRef.current = null;
         setBulkProgress(null);
+        isApprovalActionRef.current = false;
+        approvalDecisionRef.current = null;
       },
 
       onComplete: () => {
+        if (requestStartTimeRef.current) {
+          const ttr = Date.now() - requestStartTimeRef.current;
+          updateLiveUsage((prev) => ({ ...prev, ttr }));
+          setCurrentMessage((prev) => {
+            if (!prev) return prev;
+            const baseUsage = prev.tokenUsage ?? createEmptyUsage();
+            return {
+              ...prev,
+              tokenUsage: { ...baseUsage, ttr },
+            };
+          });
+        }
         if (hasFinalizedRef.current) return;
-        hasFinalizedRef.current = true;
-
-        setIsStreaming(false);
 
         if (isBulkActionRef.current && approvalQueueRef.current.length > 0) {
           setTimeout(() => {
@@ -361,11 +479,31 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               isBulkActionRef.current = false;
               bulkDecisionRef.current = null;
               setBulkProgress(null);
+              hasFinalizedRef.current = true;
+              setIsStreaming(false);
+              setCurrentMessage((prev) => {
+                if (prev) {
+                  const finalMessage = {
+                    ...prev,
+                    isStreaming: false,
+                  };
+                  setMessages((msgs) => {
+                    const last = msgs[msgs.length - 1];
+                    if (
+                      last &&
+                      last.type === "assistant" &&
+                      last.content === finalMessage.content
+                    ) {
+                      return msgs;
+                    }
+                    return [...msgs, finalMessage];
+                  });
+                }
+                return null;
+              });
               return;
             }
             setError(null);
-            setIsStreaming(true);
-            hasFinalizedRef.current = false;
             setBulkProgress((p) =>
               p
                 ? {
@@ -384,6 +522,41 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           }, 50);
           return;
         }
+
+        if (isApprovalActionRef.current) {
+          isApprovalActionRef.current = false;
+          approvalDecisionRef.current = null;
+
+          // For both approve and deny actions, finalize the conversation
+          // The approval stream completes the current conversation turn
+          hasFinalizedRef.current = true;
+          setIsStreaming(false);
+          setCurrentMessage((prev) => {
+            if (prev) {
+              const finalMessage = {
+                ...prev,
+                isStreaming: false,
+              };
+              setMessages((msgs) => {
+                const last = msgs[msgs.length - 1];
+                if (
+                  last &&
+                  last.type === "assistant" &&
+                  last.content === finalMessage.content
+                ) {
+                  return msgs;
+                }
+                return [...msgs, finalMessage];
+              });
+            }
+            return null;
+          });
+          return;
+        }
+
+        // For regular conversation completion or bulk actions that are done
+        hasFinalizedRef.current = true;
+        setIsStreaming(false);
 
         if (isBulkActionRef.current && approvalQueueRef.current.length === 0) {
           isBulkActionRef.current = false;
@@ -416,6 +589,44 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       onReady: (runId: string) => {
         setCurrentRunId(runId);
       },
+
+      onTokenUsage: (usage: TokenUsage, source: "turn_check" | "main") => {
+        if (source !== "main") {
+          return;
+        }
+        updateLiveUsage((prev) => ({
+          prompt_tokens: prev.prompt_tokens + usage.prompt_tokens,
+          completion_tokens: prev.completion_tokens + usage.completion_tokens,
+          total_tokens: prev.total_tokens + usage.total_tokens,
+          cached_tokens: prev.cached_tokens + usage.cached_tokens,
+          ttft: prev.ttft,
+          ttr: prev.ttr,
+        }));
+        setCurrentMessage((prev) => {
+          if (!prev) return prev;
+          const baseUsage = prev.tokenUsage ?? createEmptyUsage();
+          return {
+            ...prev,
+            tokenUsage: {
+              ...baseUsage,
+              prompt_tokens: baseUsage.prompt_tokens + usage.prompt_tokens,
+              completion_tokens:
+                baseUsage.completion_tokens + usage.completion_tokens,
+              total_tokens: baseUsage.total_tokens + usage.total_tokens,
+              cached_tokens: baseUsage.cached_tokens + usage.cached_tokens,
+            },
+          };
+        });
+      },
+
+      onTTFT: (duration: number) => {
+        updateLiveUsage((prev) => ({ ...prev, ttft: duration }));
+        setCurrentMessage((prev) => {
+          if (!prev) return prev;
+          const baseUsage = prev.tokenUsage ?? createEmptyUsage();
+          return { ...prev, tokenUsage: { ...baseUsage, ttft: duration } };
+        });
+      },
     });
 
     return () => {
@@ -436,22 +647,28 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         if (!isMounted) return;
 
         const hydrated: ChatMessageType[] = msgs.map((m: any) => {
-          if (m.type === "assistant" && m.segments && m.segments.length > 0) {
-            return {
-              id: m.id || crypto.randomUUID(),
-              type: "assistant",
-              content: m.content || "",
-              timestamp: m.timestamp || Date.now(),
-              isStreaming: !!m.isStreaming,
-              segments: m.segments,
-            };
-          }
-          return {
+          const baseMessage: ChatMessageType = {
             id: m.id || crypto.randomUUID(),
             type: m.type,
             content: m.content || "",
             timestamp: m.timestamp || Date.now(),
+            isStreaming: !!m.isStreaming,
+            tokenUsage: mapTokenUsage(m.token_usage),
           };
+
+          if (
+            m.type === "assistant" &&
+            Array.isArray(m.segments) &&
+            m.segments.length > 0
+          ) {
+            return {
+              ...baseMessage,
+              type: "assistant",
+              segments: m.segments,
+            };
+          }
+
+          return baseMessage;
         });
 
         setMessages((prev) => (prev.length > 0 ? prev : hydrated));
@@ -479,6 +696,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       approvalQueueRef.current = [];
       setBulkProgress(null);
       bulkDecisionRef.current = null;
+      isApprovalActionRef.current = false;
+      approvalDecisionRef.current = null;
       setCurrentRunId(null);
       setCurrentMessage((prev) => {
         if (!prev) return null;
@@ -536,6 +755,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       setIsStreaming(true);
       setWaitingForFirstUpdate(true);
       setIsAtBottom(true);
+      resetLiveUsage();
+      requestStartTimeRef.current = Date.now();
 
       const userMessage = {
         id: crypto.randomUUID(),
@@ -648,6 +869,11 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         setError(null);
         setIsStreaming(true);
         hasFinalizedRef.current = false;
+        isApprovalActionRef.current = true;
+        approvalDecisionRef.current = approve;
+
+        resetLiveUsage();
+        requestStartTimeRef.current = Date.now();
 
         await chatServiceRef.current?.startApprovalStream(
           callId,
@@ -662,6 +888,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             : `Failed to ${approve ? "approve" : "deny"} tool call`
         );
         setIsStreaming(false);
+        isApprovalActionRef.current = false;
+        approvalDecisionRef.current = null;
         throw error;
       }
     },
@@ -726,6 +954,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       setError(null);
       setIsStreaming(true);
       hasFinalizedRef.current = false;
+
+      resetLiveUsage();
+      requestStartTimeRef.current = Date.now();
+
       void chatServiceRef.current?.startApprovalStream(
         next,
         decision === "approve",
@@ -735,6 +967,35 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     },
     [approvableTools, conversationId]
   );
+
+  const assistantMessageCount = useMemo(() => {
+    let count = messages.filter((msg) => msg.type === "assistant").length;
+    if (currentMessage?.type === "assistant") {
+      count += 1;
+    }
+    return count;
+  }, [messages, currentMessage]);
+
+  const aggregatedUsage = useMemo(() => {
+    let totals = createEmptyUsage();
+
+    messages.forEach((msg) => {
+      if (msg.type !== "assistant") return;
+      totals = accumulateUsage(totals, msg.tokenUsage);
+    });
+
+    if (currentMessage?.type === "assistant") {
+      totals = accumulateUsage(totals, currentMessage.tokenUsage);
+    } else if (isStreaming && !currentMessage) {
+      totals = accumulateUsage(totals, liveUsage);
+    }
+
+    return totals;
+  }, [messages, currentMessage, isStreaming, liveUsage]);
+
+  const shouldShowFooterUsage =
+    (isStreaming || assistantMessageCount >= 1) &&
+    hasUsageMetrics(aggregatedUsage);
 
   return (
     <div className="relative h-full w-full">
@@ -817,6 +1078,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                 </div>
               )
             }
+            tokenUsage={shouldShowFooterUsage ? aggregatedUsage : undefined}
           />
         </div>
       </div>

@@ -128,9 +128,10 @@ class WorkflowGraph:
 
     async def _entry_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
         await _check_stop(state)
+        updates = {"ttft_emitted": False}
         if get_state_value(state, "awaiting_approval", False):
-            return {"awaiting_approval": False}
-        return {}
+            updates["awaiting_approval"] = False
+        return updates
 
     async def _model_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
         try:
@@ -144,6 +145,8 @@ class WorkflowGraph:
                 updated_state["pending_tools"] = result["pending_tools"]
             if "error" in result:
                 updated_state["error"] = result["error"]
+            if "ttft_emitted" in result:
+                updated_state["ttft_emitted"] = result["ttft_emitted"]
 
             return updated_state
 
