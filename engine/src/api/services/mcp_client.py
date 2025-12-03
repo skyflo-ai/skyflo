@@ -31,7 +31,6 @@ class MCPClient:
             return [t.model_dump() for t in tools]
 
     def _get_tool_name(self, tool: Any) -> str:
-        """Safely extract tool name from dict or object."""
         if isinstance(tool, dict):
             return str(tool.get("name", ""))
         return str(getattr(tool, "name", ""))
@@ -48,7 +47,6 @@ class MCPClient:
             return {"tools": []}
 
     def _parse_content_item(self, content_item: Any) -> Tuple[Dict[str, Any], bool]:
-        """Parse a single content item and return (parsed_dict, is_error)."""
         cd = content_item.model_dump() if hasattr(content_item, "model_dump") else content_item
 
         if cd.get("type") != "text":
@@ -56,14 +54,12 @@ class MCPClient:
 
         text_content = cd.get("text", "")
 
-        # Check if text_content is already a dict with output/error format
         if isinstance(text_content, dict) and "output" in text_content and "error" in text_content:
             return {
                 "type": "text",
                 "text": text_content.get("output", ""),
             }, bool(text_content.get("error"))
 
-        # Try parsing as JSON string
         if isinstance(text_content, str):
             try:
                 parsed = json.loads(text_content)

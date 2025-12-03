@@ -70,7 +70,7 @@ export const markdownComponents = {
       <ul
         className={`text-md tracking-wide leading-relaxed text-white my-3 ${
           depth === 0 ? "list-disc" : "list-circle"
-        } ml-4`}
+        } ml-4 marker:text-primary-cyan`}
         {...props}
       />
     );

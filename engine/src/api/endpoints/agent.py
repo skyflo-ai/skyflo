@@ -119,6 +119,7 @@ def create_event_callback(
     channel: str,
     conversation_id: Optional[str],
     persistence: Optional[ConversationPersistenceService],
+    run_id: Optional[str] = None,
 ):
     """Create a reusable event callback function for workflow events."""
 
@@ -134,18 +135,45 @@ def create_event_callback(
         if conversation_id and "conversation_id" not in event:
             event["conversation_id"] = conversation_id
 
-        await publish_event(channel, event_type, event)
+        event_run_id = event.get("run_id") or run_id
+        if event_run_id and "run_id" not in event:
+            event["run_id"] = event_run_id
+
+        publish_payload = event.copy()
+        if event_type == "token.usage" and "cost" in publish_payload:
+            del publish_payload["cost"]
+
+        await publish_event(channel, event_type, publish_payload)
         if not persistence or not conversation_id:
             return
 
         try:
-            if event_type == "generation.complete":
+            if event_type == "token.usage" and (event.get("source") or "main") == "main":
+                persistence.record_token_usage(
+                    conversation_id=conversation_id,
+                    run_id=event_run_id,
+                    prompt_tokens=int(event.get("prompt_tokens") or 0),
+                    completion_tokens=int(event.get("completion_tokens") or 0),
+                    total_tokens=int(event.get("total_tokens") or 0),
+                    cached_tokens=event.get("cached_tokens"),
+                    cost=float(event.get("cost") or 0.0),
+                )
+                await persistence.apply_usage_snapshot(conversation_id, event_run_id)
+            elif event_type == "ttft":
+                persistence.record_ttft(
+                    conversation_id=conversation_id,
+                    run_id=event_run_id,
+                    duration_ms=int(event.get("duration") or 0),
+                )
+                await persistence.apply_usage_snapshot(conversation_id, event_run_id)
+            elif event_type == "generation.complete":
                 content = str(event.get("content", ""))
                 if content:
                     await persistence.append_text_segment(
                         conversation_id=conversation_id,
                         text=content,
                         timestamp=event.get("timestamp"),
+                        run_id=event_run_id,
                     )
             elif event_type in ("tool.executing", "tool.awaiting_approval"):
                 try:
@@ -217,6 +245,15 @@ def create_event_callback(
                     status="completed",
                     result=event.get("result"),
                 )
+            elif event_type == "completed":
+                duration = event.get("duration")
+                duration_ms = int(duration * 1000) if isinstance(duration, (int, float)) else None
+                persistence.record_ttr(
+                    conversation_id=conversation_id,
+                    run_id=event_run_id,
+                    duration_ms=duration_ms,
+                )
+                await persistence.finalize_usage_snapshot(conversation_id, event_run_id)
         except Exception as persist_error:
             logger.error(f"Persistence error for conversation {conversation_id}: {persist_error}")
 
@@ -243,7 +280,7 @@ async def run_agent_workflow(
         except Exception:
             pass
 
-        event_callback = create_event_callback(channel, conversation_id, persistence)
+        event_callback = create_event_callback(channel, conversation_id, persistence, run_id=run_id)
         workflow_graph = build_graph(event_callback=event_callback)
 
         try:

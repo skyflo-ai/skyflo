@@ -73,6 +73,7 @@ Skyflo.ai employs a graph-based workflow powered by [LangGraph](https://github.c
 - **Tool Execution via MCP**: Standardized tools for `kubectl`, `argo` (Rollouts), and `helm`
 - **Human-in-the-Loop Safety**: Explicit approvals required for WRITE operations
 - **SSE Streaming**: Live tokens, tool progress, and results
+- **Token Usage & Metrics**: Real-time tracking of token consumption, TTFT, and TTR latency
 - **Resource Discovery**: Automatic discovery to ground actions
 - **Multi-stage Operations**: Complex workflows broken into manageable steps
 - **Context-aware Responses**: Maintains conversation history
