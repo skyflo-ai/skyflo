@@ -234,12 +234,6 @@ skyflo.ai Installer
 ================================
 "
 
-print_colored "yellow" "Please select your installation type:"
-print_colored "yellow" "1) Local development cluster (KinD required)"
-print_colored "yellow" "2) Production cluster"
-read -p "Enter your choice (1 or 2): " choice
-
-choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]')
 
 # Namespace configuration
 read -p "Enter Kubernetes namespace (press Enter for default 'skyflo-ai'): " NAMESPACE
@@ -250,75 +244,33 @@ fi
 
 export NAMESPACE
 
+
+
+print_colored "green" "Setting up production cluster..."
+check_command "kubectl"
+check_command "envsubst"
+check_command "base64"
+check_command "openssl"
+check_command "curl"
+
 ensure_namespace_exists "$NAMESPACE"
+prompt_llm_configuration
+set_runtime_defaults
 
-case $choice in
-    1|"1"|"1)"|"local"|"kind"|"l")
-        print_colored "green" "Setting up local development cluster using KinD..."
-        check_command "kind"
-        check_command "kubectl"
-        check_command "envsubst"
-        check_command "base64"
-        check_command "openssl"
-        check_command "curl"
+print_colored "yellow" "🔄 Applying Kubernetes configuration..."
+TMP_INSTALL_FILE=$(mktemp)
 
-        setup_kind_cluster_if_needed
+curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.yaml" > "$TMP_INSTALL_FILE"
 
-        TMP_INSTALL_FILE=$(mktemp)
-        curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/local.install.yaml" > "$TMP_INSTALL_FILE"
+apply_k8s_from_file "$TMP_INSTALL_FILE" || {
+    print_colored "red" "❌ Installation failed"
+    rm -f "$TMP_INSTALL_FILE"
+    exit 1
+}
 
-        sed -i '' 's/imagePullPolicy: Never/imagePullPolicy: Always/g' "$TMP_INSTALL_FILE"
-        prompt_llm_configuration
-        set_runtime_defaults
+rm -f "$TMP_INSTALL_FILE"
 
-        print_colored "yellow" "🔄 Setting up local development environment..."
-
-        print_colored "yellow" "🔄 Applying Kubernetes configuration..."
-        apply_k8s_from_file "$TMP_INSTALL_FILE" || {
-            print_colored "red" "❌ Local installation failed"
-            rm -f "$TMP_INSTALL_FILE"
-            exit 1
-        }
-
-        rm -f "$TMP_INSTALL_FILE"
-
-        print_colored "green" "
-✅ Installation Complete!
-========================
-Your Skyflo.ai instance is being deployed. To check the status, run:
-  kubectl get pods -n $NAMESPACE
-
-Your services are directly accessible through NodePorts:
-- UI: http://localhost:30080
-- API: http://localhost:30081
-
-For production setup and more information, visit:
-  https://github.com/skyflo-ai/skyflo/blob/main/docs/install.md
-"
-        ;;
-    2|"2"|"2)"|"prod"|"production"|"p")
-        print_colored "green" "Setting up production cluster..."
-        check_command "kubectl"
-        check_command "envsubst"
-        check_command "base64"
-        check_command "openssl"
-        check_command "curl"
-        prompt_llm_configuration
-        set_runtime_defaults
-
-        print_colored "yellow" "🔄 Applying Kubernetes configuration..."
-        TMP_INSTALL_FILE=$(mktemp)
-        curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.yaml" > "$TMP_INSTALL_FILE"
-
-        apply_k8s_from_file "$TMP_INSTALL_FILE" || {
-            print_colored "red" "❌ Installation failed"
-            rm -f "$TMP_INSTALL_FILE"
-            exit 1
-        }
-
-        rm -f "$TMP_INSTALL_FILE"
-
-        print_colored "green" "
+print_colored "green" "
 ✅ Installation Complete!
 ========================
 Your Skyflo.ai instance is being deployed. To check the status, run:
@@ -327,11 +279,3 @@ Your Skyflo.ai instance is being deployed. To check the status, run:
 Create your Ingress controller and expose the \"skyflo-ui\" NodePort Service. Refer to our documentation:
   https://github.com/skyflo-ai/skyflo/blob/main/docs/install.md
 "
-        ;;
-    *)
-        print_colored "red" "Invalid choice. Please select either:"
-        print_colored "yellow" "- 1, local, or kind for local development"
-        print_colored "yellow" "- 2, prod, or production for production deployment"
-        exit 1
-        ;;
-esac 
