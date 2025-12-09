@@ -2,7 +2,7 @@
 
 import uuid
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, date
 
 from pydantic import BaseModel
 from tortoise import fields
@@ -125,3 +125,39 @@ class ConversationUpdate(BaseModel):
     is_active: Optional[bool] = None
     conversation_metadata: Optional[Dict[str, Any]] = None
     messages_json: Optional[List[Dict[str, Any]]] = None
+
+
+class DailyMetrics(BaseModel):
+    date: date
+    cost: float
+    prompt_tokens: int
+    completion_tokens: int
+    cached_tokens: int
+    total_tokens: int
+    avg_ttft_ms: Optional[float]
+    avg_ttr_ms: Optional[float]
+    conversation_count: int
+
+class MetricsAggregation(BaseModel):
+    period_start: datetime
+    period_end: datetime
+    # Totals
+    total_cost: float
+    total_tokens: int
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    total_cached_tokens: int
+    total_conversations: int
+    # Averages
+    avg_ttft_ms: Optional[float]
+    avg_ttr_ms: Optional[float]
+    avg_cost_per_conversation: float
+    avg_tokens_per_conversation: float
+    # Derived
+    cache_hit_rate: float  # cached_tokens / prompt_tokens
+    # Time series
+    daily_breakdown: List[DailyMetrics]
+    # Period-over-period comparison
+    cost_change_pct: Optional[float]
+    tokens_change_pct: Optional[float]
+

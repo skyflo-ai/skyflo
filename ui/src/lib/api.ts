@@ -78,3 +78,24 @@ export const createConversation = async (
     throw error;
   }
 };
+
+export const getMetrics = async (lastNDays: number = 30): Promise<any> => {
+  try {
+    const response = await fetch(
+      `${process.env.API_URL}/analytics/metrics?last_n_days=${lastNDays}`,
+      {
+        headers: await getAuthHeaders(),
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Error fetching metrics: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch metrics:", error);
+    throw error;
+  }
+};
