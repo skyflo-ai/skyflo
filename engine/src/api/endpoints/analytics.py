@@ -13,21 +13,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def check_conversation_authorization(
-    conversation: Conversation, user, raise_on_fail: bool = True
-) -> bool:
-    """Check if user is authorized to access the conversation."""
-    if not user:
-        return True  # Allow unauthenticated access
-
-    is_authorized = conversation.user_id == getattr(user, "id", None) or getattr(
-        user, "is_superuser", False
-    )
-
-    if not is_authorized and raise_on_fail:
-        raise HTTPException(status_code=403, detail="Not authorized for conversation")
-
-    return is_authorized
 
 
 @router.get(
