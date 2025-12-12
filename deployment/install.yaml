@@ -963,8 +963,7 @@ spec:
     targetPort: http
     protocol: TCP
     name: http
-    nodePort: 30081
-  type: NodePort
+  type: ClusterIP
   selector:
     app: skyflo-ai-engine
 ---

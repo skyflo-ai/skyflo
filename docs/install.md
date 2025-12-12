@@ -48,31 +48,12 @@ LLM_HOST=http://your-model-host:port
 
 Skyflo.ai offers two deployment options:
 
-### 1. Local Development with KinD
-
-Perfect for development, testing, and exploring Skyflo.ai features in a local environment:
-
-```bash
-curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh | bash
-```
-
-This will:
-- Create a new KinD cluster using our optimized configuration
-- Deploy Skyflo.ai components using local images
-- Set up necessary services (Redis, PostgreSQL)
-- Configure networking for local access
-
-Access your local installation:
-- UI: http://localhost:30080
-- API: http://localhost:30081
-
-### 2. Production Deployment
+### 1. Production Deployment
 
 For deploying Skyflo.ai in a production environment:
 
 ```bash
 curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh -o install.sh && chmod +x install.sh && ./install.sh
-# Select option 2 when prompted
 ```
 
 Optional environment variables for production:
@@ -130,6 +111,44 @@ kubectl get ingress -n skyflo-ai
 
 3. Configure your DNS provider to point your domain to the ALB DNS name using a CNAME record.
 
+
+### 2. Local Development with KinD
+Perfect for development, testing, and exploring Skyflo.ai features in a local environment:
+
+1. Create the KinD cluster
+```bash
+kind create cluster --config deployment/local.kind.yaml 
+```
+2. Configure secrets and runtime defaults (all variables used by deployment/local.install.yaml, mirroring the logic in deployment/install.sh)
+
+```bash
+export NAMESPACE=skyflo-ai
+export LLM_MODEL=openai/gpt-4o                # pick any provider/model pair
+export OPENAI_API_KEY=sk-your-key             # or GROQ_API_KEY/ANTHROPIC_API_KEY/etc.
+export JWT_SECRET=$(openssl rand -base64 32)
+export POSTGRES_DATABASE_URL=postgres://skyflo:skyflo@skyflo-ai-postgres:5432/skyflo
+export REDIS_URL=redis://skyflo-ai-redis:6379/0
+export MCP_SERVER_URL=http://skyflo-ai-mcp:8081
+export INTEGRATIONS_SECRET_NAMESPACE=$NAMESPACE
+```
+> Set any additional provider keys from `deployment/local.install.yaml` if you plan to use them (e.g., `GROQ_API_KEY`, `GEMINI_API_KEY`, `HF_TOKEN`, etc.).
+
+3. Apply the local manifest
+
+```bash
+envsubst < deployment/local.install.yaml | kubectl apply -f -
+```
+4. Port-forward the UI service and open the app
+
+```bash
+kubectl port-forward svc/skyflo-ai-ui -n $NAMESPACE 30080:80
+```
+
+The Skyflo UI will now be available on your localhost:
+> `http://localhost:30080`
+
+Follow `deployment/README.md` for building the Docker images locally and loading them into the KinD cluster via `kind load docker-image`.
+
 ## Verifying the Installation
 
 Check the status of your deployment:
@@ -137,31 +156,16 @@ Check the status of your deployment:
 kubectl get pods -n skyflo-ai
 ```
 
-### Accessing the Services
-
-#### For Local KinD Deployment
-Your services are directly accessible through NodePorts:
-- UI: http://localhost:30080
-- API: http://localhost:30081
 
 ## Uninstalling
 
 To remove Skyflo.ai and all its components:
-```bash
-kubectl delete namespace skyflo-ai
-```
-
-or, if you are using a different namespace:
 
 ```bash
-export VERSION=0.2.0 NAMESPACE=<namespace>
-envsubst < curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.yaml | kubectl delete -f -
+curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/uninstall.sh -o uninstall.sh && chmod +x uninstall.sh && ./uninstall.sh
 ```
 
-For local KinD cluster:
-```bash
-kind delete cluster --name skyflo-ai
-```
+
 
 ## Troubleshooting
 
