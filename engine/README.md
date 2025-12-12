@@ -104,7 +104,7 @@ docker compose -f deployment/local.docker-compose.yaml up -d
 
 ```bash
 source .venv/bin/activate
-uvicorn api.asgi:app --host 0.0.0.0 --port 8080 --reload
+uvicorn src.api.asgi:app --host 0.0.0.0 --port 8080 --reload
 ```
 
 Service will be available at `http://localhost:8080`.

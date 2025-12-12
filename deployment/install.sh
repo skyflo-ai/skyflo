@@ -25,12 +25,6 @@ check_command() {
             "kubectl")
                 print_colored "yellow" "Install kubectl: https://kubernetes.io/docs/tasks/tools/"
                 ;;
-            "kind")
-                print_colored "yellow" "Install KinD:"
-                print_colored "yellow" "- Using Homebrew: brew install kind"
-                print_colored "yellow" "- Using Go: go install sigs.k8s.io/kind@latest"
-                print_colored "yellow" "- More info: https://kind.sigs.k8s.io/docs/user/quick-start/#installation"
-                ;;
             "envsubst")
                 print_colored "yellow" "Install gettext:"
                 print_colored "yellow" "- macOS: brew install gettext"
@@ -213,15 +207,6 @@ set_runtime_defaults() {
     export INTEGRATIONS_SECRET_NAMESPACE
 }
 
-setup_kind_cluster_if_needed() {
-    if kind get clusters | grep -q "skyflo-ai"; then
-        print_colored "green" "✓ Found existing skyflo-ai cluster"
-    else
-        print_colored "yellow" "Creating new skyflo-ai cluster..."
-        curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/local.kind.yaml" | kind create cluster --config -
-        print_colored "green" "✓ Created KinD cluster"
-    fi
-}
 
 apply_k8s_from_file() {
     local file_path="$1"
@@ -234,12 +219,6 @@ skyflo.ai Installer
 ================================
 "
 
-print_colored "yellow" "Please select your installation type:"
-print_colored "yellow" "1) Local development cluster (KinD required)"
-print_colored "yellow" "2) Production cluster"
-read -p "Enter your choice (1 or 2): " choice
-
-choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]')
 
 # Namespace configuration
 read -p "Enter Kubernetes namespace (press Enter for default 'skyflo-ai'): " NAMESPACE
@@ -250,88 +229,40 @@ fi
 
 export NAMESPACE
 
+
+
+print_colored "green" "Setting up production cluster..."
+check_command "kubectl"
+check_command "envsubst"
+check_command "base64"
+check_command "openssl"
+check_command "curl"
+
 ensure_namespace_exists "$NAMESPACE"
+prompt_llm_configuration
+set_runtime_defaults
 
-case $choice in
-    1|"1"|"1)"|"local"|"kind"|"l")
-        print_colored "green" "Setting up local development cluster using KinD..."
-        check_command "kind"
-        check_command "kubectl"
-        check_command "envsubst"
-        check_command "base64"
-        check_command "openssl"
-        check_command "curl"
+print_colored "yellow" "🔄 Applying Kubernetes configuration..."
+TMP_INSTALL_FILE=$(mktemp)
 
-        setup_kind_cluster_if_needed
+curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.yaml" > "$TMP_INSTALL_FILE"
 
-        TMP_INSTALL_FILE=$(mktemp)
-        curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/local.install.yaml" > "$TMP_INSTALL_FILE"
+apply_k8s_from_file "$TMP_INSTALL_FILE" || {
+    print_colored "red" "❌ Installation failed"
+    rm -f "$TMP_INSTALL_FILE"
+    exit 1
+}
 
-        sed -i '' 's/imagePullPolicy: Never/imagePullPolicy: Always/g' "$TMP_INSTALL_FILE"
-        prompt_llm_configuration
-        set_runtime_defaults
+rm -f "$TMP_INSTALL_FILE"
 
-        print_colored "yellow" "🔄 Setting up local development environment..."
-
-        print_colored "yellow" "🔄 Applying Kubernetes configuration..."
-        apply_k8s_from_file "$TMP_INSTALL_FILE" || {
-            print_colored "red" "❌ Local installation failed"
-            rm -f "$TMP_INSTALL_FILE"
-            exit 1
-        }
-
-        rm -f "$TMP_INSTALL_FILE"
-
-        print_colored "green" "
+print_colored "green" "
 ✅ Installation Complete!
 ========================
 Your Skyflo.ai instance is being deployed. To check the status, run:
   kubectl get pods -n $NAMESPACE
 
-Your services are directly accessible through NodePorts:
-- UI: http://localhost:30080
-- API: http://localhost:30081
-
-For production setup and more information, visit:
+To access the Skyflo UI, either set up an Ingress controller or use port-forward:
+  kubectl port-forward -n $NAMESPACE svc/skyflo-ai-ui 3000:80
+For production access, set up an Ingress controller. Refer to our documentation:
   https://github.com/skyflo-ai/skyflo/blob/main/docs/install.md
 "
-        ;;
-    2|"2"|"2)"|"prod"|"production"|"p")
-        print_colored "green" "Setting up production cluster..."
-        check_command "kubectl"
-        check_command "envsubst"
-        check_command "base64"
-        check_command "openssl"
-        check_command "curl"
-        prompt_llm_configuration
-        set_runtime_defaults
-
-        print_colored "yellow" "🔄 Applying Kubernetes configuration..."
-        TMP_INSTALL_FILE=$(mktemp)
-        curl -sL "https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.yaml" > "$TMP_INSTALL_FILE"
-
-        apply_k8s_from_file "$TMP_INSTALL_FILE" || {
-            print_colored "red" "❌ Installation failed"
-            rm -f "$TMP_INSTALL_FILE"
-            exit 1
-        }
-
-        rm -f "$TMP_INSTALL_FILE"
-
-        print_colored "green" "
-✅ Installation Complete!
-========================
-Your Skyflo.ai instance is being deployed. To check the status, run:
-  kubectl get pods -n $NAMESPACE
-
-Create your Ingress controller and expose the \"skyflo-ui\" NodePort Service. Refer to our documentation:
-  https://github.com/skyflo-ai/skyflo/blob/main/docs/install.md
-"
-        ;;
-    *)
-        print_colored "red" "Invalid choice. Please select either:"
-        print_colored "yellow" "- 1, local, or kind for local development"
-        print_colored "yellow" "- 2, prod, or production for production deployment"
-        exit 1
-        ;;
-esac 
