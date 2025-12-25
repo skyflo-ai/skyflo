@@ -297,6 +297,7 @@ class WorkflowGraph:
         end_time = time.time()
         start_time = get_state_value(state, "start_time", end_time)
         duration = end_time - start_time
+        duration_ms = int(duration * 1000)
 
         if self.event_callback:
             await self.event_callback(
@@ -305,6 +306,7 @@ class WorkflowGraph:
                     "status": "completed",
                     "run_id": get_state_value(state, "run_id"),
                     "duration": duration,
+                    "duration_ms": duration_ms,
                 }
             )
 
@@ -340,12 +342,19 @@ class WorkflowGraph:
                 result = await self.compiled_graph.ainvoke(initial_state, **kwargs)
                 return result
             except StopRequested:
+                end_time = time.time()
+                start_time = get_state_value(initial_state, "start_time", end_time)
+                duration = end_time - start_time
+                duration_ms = int(duration * 1000)
+
                 if self.event_callback:
                     await self.event_callback(
                         {
                             "type": "completed",
                             "status": "stopped",
                             "run_id": get_state_value(initial_state, "run_id"),
+                            "duration": duration,
+                            "duration_ms": duration_ms,
                         }
                     )
                 try:
