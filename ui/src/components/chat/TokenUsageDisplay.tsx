@@ -52,18 +52,27 @@ export function TokenUsageDisplay({
   const hasData = hasTokenUsage || hasTTFT || hasTTR;
 
   const tps = useMemo(() => {
-    if (typeof usage.completion_tokens !== "number" || typeof usage.ttft !== "number") {
+    if (typeof usage.completion_tokens !== "number") {
       return null;
     }
 
-    const generationTimeMs = (typeof usage.ttr === "number" ? usage.ttr : NaN) - usage.ttft;
-    if (usage.completion_tokens <= 0 || !(generationTimeMs > 0)) {
+    let generationTimeMs: number;
+    
+    if (typeof usage.total_generation_ms === "number" && usage.total_generation_ms > 0) {
+      generationTimeMs = usage.total_generation_ms;
+    } else if (typeof usage.ttft === "number" && typeof usage.ttr === "number") {
+      generationTimeMs = usage.ttr - usage.ttft;
+    } else {
+      return null;
+    }
+
+    if (usage.completion_tokens <= 0 || generationTimeMs <= 0) {
       return null;
     }
 
     const value = usage.completion_tokens / (generationTimeMs / 1000);
     return Number.isFinite(value) && value > 0 ? value : null;
-  }, [usage.completion_tokens, usage.ttft, usage.ttr]);
+  }, [usage.completion_tokens, usage.ttft, usage.ttr, usage.total_generation_ms]);
 
   const formattedTPS = tps?.toFixed(1);
   const hasTPS = formattedTPS !== undefined;

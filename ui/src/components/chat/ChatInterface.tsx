@@ -21,6 +21,7 @@ const createEmptyUsage = (): TokenUsage => ({
   cached_tokens: 0,
   ttft: 0,
   ttr: 0,
+  total_generation_ms: 0,
 });
 
 const mapTokenUsage = (raw: any): TokenUsage | undefined => {
@@ -45,6 +46,15 @@ const accumulateUsage = (
     return target;
   }
 
+  let generationMs = 0;
+  if (
+    typeof addition.ttr === "number" &&
+    typeof addition.ttft === "number" &&
+    addition.ttr > addition.ttft
+  ) {
+    generationMs = addition.ttr - addition.ttft;
+  }
+
   return {
     prompt_tokens: target.prompt_tokens + (addition.prompt_tokens || 0),
     completion_tokens:
@@ -53,6 +63,7 @@ const accumulateUsage = (
     cached_tokens: target.cached_tokens + (addition.cached_tokens || 0),
     ttft: addition.ttft ?? target.ttft,
     ttr: addition.ttr ?? target.ttr,
+    total_generation_ms: (target.total_generation_ms || 0) + generationMs,
   };
 };
 
