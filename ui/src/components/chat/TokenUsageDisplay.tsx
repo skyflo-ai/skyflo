@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { TokenUsage } from "@/types/chat";
 import {
@@ -9,6 +10,7 @@ import {
   MdFunctions,
   MdBolt,
   MdTimelapse,
+  MdSpeed,
 } from "react-icons/md";
 import {
   Tooltip,
@@ -25,12 +27,8 @@ interface TokenUsageDisplayProps {
 }
 
 function formatNumber(num: number): string {
-  if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + "M";
-  }
-  if (num >= 1000) {
-    return (num / 1000).toFixed(1) + "K";
-  }
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
+  if (num >= 1_000) return (num / 1_000).toFixed(1) + "K";
   return num.toLocaleString();
 }
 
@@ -39,9 +37,7 @@ function formatNumberWithCommas(num: number): string {
 }
 
 function formatTime(ms: number): string {
-  if (ms < 1000) {
-    return `${Math.round(ms)}ms`;
-  }
+  if (ms < 1000) return `${Math.round(ms)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
@@ -54,6 +50,33 @@ export function TokenUsageDisplay({
   const hasTTFT = (usage.ttft ?? 0) > 0;
   const hasTTR = (usage.ttr ?? 0) > 0;
   const hasData = hasTokenUsage || hasTTFT || hasTTR;
+
+  const tps = useMemo(() => {
+    if (typeof usage.completion_tokens !== "number") {
+      return null;
+    }
+
+    let generationTimeMs: number;
+    
+    if (typeof usage.total_generation_ms === "number" && usage.total_generation_ms > 0) {
+      generationTimeMs = usage.total_generation_ms;
+    } else if (typeof usage.ttft === "number" && typeof usage.ttr === "number") {
+      generationTimeMs = usage.ttr - usage.ttft;
+    } else {
+      return null;
+    }
+
+    if (usage.completion_tokens <= 0 || generationTimeMs <= 0) {
+      return null;
+    }
+
+    const value = usage.completion_tokens / (generationTimeMs / 1000);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }, [usage.completion_tokens, usage.ttft, usage.ttr, usage.total_generation_ms]);
+
+  const formattedTPS = tps?.toFixed(1);
+  const hasTPS = formattedTPS !== undefined;
+
 
   if (!hasData) {
     return null;
@@ -79,13 +102,29 @@ export function TokenUsageDisplay({
             <TooltipTrigger asChild>
               <div className="flex items-center gap-1.5 hover:text-white/60 transition-colors cursor-default">
                 <MdTimer className="w-3.5 h-3.5" />
-                <span className="tabular-nums">{formatTime(usage.ttft!)}</span>
+                <span className="tabular-nums">
+                  {formatTime(usage.ttft!)}
+                </span>
               </div>
             </TooltipTrigger>
             <TooltipContent side="top">
-              <p className="text-white text-xs font-medium">
+              <p className="text-white text-xs">
                 Time to First Token: {formatTime(usage.ttft!)}
               </p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {hasTPS && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1.5 hover:text-white/60 transition-colors cursor-default">
+                <MdSpeed className="w-3.5 h-3.5" />
+                <span className="tabular-nums">{formattedTPS} t/s</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-white text-xs">Tokens/sec: {formattedTPS}</p>
             </TooltipContent>
           </Tooltip>
         )}
@@ -119,7 +158,8 @@ export function TokenUsageDisplay({
               </TooltipTrigger>
               <TooltipContent side="top">
                 <p className="text-white text-xs">
-                  Prompt Tokens: {formatNumberWithCommas(usage.prompt_tokens)}
+                  Prompt Tokens:{" "}
+                  {formatNumberWithCommas(usage.prompt_tokens)}
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -153,7 +193,8 @@ export function TokenUsageDisplay({
                 </TooltipTrigger>
                 <TooltipContent side="top">
                   <p className="text-white text-xs">
-                    Cached Tokens: {formatNumberWithCommas(usage.cached_tokens)}
+                    Cached Tokens:{" "}
+                    {formatNumberWithCommas(usage.cached_tokens)}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -170,7 +211,8 @@ export function TokenUsageDisplay({
               </TooltipTrigger>
               <TooltipContent side="top">
                 <p className="text-white text-xs">
-                  Total Tokens: {formatNumberWithCommas(usage.total_tokens)}
+                  Total Tokens:{" "}
+                  {formatNumberWithCommas(usage.total_tokens)}
                 </p>
               </TooltipContent>
             </Tooltip>

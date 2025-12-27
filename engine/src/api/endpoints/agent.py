@@ -246,8 +246,10 @@ def create_event_callback(
                     result=event.get("result"),
                 )
             elif event_type == "completed":
-                duration = event.get("duration")
-                duration_ms = int(duration * 1000) if isinstance(duration, (int, float)) else None
+                duration_ms = event.get("duration_ms")
+                if duration_ms is None:
+                    duration = event.get("duration")
+                    duration_ms = int(duration * 1000) if isinstance(duration, (int, float)) else None
                 persistence.record_ttr(
                     conversation_id=conversation_id,
                     run_id=event_run_id,

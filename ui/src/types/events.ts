@@ -118,8 +118,9 @@ export interface ErrorEvent {
 
 export interface CompletedEvent {
   type: "completed";
-  status: "completed" | "error";
+  status: "completed" | "error" | "stopped";
   run_id?: string;
+  duration_ms?: number;
 }
 
 export interface WorkflowCompleteEvent {
