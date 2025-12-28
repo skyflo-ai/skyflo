@@ -21,6 +21,7 @@ const createEmptyUsage = (): TokenUsage => ({
   cached_tokens: 0,
   ttft: 0,
   ttr: 0,
+  total_generation_ms: 0,
 });
 
 const mapTokenUsage = (raw: any): TokenUsage | undefined => {
@@ -45,6 +46,15 @@ const accumulateUsage = (
     return target;
   }
 
+  let generationMs = 0;
+  if (
+    typeof addition.ttr === "number" &&
+    typeof addition.ttft === "number" &&
+    addition.ttr > addition.ttft
+  ) {
+    generationMs = addition.ttr - addition.ttft;
+  }
+
   return {
     prompt_tokens: target.prompt_tokens + (addition.prompt_tokens || 0),
     completion_tokens:
@@ -53,6 +63,7 @@ const accumulateUsage = (
     cached_tokens: target.cached_tokens + (addition.cached_tokens || 0),
     ttft: addition.ttft ?? target.ttft,
     ttr: addition.ttr ?? target.ttr,
+    total_generation_ms: (target.total_generation_ms || 0) + generationMs,
   };
 };
 
@@ -90,6 +101,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   );
   const liveUsageRef = useRef<TokenUsage>(createEmptyUsage());
   const requestStartTimeRef = useRef<number | null>(null);
+  const lastTTRUpdateRef = useRef<number>(0);
+  const TTR_UPDATE_MS = 200; // throttle TTR updates to ~5/sec
   const updateLiveUsage = useCallback(
     (updater: (prev: TokenUsage) => TokenUsage) => {
       setLiveUsage((prev) => {
@@ -457,9 +470,16 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         approvalDecisionRef.current = null;
       },
 
-      onComplete: () => {
-        if (requestStartTimeRef.current) {
-          const ttr = Date.now() - requestStartTimeRef.current;
+      onComplete: (duration_ms?: number) => {
+        let ttr: number | undefined;
+        
+        if (typeof duration_ms === "number" && duration_ms > 0) {
+          ttr = duration_ms;
+        } else if (requestStartTimeRef.current) {
+          ttr = Date.now() - requestStartTimeRef.current;
+        }
+        
+        if (ttr !== undefined) {
           updateLiveUsage((prev) => ({ ...prev, ttr }));
           setCurrentMessage((prev) => {
             if (!prev) return prev;
@@ -470,6 +490,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             };
           });
         }
+        
         if (hasFinalizedRef.current) return;
 
         if (isBulkActionRef.current && approvalQueueRef.current.length > 0) {
@@ -513,6 +534,9 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                   }
                 : null
             );
+            resetLiveUsage();
+            lastTTRUpdateRef.current = 0;
+            requestStartTimeRef.current = Date.now();
             void chatServiceRef.current?.startApprovalStream(
               next,
               bulkDecisionRef.current === "approve",
@@ -594,14 +618,29 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         if (source !== "main") {
           return;
         }
+        const now = Date.now();
+        const elapsedSinceRequestStart =
+          requestStartTimeRef.current != null
+            ? now - requestStartTimeRef.current
+            : undefined;
+
+        // Throttle TTR updates to prevent excessive re-renders during streaming
+        const shouldUpdateTTR =
+          typeof elapsedSinceRequestStart === "number" &&
+          elapsedSinceRequestStart > 0 &&
+          now - lastTTRUpdateRef.current >= TTR_UPDATE_MS;
+
+        if (shouldUpdateTTR) lastTTRUpdateRef.current = now;
+
         updateLiveUsage((prev) => ({
           prompt_tokens: prev.prompt_tokens + usage.prompt_tokens,
           completion_tokens: prev.completion_tokens + usage.completion_tokens,
           total_tokens: prev.total_tokens + usage.total_tokens,
           cached_tokens: prev.cached_tokens + usage.cached_tokens,
           ttft: prev.ttft,
-          ttr: prev.ttr,
+          ttr: shouldUpdateTTR ? (elapsedSinceRequestStart as number) : prev.ttr,
         }));
+
         setCurrentMessage((prev) => {
           if (!prev) return prev;
           const baseUsage = prev.tokenUsage ?? createEmptyUsage();
@@ -614,6 +653,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                 baseUsage.completion_tokens + usage.completion_tokens,
               total_tokens: baseUsage.total_tokens + usage.total_tokens,
               cached_tokens: baseUsage.cached_tokens + usage.cached_tokens,
+              ...(shouldUpdateTTR ? { ttr: elapsedSinceRequestStart } : {}),
             },
           };
         });
@@ -756,6 +796,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       setWaitingForFirstUpdate(true);
       setIsAtBottom(true);
       resetLiveUsage();
+      lastTTRUpdateRef.current = 0; 
       requestStartTimeRef.current = Date.now();
 
       const userMessage = {
@@ -873,6 +914,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         approvalDecisionRef.current = approve;
 
         resetLiveUsage();
+        lastTTRUpdateRef.current = 0;
         requestStartTimeRef.current = Date.now();
 
         await chatServiceRef.current?.startApprovalStream(
@@ -956,6 +998,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       hasFinalizedRef.current = false;
 
       resetLiveUsage();
+      lastTTRUpdateRef.current = 0;
       requestStartTimeRef.current = Date.now();
 
       void chatServiceRef.current?.startApprovalStream(

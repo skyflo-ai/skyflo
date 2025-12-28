@@ -97,4 +97,5 @@ export interface TokenUsage {
   cached_tokens: number;
   ttft?: number;
   ttr?: number;
+  total_generation_ms?: number;
 }

@@ -27,7 +27,7 @@ export interface ChatServiceCallbacks {
   onTokenUsage?: (usage: TokenUsage, source: "turn_check" | "main") => void;
   onTTFT?: (duration: number, runId: string) => void;
   onError?: (error: string) => void;
-  onComplete?: () => void;
+  onComplete?: (duration_ms?: number) => void;
   onReady?: (runId: string) => void;
 }
 
@@ -423,7 +423,8 @@ export class ChatService {
       case "completed":
         if (!this.hasCompleted) {
           this.hasCompleted = true;
-          this.callbacks.onComplete?.();
+          const completedEvent = event as CompletedEvent;
+          this.callbacks.onComplete?.(completedEvent.duration_ms);
         }
         break;
 
