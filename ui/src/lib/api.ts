@@ -79,10 +79,24 @@ export const createConversation = async (
   }
 };
 
-export const getMetrics = async (lastNDays: number = 30): Promise<any> => {
+export const getMetrics = async (
+  options: number | { lastNDays?: number; startDate?: Date; endDate?: Date } = 30
+): Promise<any> => {
   try {
+    let queryParams = "";
+
+    if (typeof options === "number") {
+      queryParams = `last_n_days=${options}`;
+    } else {
+      const params = [];
+      if (options.lastNDays) params.push(`last_n_days=${options.lastNDays}`);
+      if (options.startDate) params.push(`start_date=${options.startDate.toISOString().split("T")[0]}`);
+      if (options.endDate) params.push(`end_date=${options.endDate.toISOString().split("T")[0]}`);
+      queryParams = params.join("&");
+    }
+
     const response = await fetch(
-      `${process.env.API_URL}/analytics/metrics?last_n_days=${lastNDays}`,
+      `${process.env.API_URL}/analytics/metrics?${queryParams}`,
       {
         headers: await getAuthHeaders(),
         cache: "no-store",

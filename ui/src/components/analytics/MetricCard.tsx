@@ -7,7 +7,7 @@ interface MetricCardProps {
     title: string;
     value: string;
     trend?: number | null;
-    icon: string;
+    icon: React.ReactNode;
     color?: string;
 }
 
@@ -18,7 +18,7 @@ export default function MetricCard({ title, value, trend, icon, color }: MetricC
                 hidden: { y: 20, opacity: 0 },
                 visible: { y: 0, opacity: 1 },
             }}
-            className="bg-dark-card/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg hover:border-white/10 transition-colors group"
+            className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-8 inline-block transition-colors group"
         >
             <div className="flex justify-between items-start mb-4">
                 <span className="text-text-secondary text-sm font-medium">{title}</span>

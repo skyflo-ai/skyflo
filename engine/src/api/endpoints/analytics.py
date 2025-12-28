@@ -21,7 +21,9 @@ router = APIRouter()
     response_model=MetricsAggregation,
 )
 async def get_metrics(
-    last_n_days: int = Query(default=30, ge=1, le=365),
+    last_n_days: Optional[int] = Query(default=30, ge=1, le=365),
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
     user=Depends(fastapi_users.current_user(optional=True)),
 ) -> MetricsAggregation:
     try:
@@ -31,15 +33,44 @@ async def get_metrics(
             # If the user is optional in dependency but required for metrics:
             raise HTTPException(status_code=401, detail="Authentication required for metrics")
 
-        end_date = date.today()
-        start_date = end_date - timedelta(days=last_n_days)
-        period_start = datetime.combine(start_date, datetime.min.time())
-        period_end = datetime.now()
+        period_end_dt = datetime.now()
+        
+        if start_date:
+            # use custom range
+            s_date = start_date
+            # if end_date is provided, use it, otherwise valid until today
+            e_date = end_date if end_date else date.today()
+            
+            # period_start is start_date at 00:00:00
+            period_start = datetime.combine(s_date, datetime.min.time())
+            
+            # period_end is end_date at 23:59:59.999999
+            period_end = datetime.combine(e_date, datetime.max.time())
+            period_end_dt = period_end
+        else:
+            # use last_n_days
+            days = last_n_days if last_n_days else 30
+            e_date = date.today()
+            s_date = e_date - timedelta(days=days)
+            period_start = datetime.combine(s_date, datetime.min.time())
+            # period_end is now (up to current moment)
+            period_end = datetime.now()
+            period_end_dt = period_end
 
         # Fetch conversations
-        conversations = await Conversation.filter(
-            user=user, created_at__gte=period_start
-        ).all()
+        # For custom range, we want created_at BETWEEN start and end
+        # period_end for last_n_days is effectively "now", so gte is fine if we just want "since X"
+        # but for custom range we need an upper bound too.
+        
+        query = Conversation.filter(
+            user=user, 
+            created_at__gte=period_start,
+            created_at__lte=period_end_dt
+        )
+        conversations = await query.all()
+
+        # Update start_date for the loop filter
+        loop_start_date = period_start.date()
 
         # Aggregation structures
         daily_map: Dict[date, Dict[str, Any]] = defaultdict(
@@ -62,6 +93,9 @@ async def get_metrics(
         total_completion_tokens = 0
         total_cached_tokens = 0
         total_tokens = 0
+
+        total_approvals = 0
+        total_rejections = 0
         
         # Latency accumulators for the period average
         period_ttft_sum = 0
@@ -71,7 +105,7 @@ async def get_metrics(
 
         for conv in conversations:
             conv_date = conv.created_at.date()
-            if conv_date < start_date:
+            if conv_date < loop_start_date:
                 continue
 
             daily = daily_map[conv_date]
@@ -80,6 +114,23 @@ async def get_metrics(
             messages = conv.messages_json or []
             for msg in messages:
                 if msg.get("type") == "assistant" and "token_usage" in msg:
+
+                    for segment in msg.get("segments", []):
+                        if segment.get("kind") != "tool":
+                            continue
+
+                        tool_exec = segment.get("toolExecution")
+                        if not tool_exec or not tool_exec.get("requires_approval"):
+                            continue
+
+                        status = tool_exec.get("status")
+                        if status == "completed":
+                            total_approvals += 1
+                        elif status == "denied":
+                            total_rejections += 1
+                                
+                            
+                    
                     usage = msg["token_usage"]
                     
                     # Cost
@@ -153,6 +204,10 @@ async def get_metrics(
         avg_tokens_per_conversation = total_tokens / total_conversations if total_conversations > 0 else 0.0
         
         cache_hit_rate = (total_cached_tokens / total_prompt_tokens) if total_prompt_tokens > 0 else 0.0
+
+
+        # Approval metrics
+        approval_acceptance_rate = (total_approvals / (total_approvals + total_rejections)) if (total_approvals + total_rejections) > 0 else 0.0
         
         return MetricsAggregation(
             period_start=period_start,
@@ -163,11 +218,14 @@ async def get_metrics(
             total_completion_tokens=total_completion_tokens,
             total_cached_tokens=total_cached_tokens,
             total_conversations=total_conversations,
+            total_approvals=total_approvals,
+            total_rejections=total_rejections,
             avg_ttft_ms=avg_ttft_ms,
             avg_ttr_ms=avg_ttr_ms,
             avg_cost_per_conversation=avg_cost_per_conversation,
             avg_tokens_per_conversation=avg_tokens_per_conversation,
             cache_hit_rate=cache_hit_rate,
+            approval_acceptance_rate=approval_acceptance_rate,
             daily_breakdown=daily_breakdown,
             cost_change_pct=None, # Placeholder
             tokens_change_pct=None, # Placeholder

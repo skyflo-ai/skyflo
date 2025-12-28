@@ -47,7 +47,7 @@ export default function CacheEfficiencyGauge({ hitRate }: CacheEfficiencyGaugePr
                     </Pie>
                 </PieChart>
             </ResponsiveContainer>
-            <div className="absolute bottom-8 text-text-secondary text-sm">
+            <div className="absolute bottom-4 text-text-secondary text-sm">
                 Cache Hit Rate
             </div>
         </div>

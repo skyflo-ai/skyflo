@@ -161,3 +161,8 @@ class MetricsAggregation(BaseModel):
     cost_change_pct: Optional[float]
     tokens_change_pct: Optional[float]
 
+    # Approval metrics
+    total_approvals: int
+    total_rejections: int
+    approval_acceptance_rate: float
+
