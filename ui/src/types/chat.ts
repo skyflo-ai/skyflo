@@ -34,7 +34,7 @@ export type MessageSegment =
       toolExecution: ToolExecution;
       timestamp?: number;
     };
-
+    
 export interface ChatMessage {
   id: string;
   type: "user" | "assistant";
@@ -43,6 +43,16 @@ export interface ChatMessage {
   isStreaming?: boolean;
   segments?: MessageSegment[];
   tokenUsage?: TokenUsage;
+}
+
+export interface ChatMessageDTO {
+  id?: string;
+  type: "user" | "assistant";
+  content?: string;
+  timestamp?: number;
+  isStreaming?: boolean;
+  segments?: MessageSegment[];
+  token_usage?: TokenUsage;
 }
 
 export interface ChatState {
@@ -98,4 +108,14 @@ export interface TokenUsage {
   ttft?: number;
   ttr?: number;
   total_generation_ms?: number;
+}
+
+export interface TokenUsageDTO {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  cached_tokens?: number;
+  cost?: number;
+  ttft_ms?: number | null;
+  ttr_ms?: number | null;
 }

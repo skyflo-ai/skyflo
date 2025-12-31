@@ -7,6 +7,8 @@ import {
   ChatMessage as ChatMessageType,
   ToolExecution as ToolExecutionType,
   MessageSegment,
+  ChatMessageDTO,
+  TokenUsageDTO
 } from "../../types/chat";
 import { ChatMessages } from "./ChatMessages";
 import { ChatInput } from "./ChatInput";
@@ -24,17 +26,16 @@ const createEmptyUsage = (): TokenUsage => ({
   total_generation_ms: 0,
 });
 
-const mapTokenUsage = (raw: any): TokenUsage | undefined => {
-  if (!raw || typeof raw !== "object") {
-    return undefined;
-  }
+const mapTokenUsage = (raw: TokenUsageDTO): TokenUsage | undefined => {
+  if (!raw) return undefined;
+
   return {
     prompt_tokens: Number(raw.prompt_tokens) || 0,
     completion_tokens: Number(raw.completion_tokens) || 0,
     total_tokens: Number(raw.total_tokens) || 0,
     cached_tokens: Number(raw.cached_tokens) || 0,
-    ttft: raw.ttft_ms ?? raw.ttft ?? undefined,
-    ttr: raw.ttr_ms ?? raw.ttr ?? undefined,
+    ttft: raw.ttft_ms  ?? undefined,
+    ttr: raw.ttr_ms ?? undefined,
   };
 };
 
@@ -131,9 +132,9 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       const lastMessage = messages[messages.length - 1];
       if (
         lastMessage?.type === "assistant" &&
-        (lastMessage as any).segments?.length
+        (lastMessage as ChatMessage).segments?.length
       ) {
-        const segments = (lastMessage as any).segments;
+        const segments = (lastMessage as ChatMessage).segments;
         return segments[segments.length - 1];
       }
 
@@ -221,7 +222,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     result: execution.result,
     timestamp: execution.timestamp,
     error: execution.error,
-    requires_approval: (execution as any).requires_approval,
+    requires_approval: execution.requires_approval,
   });
 
   const updateMessageWithTool = useCallback(
@@ -700,7 +701,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         const msgs = Array.isArray(data?.messages) ? data.messages : [];
         if (!isMounted) return;
 
-        const hydrated: ChatMessageType[] = msgs.map((m: any) => {
+        const hydrated: ChatMessageType[] = msgs.map((m: ChatMessageDTO) => {
           const baseMessage: ChatMessageType = {
             id: m.id || crypto.randomUUID(),
             type: m.type,
@@ -1026,7 +1027,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       }
     };
 
-    addSegments(currentMessage?.segments as any);
+    addSegments(currentMessage?.segments ?? []);
 
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i] as any;
