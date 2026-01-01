@@ -238,4 +238,4 @@ async def get_metrics(
         raise HTTPException(
             status_code=500,
             detail=f"Error getting metrics: {str(e)}",
-        )
+        ) from e

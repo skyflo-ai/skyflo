@@ -18,7 +18,7 @@ export default function MetricCard({ title, value, trend, icon, color }: MetricC
                 hidden: { y: 20, opacity: 0 },
                 visible: { y: 0, opacity: 1 },
             }}
-            className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-8 inline-block transition-colors group"
+            className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-8 inline-block transition-colors group z-[-1]"
         >
             <div className="flex justify-between items-start mb-4">
                 <span className="text-text-secondary text-sm font-medium">{title}</span>

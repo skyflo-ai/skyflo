@@ -72,6 +72,7 @@ export default function TokenUsageChart({ data }: TokenUsageChartProps) {
                     <Area
                         type="monotone"
                         dataKey="cached_tokens"
+                        label="Cached"
                         stackId="1"
                         stroke="#8b5cf6"
                         fill="url(#colorCached)"
@@ -81,6 +82,7 @@ export default function TokenUsageChart({ data }: TokenUsageChartProps) {
                     <Area
                         type="monotone"
                         dataKey="prompt_tokens"
+                        label="Prompt"
                         stackId="1"
                         stroke="#3b82f6"
                         fill="url(#colorPrompt)"
@@ -90,6 +92,7 @@ export default function TokenUsageChart({ data }: TokenUsageChartProps) {
                     <Area
                         type="monotone"
                         dataKey="completion_tokens"
+                        label="Completion"
                         stackId="1"
                         stroke="#10b981"
                         fill="url(#colorCompletion)"

@@ -1,14 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { CalendarIcon } from "@radix-ui/react-icons"
 import { format } from "date-fns"
-import { DateRange } from "react-day-picker"
-import { MdEditCalendar } from "react-icons/md"
-
+import { DateRange } from "react-day-picker" // Keeping this type for compatibility or I should define my own? Analytics uses it.
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { TextField } from "@mui/material";
 
 interface DatePickerWithRangeProps {
     className?: string
@@ -16,64 +16,146 @@ interface DatePickerWithRangeProps {
     setDate: (date: DateRange | undefined) => void
 }
 
+const darkTheme = createTheme({
+    palette: {
+        mode: 'dark',
+        primary: {
+            main: '#3b82f6', // blue-500
+        },
+        background: {
+            paper: '#0A1525', // card bg
+            default: '#020817', // bg-background
+        },
+    },
+    components: {
+        MuiTextField: {
+            // ... (keep MuiTextField styles if they were correct, but I'll re-include them to be safe)
+            styleOverrides: {
+                root: {
+                    '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                        '& fieldset': {
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                        },
+                        '&:hover fieldset': {
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                        },
+                        '&.Mui-focused fieldset': {
+                            borderColor: '#3b82f6',
+                        },
+                    },
+                    '& .MuiInputLabel-root': {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                    },
+                    '& .MuiInputBase-input': {
+                        color: 'white',
+                    },
+                    '& .MuiSvgIcon-root': {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                    }
+                },
+            },
+        },
+    },
+});
+
 export function DatePickerWithRange({
     className,
     date,
     setDate,
 }: DatePickerWithRangeProps) {
-    const [isOpen, setIsOpen] = React.useState(false)
-
     return (
-        <div className={cn("grid gap-2 relative", className)}>
-            <Button
-                id="date"
-                variant={"outline"}
-                onClick={() => setIsOpen(!isOpen)}
-                className={cn(
-                    "w-[260px] justify-start text-left font-normal bg-dark-card border-white/10 text-white hover:bg-white/5 hover:text-white",
-                    !date && "text-muted-foreground"
-                )}
-            >
-                <MdEditCalendar className="mr-2 h-6 w-6" />
-                {date?.from ? (
-                    date.to ? (
-                        <>
-                            {format(date.from, "LLL dd, y")} -{" "}
-                            {format(date.to, "LLL dd, y")}
-                        </>
-                    ) : (
-                        format(date.from, "LLL dd, y")
-                    )
-                ) : (
-                    <span>Pick a date</span>
-                )}
-            </Button>
-
-            {isOpen && (
-                <>
-                    <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setIsOpen(false)}
-                    />
-                    <div className="absolute top-12 right-0 z-50 w-auto p-0 bg-[#0A1525]/50  border-[#1E2D45] rounded-xl border border-[#243147]/60 backdrop-blur-md shadow-lg shadow-blue-900/10">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={date?.from}
-                            selected={date}
-                            onSelect={(selectedDate) => {
-                                setDate(selectedDate);
-                                // Optionally close the popover after selection if it's a single date or range is complete
-                                if (selectedDate?.from && selectedDate?.to) {
-                                    setIsOpen(false);
+        <ThemeProvider theme={darkTheme}>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <div className={cn("grid gap-2 flex-row md:flex", className)}>
+                    <DatePicker
+                        label="Start Date"
+                        value={date?.from || null}
+                        onChange={(newValue) => {
+                            setDate({ from: newValue || undefined, to: date?.to });
+                        }}
+                        slotProps={{
+                            textField: {
+                                size: "small",
+                                sx: { width: 150 }
+                            },
+                            popper: {
+                                sx: {
+                                    '& .MuiPaper-root': {
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        backgroundColor: '#3b82f61a',
+                                        color: 'white',
+                                    },
+                                    '& .MuiPickersDay-root': {
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                        },
+                                        '&.Mui-selected': {
+                                            backgroundColor: '#3b82f6',
+                                            '&:hover': {
+                                                backgroundColor: '#2563eb',
+                                            },
+                                        },
+                                    },
+                                    '& .MuiPickersCalendarHeader-label': {
+                                        color: 'white',
+                                    },
+                                    '& .MuiSvgIcon-root': {
+                                        color: 'white',
+                                    },
+                                    '& .MuiDayCalendar-weekDayLabel': {
+                                        color: 'rgba(255, 255, 255, 0.7)',
+                                    }
                                 }
-                            }}
-                            numberOfMonths={2}
-                            className=" bg-[#0A1525]/50  border-[#1E2D45] rounded-xl border border-[#243147]/60 backdrop-blur-md shadow-lg shadow-blue-900/10 text-white"
-                        />
-                    </div>
-                </>
-            )}
-        </div>
+                            }
+                        }}
+                    />
+                    <DatePicker
+                        label="End Date"
+                        value={date?.to || null}
+                        onChange={(newValue) => {
+                            setDate({ from: date?.from, to: newValue || undefined });
+                        }}
+                        slotProps={{
+                            textField: {
+                                size: "small",
+                                sx: { width: 150 }
+                            },
+                            popper: {
+                                sx: {
+                                    '& .MuiPaper-root': {
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        backgroundColor: '#3b82f61a',
+                                        color: 'white',
+                                    },
+                                    '& .MuiPickersDay-root': {
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                        },
+                                        '&.Mui-selected': {
+                                            backgroundColor: '#3b82f6',
+                                            '&:hover': {
+                                                backgroundColor: '#2563eb',
+                                            },
+                                        },
+                                    },
+                                    '& .MuiPickersCalendarHeader-label': {
+                                        color: 'white',
+                                    },
+                                    '& .MuiSvgIcon-root': {
+                                        color: 'white',
+                                    },
+                                    '& .MuiDayCalendar-weekDayLabel': {
+                                        color: 'rgba(255, 255, 255, 0.7)',
+                                    }
+                                }
+                            }
+                        }}
+                    />
+                </div>
+            </LocalizationProvider>
+        </ThemeProvider>
     )
 }

@@ -9,7 +9,6 @@ import CostTrendChart from "./CostTrendChart";
 import LatencyChart from "./LatencyChart";
 import CacheEfficiencyGauge from "./CacheEfficiencyGauge";
 import { motion } from "framer-motion";
-import { Calendar } from "@/components/ui/calendar";
 import { type DateRange } from "react-day-picker"
 import { Button } from "../ui/button";
 import { DatePickerWithRange } from "./DatePickerWithRange";
@@ -119,10 +118,10 @@ export default function Analytics() {
     };
 
     return (
-        <div className="flex flex-col gap-5 h-full overflow-y-auto p-8 bg-dark-bg text-text-primary">
+        <div className="flex flex-col gap-5 h-full overflow-y-auto max-sm:p-2 p-8 bg-dark-bg text-text-primary">
 
-            <div className="bg-[#0A1525]/50  border-[#1E2D45]  p-8 rounded-xl border border-[#243147]/60 backdrop-blur-md shadow-lg shadow-blue-900/10 mb-8">
-                <div className="flex  max-sm:flex-col max-sm:gap-10 justify-between bg-gradient-to-br from-blue-600/10 to-transparent rounded-xl ">
+            <div className="bg-gradient-to-br from-blue-600/10 to-transparent rounded-xl backdrop-blur-md shadow-lg shadow-blue-900/10 mb-8">
+                <div className="flex  max-sm:flex-col max-sm:gap-10 justify-between bg-gradient-to-br from-blue-600/10 to-transparent rounded-xl p-8">
                     <div className="max-sm:text-center">
                         <h1 className="text-3xl max-sm:inline-block font-bold bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-400 bg-clip-text text-transparent tracking-tight flex items-center">
                             Analytics
@@ -133,7 +132,7 @@ export default function Analytics() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-row max-lg:flex-col-reverse items-center gap-4">
                         {timeRange === "custom" && (
                             <DatePickerWithRange date={dateRange} setDate={setDateRange} />
                         )}
@@ -186,7 +185,7 @@ export default function Analytics() {
                             <h3 className="text-xl font-semibold mb-4 text-text-primary">Token Usage Trend</h3>
                             <TokenUsageChart data={displayData.daily_breakdown} />
                         </div>
-                        <div className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-8 shadow-lg flex flex-col items-center justify-center">
+                        <div className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-8 max-sm:p-2 shadow-lg flex flex-col items-center justify-center">
                             <h3 className="text-xl font-semibold mb-4 text-text-primary w-full text-left">Cache Efficiency</h3>
                             <CacheEfficiencyGauge hitRate={displayData.cache_hit_rate} />
                         </div>
