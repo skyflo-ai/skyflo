@@ -135,7 +135,7 @@ export default function Analytics() {
                         />
                         <MetricCard
                             title="Tool Approval Acceptance Rate"
-                            value={displayData.approval_acceptance_rate ? `${Math.round(displayData.approval_acceptance_rate * 100)}%` : "N/A"}
+                            value={displayData.approval_acceptance_rate != null || displayData.approval_acceptance_rate != undefined ? `${Math.round(displayData.approval_acceptance_rate * 100)}%` : "N/A"}
                             trend={null}
                             icon={<MdOutlineThumbUpOffAlt />}
                             color="text-yellow-400"
