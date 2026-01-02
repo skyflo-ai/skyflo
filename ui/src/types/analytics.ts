@@ -20,8 +20,8 @@ export interface MetricsAggregation {
     // Time series
     daily_breakdown: DailyMetrics[]
     // Period-over-period comparison
-    cost_change_pct?: number[]
-    tokens_change_pct?: number[]
+    cost_change_pct?: number
+    tokens_change_pct?: number
 
     // Approval metrics
     total_approvals: number
@@ -38,8 +38,8 @@ export interface DailyMetrics {
     completion_tokens: number
     cached_tokens: number
     conversation_count: number
-    avg_ttft_ms?: number[]
-    avg_ttr_ms?: number[]
+    avg_ttft_ms?: number
+    avg_ttr_ms?: number
 }
 
 

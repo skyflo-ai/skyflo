@@ -1,12 +1,6 @@
 "use client";
 
 import React from "react";
-
-interface TimeRangeSelectorProps {
-    selectedRange: number | "custom";
-    onRangeChange: (range: number | "custom") => void;
-}
-
 import { Button } from "../ui/button";
 
 interface TimeRangeSelectorProps {
