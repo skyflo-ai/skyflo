@@ -22,8 +22,6 @@ export default function TimeRangeSelector({ selectedRange, onRangeChange }: Time
 
     ];
 
-    console.log("selectedRange", selectedRange);
-
     return (
         <div className="flex bg-dark-card border max-lg:flex-col items-center border-white/10 rounded-lg p-1 gap-1">
             <div className="flex gap-1">

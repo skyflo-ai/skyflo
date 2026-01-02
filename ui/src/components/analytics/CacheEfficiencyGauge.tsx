@@ -8,7 +8,8 @@ interface CacheEfficiencyGaugeProps {
 }
 
 export default function CacheEfficiencyGauge({ hitRate }: CacheEfficiencyGaugeProps) {
-    const percentage = Math.round(hitRate * 100);
+    const safeHitRate = Math.max(0, Math.min(1, hitRate || 0));
+    const percentage = Math.round(safeHitRate * 100);
     const data = [
         { name: "Hit", value: percentage },
         { name: "Miss", value: 100 - percentage },

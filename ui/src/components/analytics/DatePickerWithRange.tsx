@@ -2,11 +2,11 @@
 
 import * as React from "react"
 import { format } from "date-fns"
-import { DateRange } from "react-day-picker" // Keeping this type for compatibility or I should define my own? Analytics uses it.
+import { DateRange } from "react-day-picker"
 import { cn } from "@/lib/utils"
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { DatePicker, DatePickerSlotProps } from '@mui/x-date-pickers/DatePicker';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { TextField } from "@mui/material";
 
@@ -59,6 +59,43 @@ const darkTheme = createTheme({
     },
 });
 
+const datePickerProps: DatePickerSlotProps<true> = {
+    textField: {
+        size: "small",
+        sx: { width: 150 }
+    },
+    popper: {
+        sx: {
+            '& .MuiPaper-root': {
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                backgroundColor: '#3b82f61a',
+                color: 'white',
+            },
+            '& .MuiPickersDay-root': {
+                color: 'white',
+                '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
+                '&.Mui-selected': {
+                    backgroundColor: '#3b82f6',
+                    '&:hover': {
+                        backgroundColor: '#2563eb',
+                    },
+                },
+            },
+            '& .MuiPickersCalendarHeader-label': {
+                color: 'white',
+            },
+            '& .MuiSvgIcon-root': {
+                color: 'white',
+            },
+            '& .MuiDayCalendar-weekDayLabel': {
+                color: 'rgba(255, 255, 255, 0.7)',
+            }
+        }
+    }
+}
+
 export function DatePickerWithRange({
     className,
     date,
@@ -74,42 +111,8 @@ export function DatePickerWithRange({
                         onChange={(newValue) => {
                             setDate({ from: newValue || undefined, to: date?.to });
                         }}
-                        slotProps={{
-                            textField: {
-                                size: "small",
-                                sx: { width: 150 }
-                            },
-                            popper: {
-                                sx: {
-                                    '& .MuiPaper-root': {
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                                        backgroundColor: '#3b82f61a',
-                                        color: 'white',
-                                    },
-                                    '& .MuiPickersDay-root': {
-                                        color: 'white',
-                                        '&:hover': {
-                                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                        },
-                                        '&.Mui-selected': {
-                                            backgroundColor: '#3b82f6',
-                                            '&:hover': {
-                                                backgroundColor: '#2563eb',
-                                            },
-                                        },
-                                    },
-                                    '& .MuiPickersCalendarHeader-label': {
-                                        color: 'white',
-                                    },
-                                    '& .MuiSvgIcon-root': {
-                                        color: 'white',
-                                    },
-                                    '& .MuiDayCalendar-weekDayLabel': {
-                                        color: 'rgba(255, 255, 255, 0.7)',
-                                    }
-                                }
-                            }
-                        }}
+                        maxDate={date?.to}
+                        slotProps={datePickerProps}
                     />
                     <DatePicker
                         label="End Date"
@@ -117,42 +120,8 @@ export function DatePickerWithRange({
                         onChange={(newValue) => {
                             setDate({ from: date?.from, to: newValue || undefined });
                         }}
-                        slotProps={{
-                            textField: {
-                                size: "small",
-                                sx: { width: 150 }
-                            },
-                            popper: {
-                                sx: {
-                                    '& .MuiPaper-root': {
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                                        backgroundColor: '#3b82f61a',
-                                        color: 'white',
-                                    },
-                                    '& .MuiPickersDay-root': {
-                                        color: 'white',
-                                        '&:hover': {
-                                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                        },
-                                        '&.Mui-selected': {
-                                            backgroundColor: '#3b82f6',
-                                            '&:hover': {
-                                                backgroundColor: '#2563eb',
-                                            },
-                                        },
-                                    },
-                                    '& .MuiPickersCalendarHeader-label': {
-                                        color: 'white',
-                                    },
-                                    '& .MuiSvgIcon-root': {
-                                        color: 'white',
-                                    },
-                                    '& .MuiDayCalendar-weekDayLabel': {
-                                        color: 'rgba(255, 255, 255, 0.7)',
-                                    }
-                                }
-                            }
-                        }}
+                        minDate={date?.from}
+                        slotProps={datePickerProps}
                     />
                 </div>
             </LocalizationProvider>

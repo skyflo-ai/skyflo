@@ -11,12 +11,7 @@ import {
     ResponsiveContainer,
 } from "recharts";
 
-interface DailyMetrics {
-    date: string;
-    prompt_tokens: number;
-    completion_tokens: number;
-    cached_tokens: number;
-}
+import { DailyMetrics } from "@/types/analytics";
 
 interface TokenUsageChartProps {
     data: DailyMetrics[];

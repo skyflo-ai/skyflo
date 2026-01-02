@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { MetricsAggregation } from "../types/analytics";
 
 export async function getAuthHeaders() {
   try {
@@ -81,7 +82,7 @@ export const createConversation = async (
 
 export const getMetrics = async (
   options: number | { lastNDays?: number; startDate?: Date; endDate?: Date } = 30
-): Promise<any> => {
+): Promise<MetricsAggregation> => {
   try {
     let queryParams = "";
 

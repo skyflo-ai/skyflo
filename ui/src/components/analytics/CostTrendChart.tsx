@@ -11,10 +11,7 @@ import {
     ResponsiveContainer,
 } from "recharts";
 
-interface DailyMetrics {
-    date: string;
-    cost: number;
-}
+import { DailyMetrics } from "@/types/analytics";
 
 interface CostTrendChartProps {
     data: DailyMetrics[];

@@ -12,11 +12,7 @@ import {
     Legend,
 } from "recharts";
 
-interface DailyMetrics {
-    date: string;
-    avg_ttft_ms: number | null;
-    avg_ttr_ms: number | null;
-}
+import { DailyMetrics } from "@/types/analytics";
 
 interface LatencyChartProps {
     data: DailyMetrics[];
