@@ -1,5 +1,6 @@
 """Argo Rollouts tools implementation for MCP server."""
 
+import json
 from typing import Optional
 from pydantic import Field
 
@@ -237,7 +238,7 @@ async def argo_describe(
 async def argo_list_experiments(
     rollout_name: Optional[str] = Field(
         default=None,
-        description="The name of the rollout to get experiments for (if not specified, gets all experiments)",
+        description="The name of the rollout to filter experiments by. Experiments are filtered by checking if their name starts with the rollout name (Argo Rollouts naming convention: {rollout-name}-{hash}-{revision}-{step}). If not specified, returns all experiments.",
     ),
     namespace: Optional[str] = Field(
         default="default", description="The namespace to get experiments from"
@@ -246,18 +247,52 @@ async def argo_list_experiments(
         default=False, description="Whether to get experiments from all namespaces"
     ),
 ) -> ToolOutput:
-    """Get Argo Rollouts experiments."""
-    cmd_parts = ["get", "experiments.argoproj.io", "-o", "wide"]
+    """Get Argo Rollouts experiments, optionally filtered by rollout name.
+    
+    When rollout_name is provided, experiments are filtered by checking if their
+    name starts with the rollout name, following Argo Rollouts' naming convention
+    where experiment names are: {rollout-name}-{podHash}-{revision}-{stepIndex}.
+    """
+    # Get experiments in JSON format for filtering, or wide format for display
+    if rollout_name:
+        # Use JSON output to filter by experiment name prefix (rollout name)
+        cmd_parts = ["get", "experiments.argoproj.io", "-o", "json"]
+    else:
+        cmd_parts = ["get", "experiments.argoproj.io", "-o", "wide"]
+    
     if all_namespaces:
         cmd_parts.append("-A")
     elif namespace:
         cmd_parts.extend(["-n", namespace])
 
-    if rollout_name:
-        # Filter by rollout name using label selector
-        cmd_parts.extend(["-l", f"rollouts-pod-template-hash"])
-
-    return await run_command("kubectl", cmd_parts)
+    result = await run_command("kubectl", cmd_parts)
+    
+    # If filtering by rollout name, parse JSON and filter experiments
+    if rollout_name and result.get("output") and not result.get("error"):
+        try:
+            data = json.loads(result["output"])
+            items = data.get("items", [])
+            # Filter experiments whose name starts with the rollout name
+            filtered = [
+                exp for exp in items 
+                if exp.get("metadata", {}).get("name", "").startswith(f"{rollout_name}-")
+            ]
+            if filtered:
+                # Format output as a readable list
+                output_lines = ["NAME\t\tSTATUS\t\tAGE"]
+                for exp in filtered:
+                    name = exp.get("metadata", {}).get("name", "")
+                    status = exp.get("status", {}).get("phase", "Unknown")
+                    created = exp.get("metadata", {}).get("creationTimestamp", "")
+                    output_lines.append(f"{name}\t{status}\t{created}")
+                result["output"] = "\n".join(output_lines)
+            else:
+                result["output"] = f"No experiments found for rollout '{rollout_name}'"
+        except json.JSONDecodeError:
+            # If JSON parsing fails, return original output
+            pass
+    
+    return result
 
 
 @mcp.tool(
