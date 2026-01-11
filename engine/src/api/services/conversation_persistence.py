@@ -1,12 +1,140 @@
 import uuid
 from typing import Any, Dict, List, Optional
 import json
-from ..models.conversation import Conversation
+from ..models.conversation import Conversation, TokenUsageMetrics
 
 
 class ConversationPersistenceService:
     def __init__(self):
-        pass
+        self._usage_buffers: Dict[str, Dict[str, Any]] = {}
+
+    def _usage_key(self, conversation_id: Optional[str], run_id: Optional[str]) -> Optional[str]:
+        if not conversation_id or not run_id:
+            return None
+        return f"{str(conversation_id)}:{str(run_id)}"
+
+    def _get_usage_buffer(
+        self, conversation_id: Optional[str], run_id: Optional[str]
+    ) -> Optional[Dict[str, Any]]:
+        key = self._usage_key(conversation_id, run_id)
+        if not key:
+            return None
+        if key not in self._usage_buffers:
+            self._usage_buffers[key] = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "cached_tokens": 0,
+                "cost": 0.0,
+                "ttft_ms": None,
+                "ttr_ms": None,
+            }
+        return self._usage_buffers.get(key)
+
+    def record_token_usage(
+        self,
+        conversation_id: Optional[str],
+        run_id: Optional[str],
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+        total_tokens: int = 0,
+        cached_tokens: Optional[int] = None,
+        cost: float = 0.0,
+    ) -> None:
+        buffer = self._get_usage_buffer(conversation_id, run_id)
+        if not buffer:
+            return
+        buffer["prompt_tokens"] += max(prompt_tokens or 0, 0)
+        buffer["completion_tokens"] += max(completion_tokens or 0, 0)
+        buffer["total_tokens"] += max(total_tokens or 0, 0)
+        if cached_tokens is not None:
+            buffer["cached_tokens"] += max(cached_tokens or 0, 0)
+        buffer["cost"] += max(cost or 0.0, 0.0)
+
+    def record_ttft(
+        self, conversation_id: Optional[str], run_id: Optional[str], duration_ms: Optional[int]
+    ) -> None:
+        buffer = self._get_usage_buffer(conversation_id, run_id)
+        if not buffer:
+            return
+        if duration_ms is not None:
+            buffer["ttft_ms"] = duration_ms
+
+    def record_ttr(
+        self, conversation_id: Optional[str], run_id: Optional[str], duration_ms: Optional[int]
+    ) -> None:
+        buffer = self._get_usage_buffer(conversation_id, run_id)
+        if not buffer:
+            return
+        if duration_ms is not None:
+            buffer["ttr_ms"] = duration_ms
+
+    def _snapshot_usage(
+        self, conversation_id: Optional[str], run_id: Optional[str]
+    ) -> Optional[Dict[str, Any]]:
+        key = self._usage_key(conversation_id, run_id)
+        if not key:
+            return None
+
+        buffer = self._usage_buffers.get(key)
+        if not buffer:
+            return None
+
+        return {
+            "prompt_tokens": buffer.get("prompt_tokens", 0),
+            "completion_tokens": buffer.get("completion_tokens", 0),
+            "total_tokens": buffer.get("total_tokens", 0),
+            "cached_tokens": buffer.get("cached_tokens", 0),
+            "cost": buffer.get("cost", 0.0),
+            "ttft_ms": buffer.get("ttft_ms"),
+            "ttr_ms": buffer.get("ttr_ms"),
+        }
+
+    def _clear_usage_buffer(self, conversation_id: Optional[str], run_id: Optional[str]) -> None:
+        key = self._usage_key(conversation_id, run_id)
+        if key and key in self._usage_buffers:
+            self._usage_buffers.pop(key, None)
+
+    async def _apply_usage_to_latest_assistant(
+        self, conversation_id: str, run_id: Optional[str], finalize: bool
+    ) -> None:
+        usage_snapshot = self._snapshot_usage(conversation_id, run_id)
+        if not usage_snapshot:
+            if finalize:
+                self._clear_usage_buffer(conversation_id, run_id)
+            return
+
+        try:
+            conversation = await Conversation.get(id=conversation_id)
+        except Exception:
+            if finalize:
+                self._clear_usage_buffer(conversation_id, run_id)
+            return
+
+        messages: List[Dict[str, Any]] = conversation.messages_json or []
+        if not messages:
+            if finalize:
+                self._clear_usage_buffer(conversation_id, run_id)
+            return
+
+        last_message = messages[-1]
+        if last_message.get("type") != "assistant":
+            if finalize:
+                self._clear_usage_buffer(conversation_id, run_id)
+            return
+
+        metrics = TokenUsageMetrics(**usage_snapshot)
+        last_message["token_usage"] = metrics.model_dump()
+        await conversation.update_from_dict({"messages_json": messages}).save()
+
+        if finalize:
+            self._clear_usage_buffer(conversation_id, run_id)
+
+    async def apply_usage_snapshot(self, conversation_id: str, run_id: Optional[str]) -> None:
+        await self._apply_usage_to_latest_assistant(conversation_id, run_id, finalize=False)
+
+    async def finalize_usage_snapshot(self, conversation_id: str, run_id: Optional[str]) -> None:
+        await self._apply_usage_to_latest_assistant(conversation_id, run_id, finalize=True)
 
     async def append_user_message(self, conversation_id: str, content: str, timestamp: int) -> None:
         conversation = await Conversation.get(id=conversation_id)
@@ -29,7 +157,9 @@ class ConversationPersistenceService:
         messages.append(user_message)
         await conversation.update_from_dict({"messages_json": messages}).save()
 
-    async def append_text_segment(self, conversation_id: str, text: str, timestamp: int) -> None:
+    async def append_text_segment(
+        self, conversation_id: str, text: str, timestamp: int, run_id: Optional[str] = None
+    ) -> None:
         conversation = await Conversation.get(id=conversation_id)
         messages: List[Dict[str, Any]] = conversation.messages_json or []
 
@@ -40,7 +170,12 @@ class ConversationPersistenceService:
                 "content": text,
                 "timestamp": timestamp,
                 "segments": [
-                    {"kind": "text", "id": str(uuid.uuid4()), "text": text, "timestamp": timestamp}
+                    {
+                        "kind": "text",
+                        "id": str(uuid.uuid4()),
+                        "text": text,
+                        "timestamp": timestamp,
+                    }
                 ],
             }
             messages.append(assistant_message)
@@ -49,11 +184,22 @@ class ConversationPersistenceService:
             segments: List[Dict[str, Any]] = assistant.get("segments", [])
 
             segments.append(
-                {"kind": "text", "id": str(uuid.uuid4()), "text": text, "timestamp": timestamp}
+                {
+                    "kind": "text",
+                    "id": str(uuid.uuid4()),
+                    "text": text,
+                    "timestamp": timestamp,
+                }
             )
 
             assistant["content"] = assistant.get("content", "") + text
             assistant["segments"] = segments
+
+        if run_id:
+            usage_snapshot = self._snapshot_usage(conversation_id, run_id)
+            if usage_snapshot:
+                assistant = messages[-1]
+                assistant["token_usage"] = TokenUsageMetrics(**usage_snapshot).model_dump()
 
         await conversation.update_from_dict({"messages_json": messages}).save()
 
