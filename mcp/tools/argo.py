@@ -1,6 +1,7 @@
 """Argo Rollouts tools implementation for MCP server."""
 
 import json
+from datetime import datetime, timezone
 from typing import Optional
 from pydantic import Field
 
@@ -13,6 +14,25 @@ async def run_argo_command(command: str) -> ToolOutput:
     """Run an argo rollouts command and return its output."""
     cmd_parts = [part for part in command.split(" ") if part]
     return await run_command("kubectl", ["argo", "rollouts"] + cmd_parts)
+
+
+def _format_age(timestamp: str) -> str:
+    """Convert ISO timestamp to kubectl-style relative age."""
+    try:
+        created = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        delta = datetime.now(timezone.utc) - created
+        seconds = int(delta.total_seconds())
+        if seconds < 0:
+            return "0s"
+        if seconds < 60:
+            return f"{seconds}s"
+        if seconds < 3600:
+            return f"{seconds // 60}m"
+        if seconds < 86400:
+            return f"{seconds // 3600}h"
+        return f"{seconds // 86400}d"
+    except (ValueError, TypeError):
+        return timestamp
 
 
 @mcp.tool(title="List Argo Rollouts", tags=["argo"], annotations={"readOnlyHint": True})
@@ -253,44 +273,40 @@ async def argo_list_experiments(
     name starts with the rollout name, following Argo Rollouts' naming convention
     where experiment names are: {rollout-name}-{podHash}-{revision}-{stepIndex}.
     """
-    # Get experiments in JSON format for filtering, or wide format for display
     if rollout_name:
-        # Use JSON output to filter by experiment name prefix (rollout name)
         cmd_parts = ["get", "experiments.argoproj.io", "-o", "json"]
     else:
         cmd_parts = ["get", "experiments.argoproj.io", "-o", "wide"]
-    
+
     if all_namespaces:
         cmd_parts.append("-A")
     elif namespace:
         cmd_parts.extend(["-n", namespace])
 
     result = await run_command("kubectl", cmd_parts)
-    
-    # If filtering by rollout name, parse JSON and filter experiments
-    if rollout_name and result.get("output") and not result.get("error"):
+
+    if rollout_name and result["output"] and not result["error"]:
         try:
             data = json.loads(result["output"])
             items = data.get("items", [])
-            # Filter experiments whose name starts with the rollout name
             filtered = [
-                exp for exp in items 
+                exp for exp in items
                 if exp.get("metadata", {}).get("name", "").startswith(f"{rollout_name}-")
             ]
             if filtered:
-                # Format output as a readable list
-                output_lines = ["NAME\t\tSTATUS\t\tAGE"]
+                output_lines = [f"{'NAME':<50} {'STATUS':<15} {'AGE':<10}"]
                 for exp in filtered:
                     name = exp.get("metadata", {}).get("name", "")
                     status = exp.get("status", {}).get("phase", "Unknown")
                     created = exp.get("metadata", {}).get("creationTimestamp", "")
-                    output_lines.append(f"{name}\t{status}\t{created}")
+                    age = _format_age(created)
+                    output_lines.append(f"{name:<50} {status:<15} {age:<10}")
                 result["output"] = "\n".join(output_lines)
             else:
                 result["output"] = f"No experiments found for rollout '{rollout_name}'"
-        except json.JSONDecodeError:
-            # If JSON parsing fails, return original output
-            pass
+        except json.JSONDecodeError as e:
+            result["output"] = f"Failed to parse experiment data: {e}"
+            result["error"] = True
     
     return result
 
