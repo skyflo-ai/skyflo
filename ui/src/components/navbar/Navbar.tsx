@@ -2,7 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
-import { MdHistory, MdLogout, MdSettings, MdAdd } from "react-icons/md";
+import { MdHistory, MdLogout, MdSettings, MdAdd, MdBarChart } from "react-icons/md";
 import { FaGithub } from "react-icons/fa";
 import { FiLayers } from "react-icons/fi";
 
@@ -67,6 +67,12 @@ export default function Navbar() {
           onClick={() => router.push("/integrations")}
           isActive={pathname === "/integrations"}
         />
+        <NavIcon
+          icon={<MdBarChart size={20} />}
+          tooltip="Analytics"
+          onClick={() => router.push("/analytics")}
+          isActive={pathname === "/analytics"}
+        />
       </div>
 
       <div className="mt-auto flex flex-col space-y-3 mb-4">
@@ -114,9 +120,8 @@ function NavIcon({
               e.stopPropagation();
               if (onClick) onClick();
             }}
-            className={`p-2.5 rounded-lg text-white ${
-              isActive ? "bg-dark-active" : "hover:bg-dark-hover"
-            } transition-colors cursor-pointer`}
+            className={`p-2.5 rounded-lg text-white ${isActive ? "bg-dark-active" : "hover:bg-dark-hover"
+              } transition-colors cursor-pointer`}
           >
             {icon}
           </button>
