@@ -9,26 +9,45 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
-
 class MCPClient:
     def __init__(self):
         self.mcp_url = settings.MCP_SERVER_URL.rstrip("/")
+        self._client: Optional[Client] = None
 
     def _get_client(self) -> Client:
         transport = StreamableHttpTransport(url=self.mcp_url)
         return Client(transport)
 
     async def __aenter__(self) -> "MCPClient":
+        self._client = self._get_client()
+        try:
+            await self._client.__aenter__()
+        except Exception:
+            try:
+                await self._client.__aexit__(None, None, None)
+            finally:
+                self._client = None
+            raise
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        pass
+        if self._client is not None:
+            try:
+                await self._client.__aexit__(exc_type, exc_val, exc_tb)
+            except Exception as e:
+                logger.error(f"Error closing MCP client: {e}")
+            finally:
+                self._client = None
 
     async def list_tools_raw(self) -> List[Dict[str, Any]]:
-        client = self._get_client()
-        async with client:
-            tools = await client.list_tools()
-            return [t.model_dump() for t in tools]
+        if self._client is None:
+            client = self._get_client()
+            async with client:
+                tools = await client.list_tools()
+                return [t.model_dump() for t in tools]
+
+        tools = await self._client.list_tools()
+        return [t.model_dump() for t in tools]
 
     def _get_tool_name(self, tool: Any) -> str:
         if isinstance(tool, dict):
@@ -73,6 +92,20 @@ class MCPClient:
 
         return cd, False
 
+    def _parse_tool_result(self, result: Any) -> Dict[str, Any]:
+        is_error = result.isError or False
+        content_blocks: List[Dict[str, Any]] = []
+        
+        for content_item in result.content:
+            parsed_item, item_is_error = self._parse_content_item(content_item)
+            is_error = is_error or item_is_error
+            content_blocks.append(parsed_item)
+        
+        return {
+            "content": content_blocks,
+            "isError": is_error,
+        }
+
     async def call_tool(
         self,
         tool_name: str,
@@ -95,22 +128,20 @@ class MCPClient:
                     "get_nodes": "node",
                 }.get(action, inferred_parameters.get("resource_type"))
 
-            client = self._get_client()
-            async with client:
-                result = await client.call_tool_mcp(name=tool_name, arguments=inferred_parameters)
-
-                is_error = result.isError or False
-                content_blocks: List[Dict[str, Any]] = []
-
-                for content_item in result.content:
-                    parsed_item, item_is_error = self._parse_content_item(content_item)
-                    is_error = is_error or item_is_error
-                    content_blocks.append(parsed_item)
-
-                return {
-                    "content": content_blocks,
-                    "isError": is_error,
-                }
+            if self._client is None:
+                client = self._get_client()
+                async with client:
+                    result = await client.call_tool_mcp(
+                        name=tool_name, 
+                        arguments=inferred_parameters
+                    )
+                    return self._parse_tool_result(result)
+            else:
+                result = await self._client.call_tool_mcp(
+                    name=tool_name, 
+                    arguments=inferred_parameters
+                )
+                return self._parse_tool_result(result)
 
         except Exception as e:
             logger.error(f"Error calling tool {tool_name}: {e}")
