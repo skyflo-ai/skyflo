@@ -1,54 +1,108 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: skyflo-secrets
+  name: skyflo-engine-secrets
   namespace: ${NAMESPACE}
 type: Opaque
 stringData:
-  # LLM Providers
-  openai-api-key: ${OPENAI_API_KEY}
-  anthropic-api-key: ${ANTHROPIC_API_KEY}
-  azure-api-key: ${AZURE_API_KEY}
-  gemini-api-key: ${GEMINI_API_KEY}
-  cohere-api-key: ${COHERE_API_KEY}
-  mistral-api-key: ${MISTRAL_API_KEY}
-  groq-api-key: ${GROQ_API_KEY}
-  anyscale-api-key: ${ANYSCALE_API_KEY}
-  perplexity-api-key: ${PERPLEXITYAI_API_KEY}
-  fireworks-ai-api-key: ${FIREWORKS_AI_API_KEY}
-  togetherai-api-key: ${TOGETHERAI_API_KEY}
-  deepinfra-api-key: ${DEEPINFRA_API_KEY}
-  ai21-api-key: ${AI21_API_KEY}
-  nlp-cloud-api-key: ${NLP_CLOUD_API_KEY}
-  replicate-api-key: ${REPLICATE_API_KEY}
-  jina-ai-api-key: ${JINAAI_API_KEY}
-  alephalpha-api-key: ${ALEPHALPHA_API_KEY}
-  voyage-api-key: ${VOYAGE_API_KEY}
-  databricks-token: ${DATABRICKS_TOKEN}
-  clarifai-pat: ${CLARIFAI_PAT}
-  baseten-api-key: ${BASETEN_API_KEY}
-  sambanova-api-key: ${SAMBANOVA_API_KEY}
-  featherless-api-key: ${FEATHERLESS_AI_API_KEY}
-  ibm-watsonx-api-key: ${IBM_API_KEY}
-  predibase-api-key: ${PREDIBASE_API_KEY}
-  nvidia-nim-api-key: ${NVIDIA_NGC_API_KEY}
-  xai-api-key: ${XAI_API_KEY}
-  volcengine-api-key: ${VOLCENGINE_API_KEY}
-  openrouter-api-key: ${OPENROUTER_API_KEY}
-  huggingface-token: ${HF_TOKEN}
-  bedrock-aws-access-key-id: ${AWS_ACCESS_KEY_ID}
-  bedrock-aws-secret-access-key: ${AWS_SECRET_ACCESS_KEY}
-  bedrock-aws-region-name: ${AWS_REGION_NAME}
-  ollama-api-key: ${OLLAMA_API_KEY}
-
-  # System configuration
-  postgres-database-url: ${POSTGRES_DATABASE_URL}
-  redis-url: ${REDIS_URL}
-  mcp-server-url: ${MCP_SERVER_URL}
-  jwt-secret: ${JWT_SECRET}
-  llm-host: ${LLM_HOST}
-  llm-model: ${LLM_MODEL}
-  integrations-secret-namespace: ${INTEGRATIONS_SECRET_NAMESPACE}
+  OPENAI_API_KEY: "${OPENAI_API_KEY}"
+  ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
+  AZURE_API_KEY: "${AZURE_API_KEY}"
+  GEMINI_API_KEY: "${GEMINI_API_KEY}"
+  COHERE_API_KEY: "${COHERE_API_KEY}"
+  MISTRAL_API_KEY: "${MISTRAL_API_KEY}"
+  GROQ_API_KEY: "${GROQ_API_KEY}"
+  ANYSCALE_API_KEY: "${ANYSCALE_API_KEY}"
+  OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
+  PERPLEXITYAI_API_KEY: "${PERPLEXITYAI_API_KEY}"
+  FIREWORKS_AI_API_KEY: "${FIREWORKS_AI_API_KEY}"
+  TOGETHERAI_API_KEY: "${TOGETHERAI_API_KEY}"
+  DEEPINFRA_API_KEY: "${DEEPINFRA_API_KEY}"
+  AI21_API_KEY: "${AI21_API_KEY}"
+  NLP_CLOUD_API_KEY: "${NLP_CLOUD_API_KEY}"
+  REPLICATE_API_KEY: "${REPLICATE_API_KEY}"
+  HF_TOKEN: "${HF_TOKEN}"
+  DATABRICKS_TOKEN: "${DATABRICKS_TOKEN}"
+  CLARIFAI_PAT: "${CLARIFAI_PAT}"
+  VOYAGE_API_KEY: "${VOYAGE_API_KEY}"
+  JINAAI_API_KEY: "${JINAAI_API_KEY}"
+  ALEPHALPHA_API_KEY: "${ALEPHALPHA_API_KEY}"
+  BASETEN_API_KEY: "${BASETEN_API_KEY}"
+  SAMBANOVA_API_KEY: "${SAMBANOVA_API_KEY}"
+  FEATHERLESS_AI_API_KEY: "${FEATHERLESS_AI_API_KEY}"
+  OLLAMA_API_KEY: "${OLLAMA_API_KEY}"
+  IBM_API_KEY: "${IBM_API_KEY}"
+  PREDIBASE_API_KEY: "${PREDIBASE_API_KEY}"
+  NVIDIA_NGC_API_KEY: "${NVIDIA_NGC_API_KEY}"
+  XAI_API_KEY: "${XAI_API_KEY}"
+  VOLCENGINE_API_KEY: "${VOLCENGINE_API_KEY}"
+  AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+  AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+  AWS_REGION_NAME: "${AWS_REGION_NAME}"
+  LLM_MODEL: "${LLM_MODEL}"
+  LLM_HOST: "${LLM_HOST}"
+  JWT_SECRET: "${JWT_SECRET}"
+  POSTGRES_DATABASE_URL: "${POSTGRES_DATABASE_URL}"
+  REDIS_URL: "${REDIS_URL}"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: skyflo-postgres-secrets
+  namespace: ${NAMESPACE}
+type: Opaque
+stringData:
+  POSTGRES_USER: "${POSTGRES_USER}"
+  POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+  POSTGRES_DB: "${POSTGRES_DB}"
+  POSTGRES_PORT: "${POSTGRES_PORT}"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skyflo-engine-config
+  namespace: ${NAMESPACE}
+data:
+  APP_NAME: "Skyflo.ai - Engine"
+  APP_DESCRIPTION: "Core engine for Skyflo.ai"
+  DEBUG: "false"
+  API_V1_STR: "/api/v1"
+  LOG_LEVEL: "INFO"
+  RATE_LIMITING_ENABLED: "true"
+  RATE_LIMIT_PER_MINUTE: "100"
+  JWT_ALGORITHM: "HS256"
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "15"
+  JWT_REFRESH_TOKEN_EXPIRE_DAYS: "7"
+  LLM_TEMPERATURE: "0.2"
+  LLM_MAX_ITERATIONS: "25"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skyflo-mcp-config
+  namespace: ${NAMESPACE}
+data:
+  APP_NAME: "Skyflo.ai - MCP Server"
+  APP_DESCRIPTION: "MCP Server for Skyflo.ai"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+  MAX_RETRY_ATTEMPTS: "3"
+  RETRY_BASE_DELAY: "60"
+  RETRY_MAX_DELAY: "300"
+  RETRY_EXPONENTIAL_BASE: "2.0"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skyflo-ui-config
+  namespace: ${NAMESPACE}
+data:
+  NEXT_PUBLIC_APP_NAME: "Skyflo.ai"
+  NODE_ENV: "production"
+  NEXT_PUBLIC_ENABLE_ANALYTICS: "false"
+  NEXT_PUBLIC_ENABLE_FEEDBACK: "false"
+  API_URL: "http://skyflo-ai-engine:8080/api/v1"
+  NEXT_PUBLIC_API_URL: "/api/v1"
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -357,8 +411,11 @@ spec:
       serviceAccountName: skyflo-ai-controller
       containers:
       - name: manager
-        image: skyfloai/controller:latest
+        image: skyfloaiagent/k8s-controller:${VERSION}
         imagePullPolicy: Never
+        env:
+        - name: APP_VERSION
+          value: "${VERSION}"
         args:
         - --leader-elect=false
         - --metrics-bind-address=:8080
@@ -431,7 +488,7 @@ spec:
     spec:
       containers:
       - name: redis
-        image: redis:latest
+        image: redis:7.4.7-alpine
         ports:
         - containerPort: 6379
           name: redis
@@ -519,17 +576,26 @@ spec:
     spec:
       containers:
       - name: postgres
-        image: postgres:latest
+        image: postgres:15.15-alpine
         ports:
         - containerPort: 5432
           name: postgres
         env:
         - name: POSTGRES_USER
-          value: "skyflo"
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-postgres-secrets
+              key: POSTGRES_USER
         - name: POSTGRES_PASSWORD
-          value: "skyflo" # In production, use a secret
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-postgres-secrets
+              key: POSTGRES_PASSWORD
         - name: POSTGRES_DB
-          value: "skyflo"
+          valueFrom:
+            secretKeyRef:
+              name: skyflo-postgres-secrets
+              key: POSTGRES_DB
         - name: PGDATA
           value: "/var/lib/postgresql/data/pgdata"
         resources:
@@ -542,17 +608,17 @@ spec:
         livenessProbe:
           exec:
             command:
-            - pg_isready
-            - -U
-            - skyflo
+            - sh
+            - -c
+            - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           exec:
             command:
-            - pg_isready
-            - -U
-            - skyflo
+            - sh
+            - -c
+            - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
           initialDelaySeconds: 5
           periodSeconds: 5
         volumeMounts:
@@ -598,11 +664,17 @@ spec:
     spec:
       containers:
       - name: ui
-        image: skyfloai/ui:latest
+        image: skyfloaiagent/ui:${VERSION}
         imagePullPolicy: Never
         ports:
         - containerPort: 3000
           name: http
+        envFrom:
+        - configMapRef:
+            name: skyflo-ui-config
+        env:
+        - name: APP_VERSION
+          value: "${VERSION}"
         resources:
           limits:
             cpu: 500m
@@ -618,11 +690,14 @@ spec:
             drop:
             - ALL
       - name: proxy
-        image: skyfloai/proxy:latest
+        image: skyfloaiagent/proxy:${VERSION}
         imagePullPolicy: Never
         ports:
         - containerPort: 80
           name: http-proxy
+        env:
+        - name: APP_VERSION
+          value: "${VERSION}"
         resources:
           limits:
             cpu: 200m
@@ -671,254 +746,23 @@ spec:
     spec:
       containers:
       - name: engine
-        image: skyfloai/engine:latest
+        image: skyfloaiagent/engine:${VERSION}
         imagePullPolicy: Never
         ports:
         - containerPort: 8080
           name: http
+        envFrom:
+        - configMapRef:
+            name: skyflo-engine-config
+        - secretRef:
+            name: skyflo-engine-secrets
         env:
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: openai-api-key
-              optional: true
-        - name: ANTHROPIC_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: anthropic-api-key
-              optional: true
-        - name: AZURE_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: azure-api-key
-              optional: true
-        - name: GEMINI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: gemini-api-key
-              optional: true
-        - name: COHERE_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: cohere-api-key
-              optional: true
-        - name: MISTRAL_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: mistral-api-key
-              optional: true
-        - name: GROQ_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: groq-api-key
-              optional: true
-        - name: ANYSCALE_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: anyscale-api-key
-              optional: true
-        - name: OPENROUTER_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: openrouter-api-key
-              optional: true
-        - name: PERPLEXITYAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: perplexity-api-key
-              optional: true
-        - name: FIREWORKS_AI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: fireworks-ai-api-key
-              optional: true
-        - name: TOGETHERAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: togetherai-api-key
-              optional: true
-        - name: DEEPINFRA_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: deepinfra-api-key
-              optional: true
-        - name: AI21_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: ai21-api-key
-              optional: true
-        - name: NLP_CLOUD_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: nlp-cloud-api-key
-              optional: true
-        - name: REPLICATE_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: replicate-api-key
-              optional: true
-        - name: HF_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: huggingface-token
-              optional: true
-        - name: AWS_ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: bedrock-aws-access-key-id
-              optional: true
-        - name: AWS_SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: bedrock-aws-secret-access-key
-              optional: true
-        - name: AWS_REGION_NAME
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: bedrock-aws-region-name
-              optional: true
-        - name: DATABRICKS_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: databricks-token
-              optional: true
-        - name: CLARIFAI_PAT
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: clarifai-pat
-              optional: true
-        - name: VOYAGE_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: voyage-api-key
-              optional: true
-        - name: JINAAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: jina-ai-api-key
-              optional: true
-        - name: ALEPHALPHA_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: alephalpha-api-key
-              optional: true
-        - name: BASETEN_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: baseten-api-key
-              optional: true
-        - name: SAMBANOVA_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: sambanova-api-key
-              optional: true
-        - name: FEATHERLESS_AI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: featherless-api-key
-              optional: true
-        - name: OLLAMA_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: ollama-api-key
-              optional: true
-        - name: IBM_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: ibm-watsonx-api-key
-              optional: true
-        - name: PREDIBASE_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: predibase-api-key
-              optional: true
-        - name: NVIDIA_NGC_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: nvidia-nim-api-key
-              optional: true
-        - name: XAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: xai-api-key
-              optional: true
-        - name: VOLCENGINE_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: volcengine-api-key
-              optional: true
-        - name: POSTGRES_DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: postgres-database-url
-        - name: REDIS_URL
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: redis-url
+        - name: APP_VERSION
+          value: "${VERSION}"
         - name: MCP_SERVER_URL
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: mcp-server-url
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: jwt-secret
-              optional: true
+          value: "${MCP_SERVER_URL}"
         - name: INTEGRATIONS_SECRET_NAMESPACE
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: integrations-secret-namespace
-        - name: LLM_HOST
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: llm-host
-              optional: true
-        - name: LLM_MODEL
-          valueFrom:
-            secretKeyRef:
-              name: skyflo-secrets
-              key: llm-model
-              optional: true
+          value: "${INTEGRATIONS_SECRET_NAMESPACE}"
         resources:
           limits:
             cpu: 1000m
@@ -987,11 +831,17 @@ spec:
       serviceAccountName: skyflo-ai-mcp
       containers:
       - name: mcp
-        image: skyfloai/mcp:latest
+        image: skyfloaiagent/mcp:${VERSION}
         imagePullPolicy: Never
         ports:
         - containerPort: 8888
           name: http
+        envFrom:
+        - configMapRef:
+            name: skyflo-mcp-config
+        env:
+        - name: APP_VERSION
+          value: "${VERSION}"
         readinessProbe:
           httpGet:
             path: /mcp/v1/health

@@ -1,8 +1,8 @@
 """User model definition."""
 
 import uuid
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 from fastapi_users.schemas import BaseUser, BaseUserCreate, BaseUserUpdate
 from tortoise import fields, models
@@ -23,6 +23,7 @@ class User(models.Model):
     updated_at = fields.DatetimeField(auto_now=True)
 
     conversations = fields.ReverseRelation["Conversation"]
+    refresh_tokens = fields.ReverseRelation["RefreshToken"]
 
     class Meta:
         """Tortoise ORM model configuration."""

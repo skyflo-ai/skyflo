@@ -3,7 +3,7 @@ name: skyflo_ai
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15.15-alpine
     container_name: skyflo_ai_postgres
     environment:
       - POSTGRES_USER=skyflo
@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.7-alpine
     container_name: skyflo_ai_redis
     ports:
       - "6379:6379"

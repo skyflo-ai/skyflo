@@ -107,6 +107,15 @@ yarn dev
 # http://localhost:3000
 ```
 
+## Development Commands
+
+| Command | Description |
+| ------- | ----------- |
+| `yarn dev` | Start development server with hot reload |
+| `yarn build` | Build for production |
+| `yarn start` | Start production server |
+| `yarn lint` | Run ESLint to check for code issues |
+
 ## Production build
 
 ```bash

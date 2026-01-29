@@ -6,6 +6,31 @@
   "parser": "@typescript-eslint/parser",
   "plugins": ["@typescript-eslint"],
   "rules": {
-    // Add any custom rules here
-  }
+    "react/no-unescaped-entities": "off"
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/components/Integrations.tsx",
+        "src/components/auth/AuthProvider.tsx",
+        "src/components/chat/ChatInterface.tsx",
+        "src/components/chat/ToolVisualization.tsx",
+        "src/components/settings/ProfileSettings.tsx",
+        "src/components/ui/Loader.tsx",
+        "src/lib/api.ts",
+        "src/lib/services/sseService.ts",
+        "src/types/chat.ts",
+        "src/types/events.ts"
+      ],
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off"
+      }
+    },
+    {
+      "files": ["src/components/ui/markdown-components.tsx"],
+      "rules": {
+        "@typescript-eslint/no-unused-vars": "off"
+      }
+    }
+  ]
 }

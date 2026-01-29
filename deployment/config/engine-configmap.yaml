@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skyflo-engine-config
+  namespace: ${NAMESPACE}
+data:
+  APP_NAME: "Skyflo.ai - Engine"
+  APP_DESCRIPTION: "Core engine for Skyflo.ai"
+  DEBUG: "false"
+  API_V1_STR: "/api/v1"
+  LOG_LEVEL: "INFO"
+  RATE_LIMITING_ENABLED: "true"
+  RATE_LIMIT_PER_MINUTE: "100"
+  JWT_ALGORITHM: "HS256"
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "15"
+  JWT_REFRESH_TOKEN_EXPIRE_DAYS: "7"
+  LLM_TEMPERATURE: "0.2"
+  LLM_MAX_ITERATIONS: "25"

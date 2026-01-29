@@ -1,21 +1,21 @@
 import logging
 import time
-from typing import Any, Dict, Literal, Optional, Callable, Awaitable
-from ..utils.clock import now_ms
+from typing import Any, Awaitable, Callable, Dict, Literal, Optional
 
-from langgraph.graph import StateGraph, START, END
-from langgraph.errors import GraphRecursionError
-from ..services.checkpointer import get_checkpointer
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.errors import GraphRecursionError
+from langgraph.graph import END, START, StateGraph
 
-from .state import AgentState
-from .model_node import ModelNode
-from ..services.tool_executor import ToolExecutor
-from ..services.mcp_client import MCPClient
-from ..services.approvals import ApprovalService
 from ..config import settings
-from ..utils.helpers import get_state_value
+from ..services.approvals import ApprovalService
+from ..services.checkpointer import get_checkpointer
+from ..services.mcp_client import MCPClient
 from ..services.stop_service import clear_stop
+from ..services.tool_executor import ToolExecutor
+from ..utils.clock import now_ms
+from ..utils.helpers import get_state_value
+from .model_node import ModelNode
+from .state import AgentState
 from .stop import StopRequested, check_stop
 
 logger = logging.getLogger(__name__)
@@ -23,17 +23,10 @@ logger = logging.getLogger(__name__)
 EventCallback = Callable[[Dict[str, Any]], Awaitable[None]]
 
 
-async def _check_stop(state: Dict[str, Any]) -> None:
-    await check_stop(state)
-
-
 def route_after_model(state: Dict[str, Any]) -> Literal["gate", "model", "final"]:
     pending_tools = get_state_value(state, "pending_tools", [])
 
     if pending_tools:
-        tool_names = [
-            tool.get("name", "unknown") for tool in pending_tools if isinstance(tool, dict)
-        ]
         return "gate"
 
     auto_turns = get_state_value(state, "auto_continue_turns", 0)
@@ -127,7 +120,7 @@ class WorkflowGraph:
             self.compiled_graph = await self._compile_graph()
 
     async def _entry_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        await _check_stop(state)
+        await check_stop(state)
         updates = {"ttft_emitted": False}
         if get_state_value(state, "awaiting_approval", False):
             updates["awaiting_approval"] = False
@@ -135,7 +128,7 @@ class WorkflowGraph:
 
     async def _model_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            await _check_stop(state)
+            await check_stop(state)
             result = await self.model_node(state)
 
             updated_state = {}
@@ -150,13 +143,15 @@ class WorkflowGraph:
 
             return updated_state
 
+        except StopRequested:
+            raise
         except Exception as e:
             logger.exception(f"Error in model node: {str(e)}")
             return {"error": str(e)}
 
     async def _gate_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            await _check_stop(state)
+            await check_stop(state)
 
             pending_tools = get_state_value(state, "pending_tools", [])
             if not pending_tools:
@@ -248,7 +243,7 @@ class WorkflowGraph:
                     }
                     tool_messages.append(tool_message)
 
-                except ToolExecutor.ApprovalPending as awaiting:
+                except ToolExecutor.ApprovalPending:
                     remaining_tools = pending_tools[idx:]
                     return {
                         "messages": tool_messages,
@@ -325,7 +320,7 @@ class WorkflowGraph:
                 current_time = time.time()
 
                 if hasattr(initial_state, "start_time"):
-                    setattr(initial_state, "start_time", current_time)
+                    initial_state.start_time = current_time
                 elif hasattr(initial_state, "__setitem__"):
                     initial_state["start_time"] = current_time
 

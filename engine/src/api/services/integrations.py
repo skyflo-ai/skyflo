@@ -1,4 +1,3 @@
-import json
 import logging
 import uuid
 from typing import Any, Dict, Optional, Tuple
@@ -6,8 +5,8 @@ from typing import Any, Dict, Optional, Tuple
 from tortoise.transactions import in_transaction
 
 from ..config import settings
-from ..models.integration import Integration
 from ..integrations.jenkins import build_jenkins_secret_yaml
+from ..models.integration import Integration
 from .mcp_client import MCPClient
 
 logger = logging.getLogger(__name__)
@@ -109,10 +108,20 @@ class IntegrationService:
         integration = await Integration.get(id=integration_id)
 
         if credentials is not None:
+            old_ref = integration.credentials_ref
             ns, secret_name = await self._create_or_replace_secret(
                 integration.provider, credentials, None
             )
             integration.credentials_ref = f"{ns}/{secret_name}"
+
+            if old_ref:
+                try:
+                    old_ns, old_name = old_ref.split("/", 1)
+                    await self._delete_secret(name=old_name, namespace=old_ns)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to delete old credentials secret {old_ref}: {e}"
+                    )
 
         if metadata is not None:
             integration.metadata = metadata

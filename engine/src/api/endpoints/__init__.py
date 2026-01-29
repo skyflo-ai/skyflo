@@ -1,11 +1,11 @@
 from fastapi import APIRouter
 
-from .health import router as health_router
 from .agent import router as agent_router
-from .conversation import router as conversation_router
 from .auth import router as auth_router
-from .team import router as team_router
+from .conversation import router as conversation_router
+from .health import router as health_router
 from .integrations import router as integrations_router
+from .team import router as team_router
 
 api_router = APIRouter()
 

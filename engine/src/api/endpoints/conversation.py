@@ -1,12 +1,12 @@
 import logging
 import uuid
-from typing import Dict, Any, Optional
 from datetime import datetime
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..models.conversation import Conversation, Message, ConversationUpdate
 from ..config import rate_limit_dependency
+from ..models.conversation import Conversation, ConversationUpdate, Message
 from ..services.auth import fastapi_users
 
 logger = logging.getLogger(__name__)
@@ -169,7 +169,7 @@ async def get_conversations(
         raise HTTPException(
             status_code=500,
             detail=f"Error getting conversations: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/{conversation_id}", dependencies=[rate_limit_dependency])
@@ -197,7 +197,7 @@ async def check_conversation(
         raise
     except Exception as e:
         logger.exception(f"Error checking conversation: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error checking conversation: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error checking conversation: {str(e)}") from e
 
 
 @router.patch("/{conversation_id}", dependencies=[rate_limit_dependency])
@@ -231,7 +231,7 @@ async def update_conversation(
         raise
     except Exception as e:
         logger.exception(f"Error updating conversation: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error updating conversation: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating conversation: {str(e)}") from e
 
 
 @router.delete("/{conversation_id}", dependencies=[rate_limit_dependency])
@@ -261,4 +261,4 @@ async def delete_conversation(
         raise
     except Exception as e:
         logger.exception(f"Error deleting conversation: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error deleting conversation: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting conversation: {str(e)}") from e

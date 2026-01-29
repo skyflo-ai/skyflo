@@ -1,8 +1,8 @@
 """Conversation and Message models for chat history."""
 
 import uuid
-from typing import List, Optional, Dict, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 from tortoise import fields

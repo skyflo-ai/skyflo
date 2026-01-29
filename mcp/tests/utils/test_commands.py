@@ -1,6 +1,7 @@
 """Tests for utils.commands module."""
 
 import pytest
+
 from utils.commands import run_command
 
 

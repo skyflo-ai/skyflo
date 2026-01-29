@@ -1,6 +1,6 @@
 from copy import deepcopy
-from typing import Dict, List, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 def build_jenkins_secret_yaml(name: str, namespace: str, creds: Dict[str, str]) -> str:

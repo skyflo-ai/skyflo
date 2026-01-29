@@ -3,14 +3,14 @@ import logging
 import uuid
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from .tools_cache import ToolsCache
-from .approvals import ApprovalService
-from .mcp_client import MCPClient
-from .integrations import IntegrationService
 from ..config import settings
-from ..utils.sanitization import mcp_tools_to_openai_format
 from ..integrations.jenkins import filter_jenkins_tools, inject_jenkins_metadata_tool_args
 from ..utils.clock import now_ms
+from ..utils.sanitization import mcp_tools_to_openai_format
+from .approvals import ApprovalService
+from .integrations import IntegrationService
+from .mcp_client import MCPClient
+from .tools_cache import ToolsCache
 
 logger = logging.getLogger(__name__)
 

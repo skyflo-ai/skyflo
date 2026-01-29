@@ -1,7 +1,8 @@
+import operator
 import time
 import uuid
-import operator
-from typing import Any, Dict, List, Optional, Annotated
+from typing import Annotated, Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 

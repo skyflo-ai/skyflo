@@ -3,15 +3,14 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
 from litellm import acompletion
+from pydantic import BaseModel, Field
 
+from ..agent.prompts import CHAT_TITLE_PROMPT
 from ..config import settings
 from ..models.conversation import Conversation
-from ..agent.prompts import CHAT_TITLE_PROMPT
-from ..utils.helpers import get_api_key_for_provider
 from ..services.conversation_persistence import ConversationPersistenceService
-
+from ..utils.helpers import get_api_key_for_provider
 
 logger = logging.getLogger(__name__)
 

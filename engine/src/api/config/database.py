@@ -1,9 +1,9 @@
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
 from tortoise import Tortoise
 
-from . import settings
+from .settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +13,7 @@ TORTOISE_ORM_CONFIG = {
         "models": {
             "models": [
                 "src.api.models.user",
+                "src.api.models.refresh_token",
                 "src.api.models.conversation",
                 "src.api.models.integration",
                 "aerich.models",

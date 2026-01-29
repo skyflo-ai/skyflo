@@ -66,11 +66,28 @@ uv pip install -e .
 3. Start the server:
 
 ```console
-# Start with HTTP transport
+# Start with HTTP transport (recommended - respects uv.lock for reproducible builds)
 uv run python main.py --host 0.0.0.0 --port 8888
 ```
 
 The server uses Streamable HTTP transport and provides MCP (Model Communication Protocol) interface for AI agents to interact with cloud-native tools.
+
+## Development Commands
+
+**Note:** Development commands require [Hatch](https://hatch.pypa.io/). Install via `pip install hatch` or `pipx install hatch`.
+
+| Command | Description |
+| --- | --- |
+| `uv run python main.py` | Start development server |
+| `hatch run lint` | Run Ruff linter to check for code issues |
+| `hatch run format` | Format code with Black |
+| `hatch run test` | Run tests with pytest |
+| `hatch run test-cov` | Run tests with coverage report |
+| `hatch run type-check` | Run mypy for type checking |
+
+## FastMCP Configuration
+
+This project includes a `fastmcp.json` for MCP client integrations and dependency metadata. It defines the server entrypoint and required Python dependencies without embedding them in code.
 
 ## Testing
 

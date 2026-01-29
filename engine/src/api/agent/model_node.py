@@ -1,26 +1,25 @@
 import asyncio
 import json
-import uuid
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple, Callable, Awaitable, Literal
+import uuid
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, Tuple
 
 from litellm import acompletion, completion_cost, cost_per_token
 from litellm.exceptions import RateLimitError
 from pydantic import BaseModel, Field
 
 from ..config import settings
+from ..services.stop_service import should_stop
+from ..utils.clock import now_ms
 from ..utils.helpers import get_api_key_for_provider, get_state_value
 from ..utils.sanitization import (
-    sanitize_messages_for_openai,
-    sanitize_messages_for_gemini,
-    mcp_tools_to_openai_format,
     prepare_messages_with_system_prompt,
+    sanitize_messages_for_gemini,
+    sanitize_messages_for_openai,
 )
 from .prompts import NEXT_SPEAKER_CHECK_PROMPT
 from .stop import StopRequested
-from ..services.stop_service import should_stop
-from ..utils.clock import now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +99,7 @@ async def decide_next_speaker(
         parsed = NextSpeakerDecision.model_validate_json(resp.choices[0].message.content)
         return parsed.next_speaker
     except Exception as e:
+        logger.debug(f"Error in decide_next_speaker, defaulting to 'user': {e}")
         return "user"
 
 
@@ -140,6 +140,7 @@ async def run_model_turn(
                 if tools and not _validate_tools_schema(tools):
                     tools = []
             except Exception as e:
+                logger.warning(f"Failed to load tools, proceeding without: {e}")
                 tools = []
 
             model = settings.LLM_MODEL
@@ -342,17 +343,24 @@ async def run_model_turn(
                         continue
 
                     args = {}
-                    if tool_call["arguments"]:
-                        try:
-                            args = json.loads(tool_call["arguments"])
-                            if not isinstance(args, dict):
-                                args = {}
-                        except json.JSONDecodeError as e:
+                    raw_args = tool_call.get("arguments")
+                    if raw_args:
+                        if isinstance(raw_args, dict):
+                            args = raw_args
+                        else:
                             try:
-                                fixed_args = _fix_json_arguments(tool_call["arguments"])
-                                args = json.loads(fixed_args)
-                            except:
-                                args = {}
+                                args = json.loads(raw_args)
+                                if not isinstance(args, dict):
+                                    args = {}
+                            except (json.JSONDecodeError, TypeError):
+                                try:
+                                    fixed_args = _fix_json_arguments(str(raw_args))
+                                    args = json.loads(fixed_args)
+                                    if not isinstance(args, dict):
+                                        args = {}
+                                except Exception as e:
+                                    logger.debug(f"Failed to parse tool args for {tool_name}: {e}")
+                                    args = {}
 
                     call_id = (tool_call.get("id") or f"call_{uuid.uuid4().hex}").strip()
                     tool_calls.append({"id": call_id, "name": tool_name, "args": args})
@@ -533,7 +541,6 @@ class ModelNode:
 
             if tool_calls:
                 updated_state["pending_tools"] = tool_calls
-                tool_names = [tool["name"] for tool in tool_calls]
             else:
                 model = settings.LLM_MODEL
                 provider = model.split("/")[0] if "/" in model else "openai"

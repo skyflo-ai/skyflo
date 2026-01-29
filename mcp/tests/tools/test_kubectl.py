@@ -1,10 +1,16 @@
 """Simplified tests for tools.kubectl module focusing on core logic."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-import tools.kubectl
+
 from tools.kubectl import (
+    build_kubectl_top_args,
+    k8s_exec,
+    k8s_get,
+    k8s_patch,
+    k8s_run_pod,
     run_kubectl_command,
-    build_kubectl_top_args
 )
 
 
@@ -12,93 +18,81 @@ class TestRunKubectlCommand:
     """Test cases for run_kubectl_command function."""
 
     @pytest.mark.asyncio
-    async def test_run_kubectl_command_basic(self, mocker):
+    async def test_run_kubectl_command_basic(self):
         """Test basic kubectl command execution."""
-        mock_run_command = mocker.patch('tools.kubectl.run_command')
-        mock_run_command.return_value = {"output": "kubectl output", "error": False}
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "kubectl output", "error": False}
 
-        result = await run_kubectl_command("get pods")
+            result = await run_kubectl_command("get pods")
 
-        mock_run_command.assert_called_once_with("kubectl", ["get", "pods"], stdin=None)
-        assert result == {"output": "kubectl output", "error": False}
+            mock_run_command.assert_called_once_with("kubectl", ["get", "pods"], stdin=None)
+            assert result == {"output": "kubectl output", "error": False}
 
     @pytest.mark.asyncio
-    async def test_run_kubectl_command_with_stdin(self, mocker):
+    async def test_run_kubectl_command_with_stdin(self):
         """Test kubectl command with stdin input."""
-        mock_run_command = mocker.patch('tools.kubectl.run_command')
-        mock_run_command.return_value = {"output": "applied", "error": False}
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "applied", "error": False}
 
-        result = await run_kubectl_command("apply -f -", stdin="apiVersion: v1")
+            result = await run_kubectl_command("apply -f -", stdin="apiVersion: v1")
 
-        mock_run_command.assert_called_once_with("kubectl", ["apply", "-f", "-"], stdin="apiVersion: v1")
-        assert result == {"output": "applied", "error": False}
+            mock_run_command.assert_called_once_with("kubectl", ["apply", "-f", "-"], stdin="apiVersion: v1")
+            assert result == {"output": "applied", "error": False}
 
     @pytest.mark.asyncio
-    async def test_run_kubectl_command_empty_parts(self, mocker):
+    async def test_run_kubectl_command_empty_parts(self):
         """Test kubectl command with empty parts filtered out."""
-        mock_run_command = mocker.patch('tools.kubectl.run_command')
-        mock_run_command.return_value = {"output": "output", "error": False}
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "output", "error": False}
 
-        result = await run_kubectl_command("get pods")
+            result = await run_kubectl_command("get pods")
 
-        mock_run_command.assert_called_once_with("kubectl", ["get", "pods"], stdin=None)
-        assert result == {"output": "output", "error": False}
+            mock_run_command.assert_called_once_with("kubectl", ["get", "pods"], stdin=None)
+            assert result == {"output": "output", "error": False}
 
     @pytest.mark.asyncio
-    async def test_run_kubectl_command_multiple_spaces(self, mocker):
+    async def test_run_kubectl_command_multiple_spaces(self):
         """Test kubectl command with multiple consecutive spaces."""
-        mock_run_command = mocker.patch('tools.kubectl.run_command')
-        mock_run_command.return_value = {"output": "output", "error": False}
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "output", "error": False}
 
-        result = await run_kubectl_command("get pods -n default")
+            result = await run_kubectl_command("get pods -n default")
 
-        mock_run_command.assert_called_once_with("kubectl", ["get", "pods", "-n", "default"], stdin=None)
-        assert result == {"output": "output", "error": False}
-
-    @pytest.mark.asyncio
-    async def test_run_kubectl_command_no_split_characters(self, mocker):
-        """Test kubectl command with no spaces (treated as single token)."""
-        mock_run_command = mocker.patch('tools.kubectl.run_command')
-        mock_run_command.return_value = {"output": "output", "error": False}
-
-        result = await run_kubectl_command("get pods -n default")
-
-        # Command without spaces is treated as a single token
-        mock_run_command.assert_called_once_with("kubectl", ["get", "pods", "-n", "default"], stdin=None)
-        assert result == {"output": "output", "error": False}
+            mock_run_command.assert_called_once_with("kubectl", ["get", "pods", "-n", "default"], stdin=None)
+            assert result == {"output": "output", "error": False}
 
     @pytest.mark.asyncio
-    async def test_run_kubectl_command_complex_command(self, mocker):
+    async def test_run_kubectl_command_complex_command(self):
         """Test kubectl command with complex arguments."""
-        mock_run_command = mocker.patch('tools.kubectl.run_command')
-        mock_run_command.return_value = {"output": "output", "error": False}
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "output", "error": False}
 
-        result = await run_kubectl_command("get pods -n kube-system --selector=app=nginx")
+            result = await run_kubectl_command("get pods -n kube-system --selector=app=nginx")
 
-        mock_run_command.assert_called_once_with("kubectl", ["get", "pods", "-n", "kube-system", "--selector=app=nginx"], stdin=None)
-        assert result == {"output": "output", "error": False}
+            mock_run_command.assert_called_once_with("kubectl", ["get", "pods", "-n", "kube-system", "--selector=app=nginx"], stdin=None)
+            assert result == {"output": "output", "error": False}
 
     @pytest.mark.asyncio
-    async def test_run_kubectl_command_single_word(self, mocker):
+    async def test_run_kubectl_command_single_word(self):
         """Test kubectl command with single word."""
-        mock_run_command = mocker.patch('tools.kubectl.run_command')
-        mock_run_command.return_value = {"output": "cluster-info", "error": False}
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "cluster-info", "error": False}
 
-        result = await run_kubectl_command("cluster-info")
+            result = await run_kubectl_command("cluster-info")
 
-        mock_run_command.assert_called_once_with("kubectl", ["cluster-info"], stdin=None)
-        assert result == {"output": "cluster-info", "error": False}
+            mock_run_command.assert_called_once_with("kubectl", ["cluster-info"], stdin=None)
+            assert result == {"output": "cluster-info", "error": False}
 
     @pytest.mark.asyncio
-    async def test_run_kubectl_command_error_propagation(self, mocker):
+    async def test_run_kubectl_command_error_propagation(self):
         """Test that errors from run_command are properly propagated."""
-        mock_run_command = mocker.patch('tools.kubectl.run_command')
-        mock_run_command.return_value = {"output": "error message", "error": True}
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "error message", "error": True}
 
-        result = await run_kubectl_command("get pods")
+            result = await run_kubectl_command("get pods")
 
-        assert result == {"output": "error message", "error": True}
-        mock_run_command.assert_called_once_with("kubectl", ["get", "pods"], stdin=None)
+            assert result == {"output": "error message", "error": True}
+            mock_run_command.assert_called_once_with("kubectl", ["get", "pods"], stdin=None)
 
 
 class TestBuildKubectlTopArgs:
@@ -166,3 +160,187 @@ class TestBuildKubectlTopArgs:
             "--sort-by", "memory"
         ]
         assert args == expected
+
+
+class TestK8sPatch:
+    """Test cases for k8s_patch function with space handling."""
+
+    @pytest.mark.asyncio
+    async def test_k8s_patch_with_json_spaces(self):
+        """Test that JSON patches with spaces are handled correctly."""
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "patched", "error": False}
+
+            patch_json = '{"spec": {"replicas": 3}}'
+            await k8s_patch.fn(
+                name="nginx",
+                resource_type="deployment",
+                patch=patch_json,
+                namespace="default",
+                patch_type="strategic"
+            )
+
+            mock_run_command.assert_called_once_with("kubectl", [
+                "patch", "deployment", "nginx",
+                "-n", "default",
+                "--patch", '{"spec": {"replicas": 3}}',
+                "--type=strategic"
+            ])
+
+    @pytest.mark.asyncio
+    async def test_k8s_patch_without_namespace(self):
+        """Test patch without namespace."""
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "patched", "error": False}
+
+            await k8s_patch.fn(
+                name="nginx",
+                resource_type="deployment",
+                patch='{"spec": {"replicas": 5}}',
+                namespace=None,
+                patch_type="merge"
+            )
+
+            mock_run_command.assert_called_once_with("kubectl", [
+                "patch", "deployment", "nginx",
+                "--patch", '{"spec": {"replicas": 5}}',
+                "--type=merge"
+            ])
+
+
+class TestK8sExec:
+    """Test cases for k8s_exec function with space handling."""
+
+    @pytest.mark.asyncio
+    async def test_k8s_exec_with_spaces_in_command(self):
+        """Test that commands with spaces are handled correctly."""
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "output", "error": False}
+
+            await k8s_exec.fn(
+                pod_name="nginx-pod",
+                command="ls -la /tmp",
+                namespace="default"
+            )
+
+            mock_run_command.assert_called_once_with("kubectl", [
+                "exec", "nginx-pod",
+                "-n", "default",
+                "--", "ls", "-la", "/tmp"
+            ])
+
+    @pytest.mark.asyncio
+    async def test_k8s_exec_with_container(self):
+        """Test exec with container specified."""
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "output", "error": False}
+
+            await k8s_exec.fn(
+                pod_name="nginx-pod",
+                command="cat /etc/nginx/nginx.conf",
+                namespace="web",
+                container="nginx"
+            )
+
+            mock_run_command.assert_called_once_with("kubectl", [
+                "exec", "nginx-pod",
+                "-n", "web",
+                "-c", "nginx",
+                "--", "cat", "/etc/nginx/nginx.conf"
+            ])
+
+
+class TestK8sRunPod:
+    """Test cases for k8s_run_pod function with space handling."""
+
+    @pytest.mark.asyncio
+    async def test_k8s_run_pod_with_command_spaces(self):
+        """Test that commands with spaces are handled correctly."""
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "output", "error": False}
+
+            await k8s_run_pod.fn(
+                name="debug-pod",
+                image="busybox",
+                namespace="default",
+                command="sleep 3600"
+            )
+
+            mock_run_command.assert_called_once_with("kubectl", [
+                "run", "debug-pod", "--image=busybox",
+                "-n", "default",
+                "--command", "--", "sleep", "3600"
+            ])
+
+    @pytest.mark.asyncio
+    async def test_k8s_run_pod_without_command(self):
+        """Test run pod without command."""
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "output", "error": False}
+
+            await k8s_run_pod.fn(
+                name="nginx-pod",
+                image="nginx:latest",
+                namespace="web"
+            )
+
+            mock_run_command.assert_called_once_with("kubectl", [
+                "run", "nginx-pod", "--image=nginx:latest",
+                "-n", "web"
+            ])
+
+
+class TestK8sGet:
+    """Test cases for k8s_get function with space handling."""
+
+    @pytest.mark.asyncio
+    async def test_k8s_get_with_label_selector_spaces(self):
+        """Test that label selectors with spaces are handled correctly."""
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "output", "error": False}
+
+            await k8s_get.fn(
+                resource_type="pods",
+                label_selector="app in (nginx, apache)",
+                namespace="default"
+            )
+
+            mock_run_command.assert_called_once_with("kubectl", [
+                "get", "pods",
+                "-n", "default",
+                "-l", "app in (nginx, apache)"
+            ])
+
+    @pytest.mark.asyncio
+    async def test_k8s_get_with_all_options(self):
+        """Test get with multiple options."""
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "output", "error": False}
+
+            await k8s_get.fn(
+                resource_type="deployments",
+                name="nginx",
+                namespace="web",
+                output="yaml"
+            )
+
+            mock_run_command.assert_called_once_with("kubectl", [
+                "get", "deployments", "nginx",
+                "-n", "web",
+                "-o", "yaml"
+            ])
+
+    @pytest.mark.asyncio
+    async def test_k8s_get_all_namespaces(self):
+        """Test get with all namespaces."""
+        with patch('tools.kubectl.run_command', new_callable=AsyncMock) as mock_run_command:
+            mock_run_command.return_value = {"output": "output", "error": False}
+
+            await k8s_get.fn(
+                resource_type="pods",
+                all_namespaces=True
+            )
+
+            mock_run_command.assert_called_once_with("kubectl", [
+                "get", "pods", "-A"
+            ])

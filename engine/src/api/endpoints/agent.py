@@ -1,39 +1,42 @@
-import logging
-import json
 import asyncio
+import json
+import logging
 import uuid
-from typing import Dict, Any, Optional, AsyncGenerator
-from datetime import datetime
+from typing import Any, AsyncGenerator, Dict, Optional
 
-from ..utils.clock import now_ms
+import redis.asyncio as redis
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-import redis.asyncio as redis
 
 from ..agent.graph import build_graph
-from ..models.conversation import Conversation
-from ..services.conversation_persistence import ConversationPersistenceService
-from ..config import rate_limit_dependency
-from ..services.auth import fastapi_users
-from ..services.approvals import ApprovalService
-from ..config import settings
-from .conversation import check_conversation_authorization
-from ..services.stop_service import request_stop, clear_stop
-from ..services.title_generator import generate_and_store_title
+from ..config import rate_limit_dependency, settings
 from ..integrations.jenkins import strip_jenkins_metadata_tool_args
+from ..models.conversation import Conversation
+from ..services.approvals import ApprovalService
+from ..services.auth import fastapi_users
+from ..services.conversation_persistence import ConversationPersistenceService
+from ..services.stop_service import clear_stop, request_stop
+from ..services.title_generator import generate_and_store_title
+from ..utils.clock import now_ms
+from .conversation import check_conversation_authorization
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 redis_client = None
+_redis_lock = asyncio.Lock()
 
 
 async def get_redis_client():
     global redis_client
     if redis_client is None:
-        redis_client = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+        async with _redis_lock:
+            if redis_client is None:
+                redis_client = redis.from_url(
+                    settings.REDIS_URL, encoding="utf-8", decode_responses=True
+                )
     return redis_client
 
 
@@ -50,7 +53,12 @@ def strip_integration_meta_keys(payload: Dict[str, Any]) -> Dict[str, Any]:
         sanitized["args"] = strip_jenkins_metadata_tool_args(sanitized.get("args", {}))
     if "tools" in sanitized:
         sanitized["tools"] = [
-            strip_jenkins_metadata_tool_args(tool) for tool in sanitized.get("tools", [])
+            (
+                {**tool, "args": strip_jenkins_metadata_tool_args(tool.get("args", {}))}
+                if isinstance(tool, dict)
+                else tool
+            )
+            for tool in sanitized.get("tools", [])
         ]
     return sanitized
 
@@ -70,47 +78,79 @@ async def create_sse_event_generator(
     """Create a reusable SSE event generator for workflow execution."""
     r = await get_redis_client()
     pubsub = r.pubsub()
+    workflow_task: Optional[asyncio.Task] = None
 
     try:
         # Subscribe only to the unique run_id channel
         await pubsub.subscribe(channel)
 
-        asyncio.create_task(run_agent_workflow(**workflow_kwargs))
+        workflow_task = asyncio.create_task(run_agent_workflow(**workflow_kwargs))
 
         yield sse_format("ready", {"run_id": run_id}).encode()
 
         while True:
             if await request.is_disconnected():
+                workflow_task.cancel()
+                try:
+                    await workflow_task
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    logger.error(
+                        f"Error while cancelling workflow task for run {run_id}: {str(e)}",
+                        exc_info=True,
+                    )
                 break
 
-            try:
-                message = await asyncio.wait_for(
-                    pubsub.get_message(ignore_subscribe_messages=True), timeout=60.0
-                )
+            if workflow_task.done():
+                try:
+                    exc = workflow_task.exception()
+                    if exc:
+                        logger.error(
+                            f"Workflow task for run {run_id} failed with exception: {exc}",
+                            exc_info=exc,
+                        )
+                        yield sse_format("error", {"run_id": run_id, "error": str(exc), "status": "error"}).encode()
+                except asyncio.CancelledError:
+                    pass
+                break
 
-                if message and message["type"] == "message":
-                    yield (message["data"] + "\n").encode()
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=60.0)
 
-                    try:
-                        data = json.loads(message["data"].split("\ndata: ")[1].split("\n\n")[0])
-                        if data.get("status") in [
-                            "completed",
-                            "error",
-                            "awaiting_approval",
-                            "stopped",
-                        ]:
-                            break
-                    except (json.JSONDecodeError, IndexError, KeyError):
-                        pass
+            if message is None:
+                yield sse_format("heartbeat", {"timestamp": now_ms()}).encode()
+                continue
 
-            except asyncio.TimeoutError:
-                yield sse_format("heartbeat", {"timestamp": datetime.now().isoformat()}).encode()
+            if message["type"] == "message":
+                yield (message["data"] + "\n").encode()
+
+                try:
+                    data = json.loads(message["data"].split("\ndata: ")[1].split("\n\n")[0])
+                    if data.get("status") in [
+                        "completed",
+                        "error",
+                        "awaiting_approval",
+                        "stopped",
+                    ]:
+                        break
+                except (json.JSONDecodeError, IndexError, KeyError):
+                    pass
 
     except Exception as e:
         logger.error(f"Error in {endpoint_name} SSE stream for run {run_id}: {str(e)}")
         yield sse_format("error", {"error": str(e)}).encode()
     finally:
-        # Unsubscribe from the channel
+        if workflow_task and not workflow_task.done():
+            workflow_task.cancel()
+            try:
+                await workflow_task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.error(
+                    f"Error while cancelling workflow task for run {run_id}: {str(e)}",
+                    exc_info=True,
+                )
         await pubsub.unsubscribe(channel)
         await pubsub.close()
 
@@ -218,7 +258,10 @@ def create_event_callback(
                             },
                             timestamp=int(tool.get("timestamp", event.get("timestamp"))),
                         )
-                    except Exception as _:
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to append tool segment for call_id {tool.get('call_id')}: {e}"
+                        )
                         continue
             elif event_type in ("tool.approved", "tool.denied", "tool.error"):
                 status_map = {
@@ -249,7 +292,9 @@ def create_event_callback(
                 duration_ms = event.get("duration_ms")
                 if duration_ms is None:
                     duration = event.get("duration")
-                    duration_ms = int(duration * 1000) if isinstance(duration, (int, float)) else None
+                    duration_ms = (
+                        int(duration * 1000) if isinstance(duration, (int, float)) else None
+                    )
                 persistence.record_ttr(
                     conversation_id=conversation_id,
                     run_id=event_run_id,
@@ -419,7 +464,7 @@ async def chat_stream(request: Request, user=Depends(fastapi_users.current_user(
         raise
     except Exception as e:
         logger.exception(f"Error setting up SSE stream: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error setting up stream: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error setting up stream: {str(e)}") from e
 
 
 class ApprovalDecision(BaseModel):
@@ -447,7 +492,6 @@ async def decide_approval(
     try:
         body = await request.json()
         decision = ApprovalDecision(**body)
-        user_id = str(user.id) if user else None
 
         conversation_id = decision.conversation_id
         if not conversation_id:
@@ -464,7 +508,7 @@ async def decide_approval(
                 check_conversation_authorization(conversation, user)
                 persistence = ConversationPersistenceService()
         except Exception as e:
-            pass
+            logger.warning(f"Failed to fetch conversation {conversation_id} for approval: {e}")
 
         if not decision.approve:
             if persistence and conversation:
@@ -508,7 +552,7 @@ async def decide_approval(
         raise
     except Exception as e:
         logger.exception(f"Error processing approval decision: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing approval: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing approval: {str(e)}") from e
 
 
 class StopRequest(BaseModel):
@@ -545,4 +589,4 @@ async def stop_run(request: Request, user=Depends(fastapi_users.current_user(opt
         raise
     except Exception as e:
         logger.exception(f"Error requesting stop: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error requesting stop: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error requesting stop: {str(e)}") from e

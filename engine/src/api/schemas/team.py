@@ -1,11 +1,15 @@
-from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+
+from pydantic import BaseModel, EmailStr, Field
 
 
 class TeamMemberCreate(BaseModel):
     email: EmailStr
     role: str = Field(default="member", description="Role for the new user")
-    password: str = Field(description="Initial password for the new user")
+    password: str = Field(
+        min_length=8,
+        description="Initial password for the new user (minimum 8 characters)",
+    )
 
 
 class TeamMemberUpdate(BaseModel):

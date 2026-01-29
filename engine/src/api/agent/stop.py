@@ -1,7 +1,7 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
-from ..utils.helpers import get_state_value
 from ..services.stop_service import should_stop
+from ..utils.helpers import get_state_value
 
 
 class StopRequested(Exception):
