@@ -1,9 +1,8 @@
 """Tests for tools.argo module."""
 
 import pytest
-from tools.argo import (
-    run_argo_command
-)
+
+from tools.argo import run_argo_command
 
 
 class TestRunArgoCommand:

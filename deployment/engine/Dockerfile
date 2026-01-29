@@ -2,6 +2,7 @@
 FROM python:3.11-slim
 
 ARG TARGETARCH
+ARG APP_VERSION=dev
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -24,26 +25,22 @@ RUN groupadd -g 1002 skyflogroup \
 # Set up application
 WORKDIR /app
 
-# Create and activate virtual environment early
-ENV VIRTUAL_ENV="/app/venv"
-RUN python -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:0.9.28 /uv /usr/local/bin/uv
 
 # Create the source directory structure first
 RUN mkdir -p src/api
 
-# Copy dependency-related files and source code needed for installation
+# Copy files needed for installation
 COPY engine/pyproject.toml engine/.python-version engine/uv.lock engine/README.md ./
 COPY engine/src/api/__about__.py ./src/api/
 
-# Install dependencies
-RUN pip install --upgrade pip && \
-    pip install -e . && \
-    pip install uvicorn[standard]
+# Install dependencies using uv
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+RUN uv sync --frozen --no-dev
 
 # Now copy all remaining application files
 COPY engine/src ./src
-COPY engine/.env ./.env
 COPY engine/migrations ./migrations
 COPY engine/aerich.ini ./aerich.ini
 COPY engine/alembic.ini ./alembic.ini
@@ -57,7 +54,8 @@ RUN chown -R skyflo:skyflogroup /app && \
     chmod -R 755 /app
 
 # Update PATH and PYTHONPATH for skyflo user
-ENV PATH="/app/venv/bin:/usr/local/bin:/home/skyflo/.local/bin:${PATH}" \
+ENV APP_VERSION=$APP_VERSION \
+    PATH="/app/.venv/bin:/usr/local/bin:/home/skyflo/.local/bin:${PATH}" \
     PYTHONPATH="/app/src"
 
 # Expose the API port

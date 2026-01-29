@@ -1,96 +1,115 @@
 # Contributing to Skyflo.ai
 
-Thank you for considering contributing to Skyflo.ai! This document provides guidelines for contributing to the project.
+Thank you for considering contributing to Skyflo.ai. This document outlines how to contribute effectively and what standards are expected.
 
 We are committed to providing a friendly, safe, and welcoming environment for all contributors. Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-We highly recommend reading our [Architecture Guide](docs/architecture.md) if you'd like to contribute! The repo is not as intimidating as it first seems if you read the guide!
+Before making changes, read the [Architecture Guide](docs/architecture.md). It explains the system layout and will save you time.
 
 ## Quick Start
 
-1. **Find an Issue**: Browse [issues](https://github.com/skyflo-ai/skyflo/issues) or [create one](https://github.com/skyflo-ai/skyflo/issues/new/choose)
+1. **Find an Issue**: Browse existing issues or create a new one  
+   https://github.com/skyflo-ai/skyflo/issues
 2. **Fork & Clone**: Fork the repository and clone it locally
-3. **Setup**: Install dependencies and configure development environment
-4. **Create Branch**: Use `feature/issue-number-description` or `fix/issue-number-description`
-5. **Make Changes**: Follow our coding standards and add tests
-6. **Submit PR**: Create a pull request with a clear description of changes
+3. **Setup**: Install dependencies and configure your development environment
+4. **Create a Branch**:  
+   - `feature/<issue-number>-description`  
+   - `fix/<issue-number>-description`
+5. **Make Changes**: Follow coding standards and add tests where applicable
+6. **Submit a PR**: Open a pull request with a clear description
 
 ## Coding Standards
 
-- **Python**: [PEP 8](https://www.python.org/dev/peps/pep-0008/), type hints, docstrings
-- **JavaScript/TypeScript**: [Airbnb Style Guide](https://github.com/airbnb/javascript), TypeScript for type safety
-- **Go**: [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
-- **Documentation**: Markdown, clear language, code examples
-- **Commits**: [Conventional Commits](https://www.conventionalcommits.org/) format
+- **Python**
+  - PEP 8
+  - Type hints required
+  - Docstrings for public functions
+- **JavaScript / TypeScript**
+  - Airbnb Style Guide
+  - TypeScript required
+- **Go**
+  - Go Code Review Comments
+- **Documentation**
+  - Markdown
+  - Clear, concise language
+  - Concrete examples
+- **Commits**
+  - Conventional Commits format: `type (scope): message`
+  - Valid scopes: `ui`, `engine`, `mcp`, `k8s`, `docs`, `infra`
   - Use component scope only for single-component changes:
-    - `feat (ui):` — Frontend-only changes
-    - `feat (engine):` — Engine-only changes
-    - `feat (mcp):` — MCP server-only changes
-    - `feat (k8s):` — Kubernetes controller-only changes
-    - `fix (docs):` — Documentation-only changes
-    - `chore (infra):` — Infrastructure or build system changes
-  - For full-stack changes spanning multiple components, omit the scope:
-    - `feat: add analytics dashboard page`
-    - `fix: resolve authentication flow issues`
-  - Squash all commits into a single commit before merge
+    - `feat (ui):` Frontend-only changes
+    - `feat (engine):` Engine-only changes
+    - `feat (mcp):` MCP server-only changes
+    - `feat (k8s):` Kubernetes-only changes
+    - `fix (docs):` Documentation-only changes
+    - `chore (infra):` Infra or build changes
+  - For multi-component or full-stack changes, omit the scope:
+    - `feat: add analytics dashboard`
+    - `fix: resolve auth flow issue`
+  - **All PRs must be squashed to a single commit before merge**
 
 ## Pull Request Process
 
 ### Before Opening a PR
 
-1. Ensure your code follows the coding standards above
-2. Test your changes locally (run the Engine, MCP server, and UI)
-3. Remove debug statements, console logs, and commented-out code
-4. Verify no regressions to existing functionality
+1. Code follows the standards above
+2. Changes tested locally (Engine, MCP server, UI as applicable)
+3. No debug output, console logs, or commented code
+4. No regressions to existing behavior
 
 ### After Opening a PR
 
 1. Fill out the PR template completely
-2. Link to the related issue(s)
+2. Link related issue(s)
 3. Ensure all CI checks pass
 
 ### Code Review Process
 
-We use [CodeRabbit](https://coderabbit.ai/) for automated code reviews. The review process works as follows:
+We use CodeRabbit for automated reviews.
 
-1. **CodeRabbit Review**: When you open or update a PR, CodeRabbit will automatically review your changes and post comments.
+1. **CodeRabbit Review**  
+   CodeRabbit runs automatically on PR creation and updates.
 
-2. **Resolve All CodeRabbit Comments**: You must address and resolve **all** CodeRabbit comments before requesting a maintainer review. This is not optional. CodeRabbit catches common issues, style violations, and potential bugs that need to be fixed.
+2. **Resolve All CodeRabbit Comments**  
+   All comments must be resolved before requesting maintainer review. This is mandatory.
 
-3. **Request Maintainer Review**: Only after all CodeRabbit comments are resolved should you request a review from the maintainer (@KaranJagtiani).
+3. **Request Maintainer Review**  
+   After resolving CodeRabbit feedback, request review from @KaranJagtiani.
 
-4. **Address Maintainer Feedback**: The maintainer may request additional changes. Address all feedback and re-request review.
+4. **Address Maintainer Feedback**  
+   Apply all requested changes and re-request review.
 
-5. **Squash Commits**: Before final approval, squash all your commits into a single commit with a clear message following the conventional commits format.
+5. **Squash Commits**  
+   Squash to a single commit following Conventional Commits.
 
-6. **Merge**: The maintainer will merge your PR once approved.
+6. **Merge**  
+   The maintainer merges approved PRs.
 
 ### Review Checklist
 
-Before requesting maintainer review, verify:
+Before requesting maintainer review, confirm:
 
-- [ ] All CodeRabbit comments are resolved
-- [ ] All CI checks pass
-- [ ] No `package-lock.json` (we use `yarn` only for the UI)
-- [ ] No debug `print` statements or `console.log` calls
-- [ ] No redundant or self-explanatory comments
+- [ ] All CodeRabbit comments resolved
+- [ ] All CI checks passing
+- [ ] No `package-lock.json` (UI uses `yarn`)
+- [ ] No debug `print` or `console.log`
+- [ ] No redundant or obvious comments
 - [ ] TypeScript types match backend contracts
-- [ ] Error handling does not expose internal details to users
+- [ ] Errors do not expose internal details
 
 ## License
 
-Skyflo.ai is fully open source and licensed under the [Apache License 2.0](LICENSE).
+Skyflo.ai is licensed under the Apache License 2.0.
 
-By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
+By contributing, you agree that your contributions are licensed under Apache License 2.0.
+
+## Trademarks
+
+The Skyflo name and logos are trademarks and are **not** covered by the Apache License.  
+See [TRADEMARKS.md](TRADEMARKS.md) for usage rules.
 
 ## Community
 
-Join our community channels:
-
-- [Discord Server](https://discord.gg/kCFNavMund)
+- [Discord](https://discord.gg/kCFNavMund)
 - [GitHub Discussions](https://github.com/skyflo-ai/skyflo/discussions)
-- [Twitter/X](https://x.com/skyflo_ai)
-
----
-
-Thank you for contributing to Skyflo.ai! Your efforts help make cloud infrastructure management accessible through AI. 
+- [X](https://x.com/skyflo_ai)

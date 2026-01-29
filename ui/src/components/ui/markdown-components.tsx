@@ -64,13 +64,10 @@ export const markdownComponents = {
       <CodeBlock code={String(children).replace(/\n$/, "")} className="my-4" />
     );
   },
-  ul: ({ node, ...props }: MarkdownProps & { depth?: number }) => {
-    const depth = (node as any)?.depth || 0;
+  ul: ({ node, ...props }: MarkdownProps) => {
     return (
       <ul
-        className={`text-md tracking-wide leading-relaxed text-white my-3 ${
-          depth === 0 ? "list-disc" : "list-circle"
-        } ml-4 marker:text-primary-cyan`}
+        className="text-md tracking-wide leading-relaxed text-white my-3 list-disc ml-4 marker:text-primary-cyan"
         {...props}
       />
     );
@@ -82,8 +79,7 @@ export const markdownComponents = {
     />
   ),
   li: ({ node, ...props }: MarkdownProps) => {
-    const depth = (node as any)?.depth || 0;
-    return <li className={`my-1 ${depth > 0 ? "pl-4" : ""}`} {...props} />;
+    return <li className="my-1" {...props} />;
   },
   blockquote: ({ node, ...props }: MarkdownProps) => (
     <blockquote
@@ -91,12 +87,18 @@ export const markdownComponents = {
       {...props}
     />
   ),
-  a: ({ node, ...props }: MarkdownProps & { href?: string }) => (
+  a: ({
+    node,
+    className,
+    ...props
+  }: MarkdownProps & { href?: string; className?: string }) => (
     <a
-      className="text-blue-400 hover:text-blue-300 underline decoration-blue-500 hover:decoration-blue-400 transition-colors"
+      {...props}
+      className={`text-blue-400 hover:text-blue-300 underline decoration-blue-500 hover:decoration-blue-400 transition-colors ${
+        className ?? ""
+      }`}
       target="_blank"
       rel="noopener noreferrer"
-      {...props}
     />
   ),
   table: ({ node, ...props }: MarkdownProps) => (

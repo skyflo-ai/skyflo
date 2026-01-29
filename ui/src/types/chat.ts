@@ -60,13 +60,6 @@ export interface ChatInterfaceProps {
   initialMessage?: string;
 }
 
-export interface ChatMessagesProps {
-  messages: ChatMessage[];
-  currentMessage?: ChatMessage | null;
-  toolExecutions: ToolExecution[];
-  isStreaming: boolean;
-}
-
 export interface ToolVisualizationProps {
   toolExecution: ToolExecution;
   isExpanded?: boolean;

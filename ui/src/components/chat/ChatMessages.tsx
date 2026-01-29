@@ -9,10 +9,9 @@ import { ToolVisualization } from "./ToolVisualization";
 import { TokenUsageDisplay } from "./TokenUsageDisplay";
 import { markdownComponents } from "../ui/markdown-components";
 
-interface ChatMessagesProps {
+interface ChatMessagesViewProps {
   messages: ChatMessage[];
   currentMessage?: ChatMessage | null;
-  isStreaming: boolean;
   waitingForFirstUpdate: boolean;
   autoScroll?: boolean;
   onApprovalAction?: (
@@ -40,12 +39,11 @@ const messageVariants = {
 export function ChatMessages({
   messages,
   currentMessage,
-  isStreaming,
   waitingForFirstUpdate,
   autoScroll = true,
   onApprovalAction,
   disableApprovalActions = false,
-}: ChatMessagesProps) {
+}: ChatMessagesViewProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
 
@@ -67,7 +65,7 @@ export function ChatMessages({
     const segments = message.segments || [];
     const isHovered = hoveredMessageId === message.id;
     const usage = message.tokenUsage;
-    const showUsage = !!usage && assistantMessageCount > 1;
+    const showUsage = !!usage && assistantMessageCount > 1 && !message.isStreaming;
 
     return (
       <div className={cn("relative", showUsage && "pb-10")}>

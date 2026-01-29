@@ -7,7 +7,6 @@ import { AuthInput } from "./AuthInput";
 import { MdLock, MdEmail } from "react-icons/md";
 import { useAuthStore } from "@/store/useAuthStore";
 import { handleLogin } from "@/lib/auth";
-import { setCookie } from "@/lib/utils";
 import { showError } from "../ui/toast";
 
 export const Login = () => {
@@ -30,8 +29,7 @@ export const Login = () => {
     const result = await handleLogin(formData);
 
     if (result && result.success) {
-      setCookie("auth_token", result.token, 7);
-      login(result.user, result.token);
+      login(result.user, null);
       router.push("/");
     } else {
       showError(result?.error || "Authentication failed");

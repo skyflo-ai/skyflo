@@ -2,8 +2,8 @@
 
 import logging
 from typing import Any, Optional
-from decouple import config, UndefinedValueError
 
+from decouple import UndefinedValueError, config
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,6 @@
 "use client";
 
-import { MdStop, MdArrowUpward, MdSearch } from "react-icons/md";
-import { HiSparkles } from "react-icons/hi2";
+import { MdStop, MdArrowUpward } from "react-icons/md";
 
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";

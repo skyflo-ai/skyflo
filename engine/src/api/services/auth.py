@@ -1,17 +1,22 @@
+import hashlib
+import secrets
 import uuid
-from typing import Optional, Dict, Any
-from fastapi import Depends, Request, HTTPException, status
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional
 
+from fastapi import Depends, HTTPException, Request, status
 from fastapi_users import FastAPIUsers
 from fastapi_users.authentication import (
     AuthenticationBackend,
     BearerTransport,
     JWTStrategy,
 )
-from fastapi_users_tortoise import TortoiseUserDatabase
 from fastapi_users.manager import BaseUserManager, UUIDIDMixin
+from fastapi_users_tortoise import TortoiseUserDatabase
+from tortoise.transactions import in_transaction
 
 from ..config import settings
+from ..models.refresh_token import RefreshToken
 from ..models.user import User, UserCreate, UserUpdate
 
 
@@ -83,8 +88,10 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         return user
 
     async def get_user_dict(self, user: User) -> Dict[str, Any]:
-        teams = await user.teams.all()
-        team_names = [team.name for team in teams]
+        team_names: list[str] = []
+        if hasattr(user, "teams"):
+            teams = await user.teams.all()
+            team_names = [team.name for team in teams]
 
         user_dict = {
             "id": str(user.id),
@@ -132,3 +139,75 @@ fastapi_users = FastAPIUsers[User, uuid.UUID](
 
 current_active_user = fastapi_users.current_user(active=True)
 current_superuser = fastapi_users.current_user(active=True, superuser=True)
+
+
+async def verify_admin_role(user: User = Depends(current_active_user)) -> User:
+    """Verify that the current user has admin privileges."""
+    if user.role != "admin" and not user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can perform this action",
+        )
+    return user
+
+
+def _hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def get_refresh_token_expires_at() -> datetime:
+    return datetime.now(timezone.utc) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+
+
+def get_refresh_token_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+async def create_refresh_token(user: User) -> str:
+    if not user.is_active:
+        raise ValueError("Cannot create refresh token for inactive user")
+    token = secrets.token_urlsafe(48)
+    expires_at = get_refresh_token_expires_at()
+    await RefreshToken.create(
+        user=user,
+        token_hash=_hash_refresh_token(token),
+        expires_at=expires_at,
+    )
+    return token
+
+
+async def get_valid_refresh_token(token: str) -> Optional[RefreshToken]:
+    token_hash = _hash_refresh_token(token)
+    refresh_token = await RefreshToken.get_or_none(token_hash=token_hash).prefetch_related(
+        "user"
+    )
+    if not refresh_token:
+        return None
+    if refresh_token.revoked_at is not None:
+        return None
+    if refresh_token.expires_at <= get_refresh_token_now():
+        return None
+    if not refresh_token.user.is_active:
+        return None
+    return refresh_token
+
+
+async def rotate_refresh_token(refresh_token: RefreshToken) -> str:
+    async with in_transaction():
+        refresh_token.revoked_at = datetime.now(timezone.utc)
+        await refresh_token.save(update_fields=["revoked_at"])
+        return await create_refresh_token(refresh_token.user)
+
+
+async def revoke_refresh_token(token: str) -> None:
+    token_hash = _hash_refresh_token(token)
+    refresh_token = await RefreshToken.get_or_none(token_hash=token_hash)
+    if not refresh_token:
+        return
+    refresh_token.revoked_at = datetime.now(timezone.utc)
+    await refresh_token.save(update_fields=["revoked_at"])
+
+
+async def issue_access_token(user: User) -> str:
+    strategy = get_jwt_strategy()
+    return await strategy.write_token(user)

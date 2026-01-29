@@ -1,11 +1,13 @@
 """Argo Rollouts tools implementation for MCP server."""
 
+import json
 from typing import Optional
+
 from pydantic import Field
 
 from config.server import mcp
 from utils.commands import run_command
-from utils.types import ToolOutput
+from utils.models import ToolOutput
 
 
 async def run_argo_command(command: str) -> ToolOutput:
@@ -247,15 +249,42 @@ async def argo_list_experiments(
     ),
 ) -> ToolOutput:
     """Get Argo Rollouts experiments."""
+    if rollout_name:
+        cmd_parts = ["get", "experiments.argoproj.io", "-o", "json"]
+        if all_namespaces:
+            cmd_parts.append("-A")
+        elif namespace:
+            cmd_parts.extend(["-n", namespace])
+
+        result = await run_command("kubectl", cmd_parts)
+        if result.get("error"):
+            return result
+
+        try:
+            data = json.loads(result["output"])
+            items = data.get("items", [])
+            filtered_items = [
+                item
+                for item in items
+                if item.get("metadata", {}).get("name", "").startswith(rollout_name)
+            ]
+            if not filtered_items:
+                return {
+                    "output": f"No experiments found for rollout '{rollout_name}'",
+                    "error": False,
+                }
+            return {
+                "output": json.dumps({"items": filtered_items}, indent=2),
+                "error": False,
+            }
+        except json.JSONDecodeError as e:
+            return {"output": f"Failed to parse experiments JSON: {e}", "error": True}
+
     cmd_parts = ["get", "experiments.argoproj.io", "-o", "wide"]
     if all_namespaces:
         cmd_parts.append("-A")
     elif namespace:
         cmd_parts.extend(["-n", namespace])
-
-    if rollout_name:
-        # Filter by rollout name using label selector
-        cmd_parts.extend(["-l", f"rollouts-pod-template-hash"])
 
     return await run_command("kubectl", cmd_parts)
 

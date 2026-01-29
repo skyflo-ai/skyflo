@@ -1,13 +1,13 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-from .config import settings
-from .config import init_db, close_db_connection
+from .config import close_db_connection, init_db, settings
 from .endpoints import api_router
 from .middleware import setup_middleware
-from .services.limiter import init_limiter, close_limiter
-from .services.checkpointer import init_graph_checkpointer, close_graph_checkpointer
+from .services.checkpointer import close_graph_checkpointer, init_graph_checkpointer
+from .services.limiter import close_limiter, init_limiter
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),

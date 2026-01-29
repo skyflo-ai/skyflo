@@ -7,8 +7,6 @@ import { FaGithub } from "react-icons/fa";
 import { FiLayers } from "react-icons/fi";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { useAuthStore } from "@/store/useAuthStore";
-import { handleLogout } from "@/lib/auth";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Tooltip,
@@ -21,13 +19,9 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const { logout } = useAuth();
-  const { logout: storeLogout } = useAuthStore();
 
   const handleLogoutOnClick = async () => {
-    await handleLogout();
-    storeLogout();
-    logout();
-    router.push("/login");
+    await logout();
   };
 
   return (

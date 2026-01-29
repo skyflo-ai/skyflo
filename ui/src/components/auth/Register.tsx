@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { AuthInput } from "./AuthInput";
 import { MdLock, MdEmail, MdPerson } from "react-icons/md";
-import { useAuthStore } from "@/store/useAuthStore";
 import { handleRegistration } from "@/lib/auth";
 
 export const Register = () => {
-  const { login } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://gofastmcp.com/public/schemas/fastmcp.json/v1.json",
+  "source": {
+    "path": "config/server.py",
+    "entrypoint": "mcp"
+  },
+  "environment": {
+    "dependencies": ["fastmcp", "mcp", "pydantic", "httpx"]
+  }
+}

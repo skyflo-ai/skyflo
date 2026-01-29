@@ -1,11 +1,17 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useRef } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+} from "react";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
-import { getCookie, setCookie } from "@/lib/utils";
 import Loader from "@/components/ui/Loader";
+import { ACCESS_TOKEN_MAX_AGE_SECONDS } from "@/lib/auth/constants";
 
 interface AuthContextType {
   user: any | null;
@@ -23,7 +29,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const pathname = usePathname();
   const {
     user,
-    token,
     isLoading,
     isAuthenticated,
     login: storeLogin,
@@ -33,6 +38,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const protectedRoutes = ["/", "/history", "/settings", "/chat"];
   const initialAuthCheckRef = useRef(false);
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pathnameRef = useRef(pathname);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const isProtectedRoute = (pathname: string) => {
     return protectedRoutes.some((route) => {
@@ -42,6 +50,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return pathname.startsWith(route);
     });
   };
+
+  const clearRefreshTimer = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+  }, []);
+
+  const abortPendingRefresh = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  const refreshSession = useCallback(
+    async (signal?: AbortSignal): Promise<boolean> => {
+      try {
+        const refreshResponse = await fetch(`/api/auth/refresh`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          signal,
+        });
+
+        if (!refreshResponse.ok) {
+          return false;
+        }
+
+        const refreshData = await refreshResponse.json();
+        if (refreshData?.user) {
+          storeLogin(refreshData.user, "");
+        }
+        return true;
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          return false;
+        }
+        return false;
+      }
+    },
+    [storeLogin]
+  );
+
+  const scheduleRefresh = useCallback(() => {
+    clearRefreshTimer();
+    abortPendingRefresh();
+
+    const bufferSeconds = 60;
+    const delayMs = Math.max(
+      1000,
+      (ACCESS_TOKEN_MAX_AGE_SECONDS - bufferSeconds) * 1000
+    );
+
+    refreshTimeoutRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      const refreshed = await refreshSession(controller.signal);
+      abortControllerRef.current = null;
+
+      if (refreshed) {
+        scheduleRefresh();
+        return;
+      }
+
+      storeLogout();
+      if (isProtectedRoute(pathnameRef.current)) {
+        router.push("/login");
+      }
+    }, delayMs);
+  }, [
+    clearRefreshTimer,
+    abortPendingRefresh,
+    refreshSession,
+    storeLogout,
+    router,
+  ]);
 
   useEffect(() => {
     if (initialAuthCheckRef.current) return;
@@ -66,32 +153,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         }
 
-        let currentToken = token || getCookie("auth_token");
-
-        if (!currentToken) {
-          setLoading(false);
-          if (isProtectedRoute(pathname)) {
-            router.push("/login");
-          }
-          return;
-        }
-
         const response = await fetch(`/api/auth/me`, {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${currentToken}`,
           },
         });
 
         if (response.ok) {
           const userData = await response.json();
-          setCookie("auth_token", currentToken, 7);
-          storeLogin(userData, currentToken);
-        } else {
-          storeLogout();
-          if (isProtectedRoute(pathname)) {
-            router.push("/login");
+          storeLogin(userData, "");
+          scheduleRefresh();
+          return;
+        }
+
+        if (response.status === 401) {
+          const refreshed = await refreshSession();
+          if (refreshed) {
+            scheduleRefresh();
+            return;
           }
+        }
+
+        storeLogout();
+        if (isProtectedRoute(pathname)) {
+          router.push("/login");
         }
       } catch (error) {
         storeLogout();
@@ -105,6 +190,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     checkUserSession();
   }, []);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     if (isLoading || !initialAuthCheckRef.current) return;
@@ -121,22 +210,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [pathname, isAuthenticated, isLoading]);
 
   useEffect(() => {
-    const cookieToken = getCookie("auth_token");
-
-    if (token && !cookieToken) {
-      setCookie("auth_token", token, 7);
+    if (!initialAuthCheckRef.current) return;
+    if (isAuthenticated) {
+      scheduleRefresh();
+    } else {
+      clearRefreshTimer();
+      abortPendingRefresh();
     }
-  }, [token]);
+    return () => {
+      clearRefreshTimer();
+      abortPendingRefresh();
+    };
+  }, [
+    isAuthenticated,
+    scheduleRefresh,
+    clearRefreshTimer,
+    abortPendingRefresh,
+  ]);
 
   const login = (userData: any) => {
-    storeLogin(userData, token || "");
+    storeLogin(userData, "");
   };
 
   const logout = async () => {
-    if (typeof document !== "undefined") {
-      document.cookie =
-        "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        console.error(
+          "Logout request failed:",
+          response.status,
+          response.statusText
+        );
+      }
+    } catch (error) {
+      console.error("Logout request error:", error);
     }
+
     storeLogout();
     router.push("/login");
   };

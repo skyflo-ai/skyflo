@@ -27,9 +27,7 @@ def main():
     logger.info(
         f"Starting Skyflo.ai MCP Server on {args.host}:{args.port} with HTTP transport"
     )
-    mcp.settings.port = args.port
-    mcp.settings.host = args.host
-    mcp.run(transport="http")
+    mcp.run(transport="http", host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

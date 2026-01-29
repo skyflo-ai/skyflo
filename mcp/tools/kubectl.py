@@ -1,12 +1,14 @@
 """Kubernetes tools implementation for MCP server."""
 
 import asyncio
+import shlex
 from typing import Optional
+
 from pydantic import Field
 
 from config.server import mcp
 from utils.commands import run_command
-from utils.types import ToolOutput
+from utils.models import ToolOutput
 
 
 async def run_kubectl_command(command: str, stdin: Optional[str] = None) -> ToolOutput:
@@ -85,12 +87,29 @@ async def k8s_get(
     if not resource_type:
         raise ValueError("resource_type is required")
 
-    if name and all_namespaces:
+    if (
+        isinstance(namespace, str)
+        and namespace
+        and isinstance(all_namespaces, bool)
+        and all_namespaces
+    ):
+        raise ValueError("namespace and all_namespaces are mutually exclusive")
+
+    if isinstance(name, str) and name and all_namespaces:
         all_namespaces = False
 
-    return await run_kubectl_command(
-        f"get {resource_type} {name if name else ''} {'-n ' + namespace + ' ' if namespace else ''}{'-o ' + output if output else ''} {'-A' if all_namespaces else ''} {'-l ' + label_selector if label_selector else ''}"
-    )
+    args = ["get", resource_type]
+    if isinstance(name, str) and name:
+        args.append(name)
+    if isinstance(namespace, str) and namespace:
+        args.extend(["-n", namespace])
+    if isinstance(output, str) and output:
+        args.extend(["-o", output])
+    if isinstance(all_namespaces, bool) and all_namespaces:
+        args.append("-A")
+    if isinstance(label_selector, str) and label_selector:
+        args.extend(["-l", label_selector])
+    return await run_command("kubectl", args)
 
 
 @mcp.tool(
@@ -143,9 +162,14 @@ async def k8s_patch(
     ),
 ) -> ToolOutput:
     """Patch a Kubernetes resource."""
-    return await run_kubectl_command(
-        f"patch {resource_type} {name} {f'-n {namespace}' if namespace else ''} --patch {patch} --type={patch_type}"
-    )
+    args = ["patch", resource_type, name]
+    if isinstance(namespace, str) and namespace:
+        args.extend(["-n", namespace])
+    args.append("--patch")
+    args.append(patch)
+    if patch_type:
+        args.append(f"--type={patch_type}")
+    return await run_command("kubectl", args)
 
 
 @mcp.tool(
@@ -382,12 +406,14 @@ async def k8s_run_pod(
     ),
 ) -> ToolOutput:
     """Run a temporary pod in the Kubernetes cluster."""
-    cmd = f"run {name} --image={image}"
-    if namespace:
-        cmd += f" -n {namespace}"
-    if command:
-        cmd += f" --command -- {command}"
-    return await run_kubectl_command(cmd)
+    args = ["run", name, f"--image={image}"]
+    if isinstance(namespace, str) and namespace:
+        args.extend(["-n", namespace])
+    if isinstance(command, str) and command:
+        args.append("--command")
+        args.append("--")
+        args.extend(shlex.split(command))
+    return await run_command("kubectl", args)
 
 
 @mcp.tool(
@@ -406,13 +432,14 @@ async def k8s_exec(
     ),
 ) -> ToolOutput:
     """Execute a command inside a Kubernetes pod."""
-    cmd = f"exec {pod_name}"
-    if namespace:
-        cmd += f" -n {namespace}"
-    if container:
-        cmd += f" -c {container}"
-    cmd += f" -- {command}"
-    return await run_kubectl_command(cmd)
+    args = ["exec", pod_name]
+    if isinstance(namespace, str) and namespace:
+        args.extend(["-n", namespace])
+    if isinstance(container, str) and container:
+        args.extend(["-c", container])
+    args.append("--")
+    args.extend(shlex.split(command))
+    return await run_command("kubectl", args)
 
 
 @mcp.tool(

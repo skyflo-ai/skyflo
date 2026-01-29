@@ -2,6 +2,10 @@
 
 import { cookies } from "next/headers";
 import { AuthToken, User } from "../types/auth";
+import {
+  ACCESS_TOKEN_MAX_AGE_SECONDS,
+  REFRESH_TOKEN_MAX_AGE_SECONDS,
+} from "./auth/constants";
 
 type AuthResult =
   | { success: true; user: User; token: string; error?: undefined }
@@ -30,7 +34,41 @@ export async function handleLogin(formData: FormData): Promise<AuthResult> {
       cookies().set("auth_token", tokenData.access_token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 60 * 24 * 7, // 1 week
+        maxAge: ACCESS_TOKEN_MAX_AGE_SECONDS,
+        sameSite: "lax",
+        path: "/",
+      });
+
+      const refreshResponse = await fetch(
+        `${process.env.API_URL}/auth/refresh/issue`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        }
+      );
+
+      if (!refreshResponse.ok) {
+        cookies().delete("auth_token");
+        cookies().delete("refresh_token");
+        return { success: false, error: "Failed to issue refresh token" };
+      }
+
+      const refreshData: { refresh_token?: string } =
+        await refreshResponse.json();
+
+      if (!refreshData.refresh_token) {
+        cookies().delete("auth_token");
+        cookies().delete("refresh_token");
+        return { success: false, error: "Invalid refresh token response" };
+      }
+
+      cookies().set("refresh_token", refreshData.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: REFRESH_TOKEN_MAX_AGE_SECONDS,
+        sameSite: "lax",
         path: "/",
       });
 
@@ -48,12 +86,16 @@ export async function handleLogin(formData: FormData): Promise<AuthResult> {
           token: tokenData.access_token,
         };
       } else {
+        cookies().delete("auth_token");
+        cookies().delete("refresh_token");
         return { success: false, error: "Failed to fetch user data" };
       }
     } else {
       return { success: false, error: "Authentication failed" };
     }
   } catch (error) {
+    cookies().delete("auth_token");
+    cookies().delete("refresh_token");
     return { success: false, error: "Error during login" };
   }
 }
@@ -91,46 +133,11 @@ export async function handleRegistration(
   }
 }
 
-export async function handleLogout() {
-  try {
-    const nextCookies = cookies().getAll();
-    const cookieHeader = nextCookies
-      .map((cookie) => `${cookie.name}=${cookie.value}`)
-      .join("; ");
-
-    const response = await fetch(`${process.env.API_URL}/auth/jwt/logout/`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: cookieHeader,
-      },
-    });
-
-    if (response.ok) {
-      cookies().delete("auth_token");
-
-      nextCookies.forEach((cookie) => {
-        cookies().delete(cookie.name);
-      });
-
-      return { success: true };
-    } else if (response.status === 401) {
-      return { success: false, error: "Unauthorized" };
-    }
-  } catch (error) {
-    return { success: false, error: "Error during logout" };
-  }
-}
-
 export async function updateUserProfile(data: {
   full_name?: string;
 }): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
     const nextCookies = cookies().getAll();
-    const cookieHeader = nextCookies
-      .map((cookie) => `${cookie.name}=${cookie.value}`)
-      .join("; ");
 
     const authToken = nextCookies.find(
       (cookie) => cookie.name === "auth_token"

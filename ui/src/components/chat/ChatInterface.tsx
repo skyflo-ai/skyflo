@@ -208,8 +208,6 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     setQueuedMessages((q) => q.filter((m) => m.id !== id));
   }, []);
 
-  let submitQueuedMessageNow = (_id: string) => {};
-
   const convertToolExecution = (
     execution: ToolExecution
   ): ToolExecutionType => ({
@@ -424,7 +422,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       onToolApproved: updateExistingMessageWithTool,
       onToolDenied: updateMessageWithTool,
       onToolError: updateMessageWithTool,
-      onToken: (token: string, conversationId: string) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        onToken: (token: string, _conversationId: string) => {
         setWaitingForFirstUpdate(false);
         updateCurrentMessage((prev) => {
           if (!prev) {
@@ -849,7 +848,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     ]
   );
 
-  submitQueuedMessageNow = useCallback(
+  const submitQueuedMessageNow = useCallback(
     (id: string) => {
       if (immediateSubmitRef.current) return;
       const msg = queuedMessages.find((m) => m.id === id);
@@ -1245,7 +1244,6 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           <ChatMessages
             messages={messages}
             currentMessage={currentMessage}
-            isStreaming={isStreaming}
             waitingForFirstUpdate={waitingForFirstUpdate}
             autoScroll={isAtBottom}
             onApprovalAction={handleApprovalAction}

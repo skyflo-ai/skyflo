@@ -2,6 +2,10 @@
 FROM python:3.11-slim
 
 ARG TARGETARCH
+ARG APP_VERSION=dev
+ARG KUBECTL_VERSION=v1.35.0
+ARG ARGO_ROLLOUTS_VERSION=v1.8.3
+ARG HELM_VERSION=v4.1.0
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -16,21 +20,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install kubectl
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/$TARGETARCH/kubectl" \
+RUN curl -fsSL -o kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/$TARGETARCH/kubectl" \
     && chmod +x kubectl \
     && mv kubectl /usr/local/bin/
 
 # Install kubectl argo rollouts plugin
-RUN curl -LO "https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-$TARGETARCH" \
+RUN curl -fsSL -o kubectl-argo-rollouts-linux-$TARGETARCH "https://github.com/argoproj/argo-rollouts/releases/download/${ARGO_ROLLOUTS_VERSION}/kubectl-argo-rollouts-linux-$TARGETARCH" \
     && chmod +x kubectl-argo-rollouts-linux-$TARGETARCH \
     && mv kubectl-argo-rollouts-linux-$TARGETARCH /usr/local/bin/kubectl-argo-rollouts \
     && ln -s /usr/local/bin/kubectl-argo-rollouts /usr/local/bin/kubectl-argo
 
 # Install Helm
-RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
-    && chmod 700 get_helm.sh \
-    && ./get_helm.sh \
-    && rm get_helm.sh
+RUN curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" -o /tmp/helm.tar.gz \
+    && tar xzf /tmp/helm.tar.gz -C /tmp \
+    && mv /tmp/linux-${TARGETARCH}/helm /usr/local/bin/helm \
+    && rm -rf /tmp/helm.tar.gz /tmp/linux-${TARGETARCH}
 
 # Create app user and directory
 RUN groupadd -g 1002 skyflogroup \
@@ -41,19 +45,16 @@ RUN groupadd -g 1002 skyflogroup \
 # Set up application
 WORKDIR /app
 
-# Create and activate virtual environment early
-ENV VIRTUAL_ENV="/app/venv"
-RUN python -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:0.9.28 /uv /usr/local/bin/uv
 
-# Copy dependency-related files first for better layer caching
+# Copy files needed for installation
 COPY mcp/pyproject.toml mcp/.python-version mcp/uv.lock mcp/README.md ./
 COPY mcp/__about__.py ./
 
-# Install dependencies
-RUN pip install --upgrade pip && \
-    pip install -e . && \
-    pip install uvicorn[standard]
+# Install dependencies using uv
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+RUN uv sync --frozen --no-dev
 
 # Now copy all remaining application files
 COPY mcp/main.py ./
@@ -70,7 +71,8 @@ RUN chown -R skyflo:skyflogroup /app && \
     chmod -R 755 /app
 
 # Update PATH and PYTHONPATH for skyflo user
-ENV PATH="/app/venv/bin:/usr/local/bin:/home/skyflo/.local/bin:${PATH}" \
+ENV APP_VERSION=$APP_VERSION \
+    PATH="/app/.venv/bin:/usr/local/bin:/home/skyflo/.local/bin:${PATH}" \
     PYTHONPATH="/app"
 
 # Expose the API port

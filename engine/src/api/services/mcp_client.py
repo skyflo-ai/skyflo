@@ -9,6 +9,7 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class MCPClient:
     def __init__(self):
         self.mcp_url = settings.MCP_SERVER_URL.rstrip("/")
@@ -95,12 +96,12 @@ class MCPClient:
     def _parse_tool_result(self, result: Any) -> Dict[str, Any]:
         is_error = result.isError or False
         content_blocks: List[Dict[str, Any]] = []
-        
+
         for content_item in result.content:
             parsed_item, item_is_error = self._parse_content_item(content_item)
             is_error = is_error or item_is_error
             content_blocks.append(parsed_item)
-        
+
         return {
             "content": content_blocks,
             "isError": is_error,
@@ -132,17 +133,23 @@ class MCPClient:
                 client = self._get_client()
                 async with client:
                     result = await client.call_tool_mcp(
-                        name=tool_name, 
-                        arguments=inferred_parameters
+                        name=tool_name, arguments=inferred_parameters
                     )
                     return self._parse_tool_result(result)
             else:
                 result = await self._client.call_tool_mcp(
-                    name=tool_name, 
-                    arguments=inferred_parameters
+                    name=tool_name, arguments=inferred_parameters
                 )
                 return self._parse_tool_result(result)
 
         except Exception as e:
-            logger.error(f"Error calling tool {tool_name}: {e}")
-            raise
+            logger.error(f"Error calling tool {tool_name}: {e}", exc_info=True)
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "An internal error occurred while calling the tool.",
+                    }
+                ],
+                "isError": True,
+            }

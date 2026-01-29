@@ -1,10 +1,8 @@
 """Tests for tools.jenkins module."""
 
 import pytest
-from tools.jenkins import (
-    _parse_credentials_ref,
-    build_job_path
-)
+
+from tools.jenkins import _parse_credentials_ref, build_job_path
 
 
 class TestParseCredentialsRef:

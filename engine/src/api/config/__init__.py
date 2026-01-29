@@ -1,6 +1,6 @@
-from .settings import settings, get_settings
+from .database import close_db_connection, generate_schemas, get_tortoise_config, init_db
 from .rate_limit import rate_limit_dependency
-from .database import init_db, close_db_connection, generate_schemas, get_tortoise_config
+from .settings import get_settings, settings
 
 __all__ = [
     "settings",

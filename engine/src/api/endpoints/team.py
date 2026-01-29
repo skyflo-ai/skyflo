@@ -1,26 +1,18 @@
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from tortoise.exceptions import DoesNotExist
 
-from ..services.auth import current_active_user, get_user_manager, UserManager
+from ..config import rate_limit_dependency
 from ..models.user import User
 from ..schemas.team import (
+    TeamMemberCreate,
     TeamMemberRead,
     TeamMemberUpdate,
-    TeamMemberCreate,
 )
-from ..config import rate_limit_dependency
+from ..services.auth import UserManager, get_user_manager, verify_admin_role
 
 router = APIRouter()
-
-
-async def verify_admin_role(user: User = Depends(current_active_user)):
-    if user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can perform this action",
-        )
-    return user
 
 
 @router.get("/members", response_model=List[TeamMemberRead], dependencies=[rate_limit_dependency])
@@ -43,7 +35,7 @@ async def get_team_members(user: User = Depends(verify_admin_role)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch team members: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/members", status_code=status.HTTP_201_CREATED, dependencies=[rate_limit_dependency])
@@ -95,18 +87,18 @@ async def add_team_member(
             status="active" if new_user.is_active else "inactive",
             created_at=new_user.created_at.isoformat(),
         )
-    except DoesNotExist:
+    except DoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"",
-        )
+            detail="User record not found",
+        ) from exc
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to add team member: {str(e)}",
-        )
+        ) from e
 
 
 @router.patch(
@@ -129,16 +121,16 @@ async def update_member_role(
             status="active" if target_user.is_active else "inactive",
             created_at=target_user.created_at.isoformat(),
         )
-    except DoesNotExist:
+    except DoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Team member with ID {member_id} not found",
-        )
+        ) from exc
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update team member: {str(e)}",
-        )
+        ) from e
 
 
 @router.delete(
@@ -159,15 +151,15 @@ async def remove_team_member(member_id: str, user: User = Depends(verify_admin_r
         await target_user.save()
 
         return None
-    except DoesNotExist:
+    except DoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Team member with ID {member_id} not found",
-        )
+        ) from exc
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to remove team member: {str(e)}",
-        )
+        ) from e

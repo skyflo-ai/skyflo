@@ -48,10 +48,7 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
             ...user,
             full_name: data.full_name || user.full_name,
           },
-          localStorage.getItem("skyflo-auth-storage")
-            ? JSON.parse(localStorage.getItem("skyflo-auth-storage") || "{}")
-                .state?.token
-            : ""
+          ""
         );
         showSuccess("Profile updated");
       } else {

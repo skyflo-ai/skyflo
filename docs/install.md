@@ -53,7 +53,7 @@ Skyflo.ai offers two deployment options:
 For deploying Skyflo.ai in a production environment:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh -o install.sh && chmod +x install.sh && ./install.sh
+curl -sL https://skyflo.ai/install.sh -o install.sh && chmod +x install.sh && ./install.sh
 ```
 
 Optional environment variables for production:
@@ -156,16 +156,13 @@ Check the status of your deployment:
 kubectl get pods -n skyflo-ai
 ```
 
-
 ## Uninstalling
 
 To remove Skyflo.ai and all its components:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/uninstall.sh -o uninstall.sh && chmod +x uninstall.sh && ./uninstall.sh
+curl -fsSL https://skyflo.ai/uninstall.sh | bash
 ```
-
-
 
 ## Troubleshooting
 

@@ -1,9 +1,8 @@
 """Tests for tools.helm module."""
 
 import pytest
-from tools.helm import (
-    run_helm_command
-)
+
+from tools.helm import run_helm_command
 
 
 class TestRunHelmCommand:

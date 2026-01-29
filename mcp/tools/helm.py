@@ -1,13 +1,14 @@
 """Helm tools implementation for MCP server."""
 
-import tempfile
 import os
+import tempfile
 from typing import Optional
+
 from pydantic import Field
 
 from config.server import mcp
 from utils.commands import run_command
-from utils.types import ToolOutput
+from utils.models import ToolOutput
 
 
 async def run_helm_command(command: str) -> ToolOutput:
@@ -129,7 +130,7 @@ async def helm_install_with_values(
         if "values_file" in locals():
             try:
                 os.unlink(values_file)
-            except:
+            except OSError:
                 pass
         return {"output": f"Error installing Helm chart: {str(e)}", "error": True}
 
@@ -360,7 +361,7 @@ async def helm_template(
             if "values_file" in locals():
                 try:
                     os.unlink(values_file)
-                except:
+                except OSError:
                     pass
             return {"output": f"Error rendering Helm template: {str(e)}", "error": True}
     else:

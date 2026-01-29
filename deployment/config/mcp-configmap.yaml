@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skyflo-mcp-config
+  namespace: ${NAMESPACE}
+data:
+  APP_NAME: "Skyflo.ai - MCP Server"
+  APP_DESCRIPTION: "MCP Server for Skyflo.ai"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+  MAX_RETRY_ATTEMPTS: "3"
+  RETRY_BASE_DELAY: "60"
+  RETRY_MAX_DELAY: "300"
+  RETRY_EXPONENTIAL_BASE: "2.0"

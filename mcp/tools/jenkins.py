@@ -6,15 +6,14 @@ import asyncio
 import base64
 import json
 import subprocess
-from typing import Any, Dict, Optional, Tuple, List
 import xml.etree.ElementTree as ET
-
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from pydantic import Field
 
 from config.server import mcp
-from utils.types import ToolOutput
+from utils.models import ToolOutput
 
 # -----------------------------
 # Credential resolution helpers
@@ -45,10 +44,10 @@ def resolve_credentials_from_k8s(credentials_ref: str) -> Tuple[str, str]:
             text=True,
             timeout=5,
         )
-    except subprocess.TimeoutExpired:
-        raise TimeoutError("Timeout retrieving credentials Secret via kubectl")
+    except subprocess.TimeoutExpired as exc:
+        raise TimeoutError("Timeout retrieving credentials Secret via kubectl") from exc
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Failed to get Secret {namespace}/{name}: {e.stderr}")
+        raise RuntimeError(f"Failed to get Secret {namespace}/{name}: {e.stderr}") from e
 
     secret = json.loads(proc.stdout)
     data = secret.get("data", {}) or {}
