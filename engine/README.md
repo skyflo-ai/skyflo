@@ -130,6 +130,7 @@ Base path: `/api/v1`
 - `POST /agent/chat` (SSE): stream tokens/events
 - `POST /agent/approvals/{call_id}` (SSE): approve/deny pending tool
 - `POST /agent/stop`: stop a specific run
+- `GET /agent/tools`: list available MCP tools with metadata (name, title, tags, annotations)
 - `POST /conversations`, `GET /conversations`, `GET/PATCH/DELETE /conversations/{id}`
 - Auth (`/auth/jwt/*`, `/auth/register/*`, `/auth/verify/*`, `/auth/reset-password/*`, `/auth/users/*`), plus:
   - `GET /auth/is_admin_user`

@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import Any, AsyncGenerator, Dict, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import redis.asyncio as redis
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -18,6 +18,7 @@ from ..services.auth import fastapi_users
 from ..services.conversation_persistence import ConversationPersistenceService
 from ..services.stop_service import clear_stop, request_stop
 from ..services.title_generator import generate_and_store_title
+from ..services.tool_executor import ToolExecutor
 from ..utils.clock import now_ms
 from .conversation import check_conversation_authorization
 
@@ -590,3 +591,66 @@ async def stop_run(request: Request, user=Depends(fastapi_users.current_user(opt
     except Exception as e:
         logger.exception(f"Error requesting stop: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error requesting stop: {str(e)}") from e
+
+class ToolMetadata(BaseModel):
+    name: str = Field(..., description="Tool Name")
+    title: str = Field(..., description="Title of the Tool")
+    annotations: Dict[str, Any] = Field(default_factory=dict, description="Tool Annotations")
+    tags: List[str] = Field(default_factory=list, description="Tool Tags")
+
+@router.get("/tools", response_model=List[ToolMetadata], dependencies=[rate_limit_dependency])
+async def list_tools(user=Depends(fastapi_users.current_user())) -> List[ToolMetadata]:
+    tool_executor = None
+    try:
+        tool_executor = ToolExecutor()
+        tools_data = await tool_executor.list_tools()
+        if "error" in tools_data:
+            logger.warning(f"ToolExecutor returned error: {tools_data['error']}")
+            raise HTTPException(status_code=502, detail="Error listing tools")
+
+        tools = tools_data.get("tools", [])
+        formatted_tools = []
+        for tool in tools:
+            if not isinstance(tool, dict):
+                logger.warning("Invalid tool format, expected dict. %r", tool)
+                continue
+            tags = []
+            meta = tool.get("meta", {})
+            if meta and isinstance(meta, dict):
+                fastmcp_meta = meta.get("_fastmcp", {})
+                if fastmcp_meta and isinstance(fastmcp_meta, dict):
+                    raw_tags = fastmcp_meta.get("tags", [])
+                    if not isinstance(raw_tags, list):
+                        raw_tags = []
+                    tags = [t for t in raw_tags if isinstance(t, str)]
+
+            annotations = tool.get("annotations", {})
+            if not isinstance(annotations, dict):
+                annotations = {}
+            name = tool.get("name")
+            if not isinstance(name, str) or not name:
+                logger.warning("Skipping tool with invalid name: %r", tool)
+                continue
+            title = tool.get("title", "")
+            if not isinstance(title, str):
+                title = ""
+            formatted_tool = ToolMetadata(
+                name=name,
+                title=title,
+                annotations=annotations,
+                tags=tags
+            )
+            formatted_tools.append(formatted_tool) 
+        return formatted_tools
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error listing tools: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error listing tools") from e    
+    finally:
+        if tool_executor:
+            try:
+                await tool_executor.close()
+            except Exception:
+                logger.warning("Error closing ToolExecutor", exc_info=True)
