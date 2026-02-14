@@ -119,9 +119,7 @@ class IntegrationService:
                     old_ns, old_name = old_ref.split("/", 1)
                     await self._delete_secret(name=old_name, namespace=old_ns)
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to delete old credentials secret {old_ref}: {e}"
-                    )
+                    logger.warning(f"Failed to delete old credentials secret {old_ref}: {e}")
 
         if metadata is not None:
             integration.metadata = metadata

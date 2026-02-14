@@ -69,9 +69,7 @@ def resolve_credentials_from_k8s(credentials_ref: str) -> Tuple[str, str]:
 
 
 class JenkinsClient:
-    def __init__(
-        self, base_url: str, username: str, api_token: str, verify: bool = True
-    ):
+    def __init__(self, base_url: str, username: str, api_token: str, verify: bool = True):
         self.base_url = base_url.rstrip("/")
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
@@ -95,9 +93,7 @@ class JenkinsClient:
             return {}
         return {}
 
-    async def get(
-        self, path: str, params: Optional[Dict[str, Any]] = None
-    ) -> httpx.Response:
+    async def get(self, path: str, params: Optional[Dict[str, Any]] = None) -> httpx.Response:
         return await self.client.get(path, params=params)
 
     async def post(
@@ -132,14 +128,10 @@ def build_job_path(job_full_name: str) -> str:
     return "/" + "/".join([f"job/{seg}" for seg in encoded])
 
 
-def normalize_response(
-    resp: httpx.Response, body_text: Optional[str] = None
-) -> ToolOutput:
+def normalize_response(resp: httpx.Response, body_text: Optional[str] = None) -> ToolOutput:
     info: Dict[str, Any] = {
         "status": resp.status_code,
-        "headers": {
-            k: v for k, v in resp.headers.items() if k.lower().startswith("x-")
-        },
+        "headers": {k: v for k, v in resp.headers.items() if k.lower().startswith("x-")},
     }
     try:
         info["body"] = resp.json()
@@ -148,9 +140,7 @@ def normalize_response(
     return {"output": json.dumps(info), "error": not resp.is_success}
 
 
-async def _with_client(
-    api_url: str, credentials_ref: str, verify: bool = True
-) -> JenkinsClient:
+async def _with_client(api_url: str, credentials_ref: str, verify: bool = True) -> JenkinsClient:
     username, api_token = resolve_credentials_from_k8s(credentials_ref)
     return JenkinsClient(api_url, username, api_token, verify=verify)
 
@@ -160,18 +150,12 @@ async def _with_client(
 # -----------------------------
 
 
-@mcp.tool(
-    title="Jenkins: Get Job", tags=["jenkins"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Jenkins: Get Job", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_get_job(
-    api_url: str = Field(
-        description="Base Jenkins URL, e.g., https://jenkins.example.com"
-    ),
+    api_url: str = Field(description="Base Jenkins URL, e.g., https://jenkins.example.com"),
     credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
     jobFullName: str = Field(description="Full job path, e.g., Folder/Sub/Job"),
-    tree: Optional[str] = Field(
-        default="name,url,color", description="Optional tree filter"
-    ),
+    tree: Optional[str] = Field(default="name,url,color", description="Optional tree filter"),
 ) -> ToolOutput:
     client = await _with_client(api_url, credentials_ref)
     try:
@@ -228,9 +212,7 @@ async def jenkins_trigger_build(
     )
     try:
         path_base = build_job_path(jobFullName)
-        path = (
-            f"{path_base}/buildWithParameters" if parameters else f"{path_base}/build"
-        )
+        path = f"{path_base}/buildWithParameters" if parameters else f"{path_base}/build"
         resp = await client.post(path, data=parameters or {})
         if not is_jenkins_post_success(resp):
             return normalize_response(resp)
@@ -278,16 +260,12 @@ async def jenkins_trigger_build(
 # -----------------------------
 
 
-@mcp.tool(
-    title="Jenkins: Get Build", tags=["jenkins"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Jenkins: Get Build", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_get_build(
     api_url: str = Field(description="Base Jenkins URL"),
     credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
     jobFullName: str = Field(description="Full job path"),
-    build: Optional[str] = Field(
-        default="lastBuild", description="Build number or 'lastBuild'"
-    ),
+    build: Optional[str] = Field(default="lastBuild", description="Build number or 'lastBuild'"),
     tree: Optional[str] = Field(
         default="number,result,timestamp,url", description="Optional tree filter"
     ),
@@ -354,16 +332,12 @@ async def jenkins_get_last_builds(
         await client.close()
 
 
-@mcp.tool(
-    title="Jenkins: Update Build", tags=["jenkins"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Jenkins: Update Build", tags=["jenkins"], annotations={"readOnlyHint": False})
 async def jenkins_update_build(
     api_url: str = Field(description="Base Jenkins URL"),
     credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
     jobFullName: str = Field(description="Full job path"),
-    build: Optional[int] = Field(
-        default=None, description="Build number; defaults to lastBuild"
-    ),
+    build: Optional[int] = Field(default=None, description="Build number; defaults to lastBuild"),
     displayName: Optional[str] = Field(default=None, description="New display name"),
     description: Optional[str] = Field(default=None, description="New description"),
 ) -> ToolOutput:
@@ -385,9 +359,7 @@ async def jenkins_update_build(
                 return normalize_response(last_resp)
         if last_resp is None:
             return {
-                "output": json.dumps(
-                    {"status": 400, "body": {"message": "No fields to update"}}
-                ),
+                "output": json.dumps({"status": 400, "body": {"message": "No fields to update"}}),
                 "error": True,
             }
         return normalize_response(last_resp)
@@ -395,31 +367,25 @@ async def jenkins_update_build(
         await client.close()
 
 
-@mcp.tool(
-    title="Jenkins: Stop Build", tags=["jenkins"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Jenkins: Stop Build", tags=["jenkins"], annotations={"readOnlyHint": False})
 async def jenkins_stop_build(
     api_url: str = Field(description="Base Jenkins URL"),
     credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
     jobFullName: str = Field(description="Full job path"),
-    build: Optional[str] = Field(
-        default="lastBuild", description="Build number or 'lastBuild'"
-    ),
+    build: Optional[str] = Field(default="lastBuild", description="Build number or 'lastBuild'"),
 ) -> ToolOutput:
     """Stop/cancel a running Jenkins build.
-    
-    This tool attempts to stop a running build. If the build is not currently running,
-    it will return a clear message indicating the current state.
+    This tool attempts to stop a running build. If the build is not currently running, it will return a clear message indicating the current state.
     """
-    
+
     client = await _with_client(api_url, credentials_ref)
     try:
         info_path = f"{build_job_path(jobFullName)}/{build or 'lastBuild'}/api/json"
         info_resp = await client.get(info_path, params={"tree": "number,result,building,url"})
-        
+
         if not info_resp.is_success:
             return normalize_response(info_resp)
-        
+
         build_info = info_resp.json()
         build_number = build_info.get("number")
         is_building = build_info.get("building", False)
@@ -431,80 +397,86 @@ async def jenkins_stop_build(
             message = f"Build #{build_number} is {status_msg} and cannot be stopped"
             if result:
                 message += f" (result: {result})"
-            
+
             return {
-                "output": json.dumps({
-                    "status": 200,
-                    "body": {
-                        "message": message,
-                        "buildNumber": build_number,
-                        "building": False,
-                        "result": result,
-                        "url": build_url
+                "output": json.dumps(
+                    {
+                        "status": 200,
+                        "body": {
+                            "message": message,
+                            "buildNumber": build_number,
+                            "building": False,
+                            "result": result,
+                            "url": build_url,
+                        },
                     }
-                }),
-                "error": False
+                ),
+                "error": False,
             }
-        
+
         stop_path = f"{build_job_path(jobFullName)}/{build_number}/stop"
         stop_resp = await client.post(stop_path)
 
         # Check if stop request was accepted
         if not is_jenkins_post_success(stop_resp):
             return normalize_response(stop_resp)
-        
+
         # Wait a moment for Jenkins to process the stop request
         await asyncio.sleep(1)
-        
-        updated_build_info_resp = await client.get(info_path, params={"tree": "number,result,building,url"})
-        
+
+        updated_build_info_resp = await client.get(
+            info_path, params={"tree": "number,result,building,url"}
+        )
+
         if not updated_build_info_resp.is_success:
             return {
-                "output": json.dumps({
-                    "status": stop_resp.status_code,
-                    "body": {
-                        "message": f"Stop command sent for build #{build_number} (status: {stop_resp.status_code}). Unable to verify completion.",
-                        "buildNumber": build_number,
-                        "stopResponseCode": stop_resp.status_code,
-                        "url": build_url
+                "output": json.dumps(
+                    {
+                        "status": stop_resp.status_code,
+                        "body": {
+                            "message": f"Stop command sent for build #{build_number} (status: {stop_resp.status_code}). Unable to verify completion.",
+                            "buildNumber": build_number,
+                            "stopResponseCode": stop_resp.status_code,
+                            "url": build_url,
+                        },
                     }
-                }),
-                "error": False
+                ),
+                "error": False,
             }
-        
+
         updated_build_info = updated_build_info_resp.json()
         is_building_after_stop = updated_build_info.get("building", False)
         result_after_stop = updated_build_info.get("result")
 
         return {
-            "output": json.dumps({
-                "status": 200,
-                "body": {
-                    "message": f"Successfully stopped build #{build_number}" if not is_building_after_stop else f"Stop requested for build #{build_number} (still stopping...)",
-                    "buildNumber": build_number,
-                    "building": is_building_after_stop,
-                    "result": result_after_stop,
-                    "stopResponseCode": stop_resp.status_code,
-                    "url": build_url
+            "output": json.dumps(
+                {
+                    "status": 200,
+                    "body": {
+                        "message": f"Successfully stopped build #{build_number}"
+                        if not is_building_after_stop
+                        else f"Stop requested for build #{build_number} (still stopping...)",
+                        "buildNumber": build_number,
+                        "building": is_building_after_stop,
+                        "result": result_after_stop,
+                        "stopResponseCode": stop_resp.status_code,
+                        "url": build_url,
+                    },
                 }
-            }),
-            "error": False
+            ),
+            "error": False,
         }
-            
+
     finally:
         await client.close()
 
 
-@mcp.tool(
-    title="Jenkins: Get Build Log", tags=["jenkins"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Jenkins: Get Build Log", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_get_build_log(
     api_url: str = Field(description="Base Jenkins URL"),
     credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
     jobFullName: str = Field(description="Full job path"),
-    build: Optional[int] = Field(
-        default=None, description="Build number; defaults to lastBuild"
-    ),
+    build: Optional[int] = Field(default=None, description="Build number; defaults to lastBuild"),
     start: Optional[int] = Field(default=0, description="Log offset to start from"),
 ) -> ToolOutput:
     client = await _with_client(api_url, credentials_ref)
@@ -528,9 +500,7 @@ async def jenkins_get_build_log(
 # -----------------------------
 
 
-@mcp.tool(
-    title="Jenkins: Get Job SCM", tags=["jenkins"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Jenkins: Get Job SCM", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_get_job_scm(
     api_url: str = Field(description="Base Jenkins URL"),
     credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
@@ -551,16 +521,12 @@ async def jenkins_get_job_scm(
         await client.close()
 
 
-@mcp.tool(
-    title="Jenkins: Get Build SCM", tags=["jenkins"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Jenkins: Get Build SCM", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_get_build_scm(
     api_url: str = Field(description="Base Jenkins URL"),
     credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
     jobFullName: str = Field(description="Full job path"),
-    build: Optional[int] = Field(
-        default=None, description="Build number; defaults to lastBuild"
-    ),
+    build: Optional[int] = Field(default=None, description="Build number; defaults to lastBuild"),
 ) -> ToolOutput:
     client = await _with_client(api_url, credentials_ref)
     try:
@@ -580,9 +546,7 @@ async def jenkins_get_build_changesets(
     api_url: str = Field(description="Base Jenkins URL"),
     credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name)"),
     jobFullName: str = Field(description="Full job path"),
-    build: Optional[int] = Field(
-        default=None, description="Build number; defaults to lastBuild"
-    ),
+    build: Optional[int] = Field(default=None, description="Build number; defaults to lastBuild"),
 ) -> ToolOutput:
     client = await _with_client(api_url, credentials_ref)
     try:
@@ -601,9 +565,7 @@ async def jenkins_get_build_changesets(
 # -----------------------------
 
 
-@mcp.tool(
-    title="Jenkins: Who Am I", tags=["jenkins"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Jenkins: Who Am I", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_whoami(
     api_url: str = Field(description="Base Jenkins URL"),
     credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
@@ -614,6 +576,7 @@ async def jenkins_whoami(
         return normalize_response(resp)
     finally:
         await client.close()
+
 
 # -----------------------------
 # Tools: Job Parameter Helpers
@@ -633,6 +596,7 @@ def _normalize_param_type(raw_type: Optional[str]) -> str:
         "FileParameterDefinition": "file",
     }
     return mapping.get(short, "string")
+
 
 def _parse_config_xml(xml_text: str) -> List[dict]:
     params = []
@@ -656,13 +620,15 @@ def _parse_config_xml(xml_text: str) -> List[dict]:
                 for child in list(choices_el):
                     if child.text:
                         choices.append(child.text)
-        params.append({
-            "name": name,
-            "type": _normalize_param_type(ptype),
-            "description": desc,
-            "default": default,
-            "choices": choices if choices else None,
-        })
+        params.append(
+            {
+                "name": name,
+                "type": _normalize_param_type(ptype),
+                "description": desc,
+                "default": default,
+                "choices": choices if choices else None,
+            }
+        )
     return params
 
 
@@ -707,13 +673,15 @@ async def jenkins_get_job_parameters(
                             choices = [c.strip() for c in choices_field.splitlines() if c.strip()]
                         else:
                             choices = None
-                        params.append({
-                            "name": name,
-                            "type": _normalize_param_type(raw_type),
-                            "description": desc,
-                            "default": default,
-                            "choices": choices,
-                        })
+                        params.append(
+                            {
+                                "name": name,
+                                "type": _normalize_param_type(raw_type),
+                                "description": desc,
+                                "default": default,
+                                "choices": choices,
+                            }
+                        )
         # Fallback to XML
         if not params:
             xml_resp = await client.get(f"{build_job_path(jobFullName)}/config.xml")

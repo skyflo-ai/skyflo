@@ -25,13 +25,14 @@ class ToolExecutor:
         sse_publish: Optional[EventCallback] = None,
         mcp_client: Optional[MCPClient] = None,
         owns_client: bool = True,
+        tools_cache: Optional[ToolsCache] = None,
     ):
         self.mcp_url = settings.MCP_SERVER_URL
         self.sse_publish = sse_publish
         self._mcp_client: Optional[MCPClient] = mcp_client
         self._owns_client: bool = owns_client if mcp_client is None else False
 
-        self._tools = ToolsCache()
+        self._tools = tools_cache or ToolsCache()
         self._integrations = (
             IntegrationService(mcp_client=self._mcp_client) if mcp_client else IntegrationService()
         )
@@ -315,7 +316,7 @@ class ToolExecutor:
                         "type": "tool.error",
                         "call_id": call_id,
                         "tool": name,
-                        "title": locals().get("title", name),
+                        "title": locals().get("tool_title", name),
                         "error": str(e),
                         "run_id": run_id,
                         "timestamp": now_ms(),

@@ -11,7 +11,7 @@ class TestRunCommand:
     @pytest.mark.asyncio
     async def test_run_command_success(self, mocker):
         """Test successful command execution."""
-        mock_subprocess = mocker.patch('asyncio.create_subprocess_exec')
+        mock_subprocess = mocker.patch("asyncio.create_subprocess_exec")
         mock_proc = mocker.AsyncMock()
         mock_proc.returncode = 0
         mock_proc.communicate = mocker.AsyncMock(return_value=(b"success output", b""))
@@ -22,16 +22,13 @@ class TestRunCommand:
         assert result["output"] == "success output"
         assert result["error"] is False
         mock_subprocess.assert_called_once_with(
-            "test_cmd", "arg1", "arg2",
-            stdout=-1,
-            stderr=-1,
-            stdin=None
+            "test_cmd", "arg1", "arg2", stdout=-1, stderr=-1, stdin=None
         )
 
     @pytest.mark.asyncio
     async def test_run_command_with_stdin(self, mocker):
         """Test command execution with stdin input."""
-        mock_subprocess = mocker.patch('asyncio.create_subprocess_exec')
+        mock_subprocess = mocker.patch("asyncio.create_subprocess_exec")
         mock_proc = mocker.AsyncMock()
         mock_proc.returncode = 0
         mock_proc.communicate = mocker.AsyncMock(return_value=(b"output with stdin", b""))
@@ -46,7 +43,7 @@ class TestRunCommand:
     @pytest.mark.asyncio
     async def test_run_command_error_return_code(self, mocker):
         """Test command execution with error return code."""
-        mock_subprocess = mocker.patch('asyncio.create_subprocess_exec')
+        mock_subprocess = mocker.patch("asyncio.create_subprocess_exec")
         mock_proc = mocker.AsyncMock()
         mock_proc.returncode = 1
         mock_proc.communicate = mocker.AsyncMock(return_value=(b"", b"error message"))
@@ -60,7 +57,7 @@ class TestRunCommand:
     @pytest.mark.asyncio
     async def test_run_command_stderr_output(self, mocker):
         """Test command execution with stderr output but success return code."""
-        mock_subprocess = mocker.patch('asyncio.create_subprocess_exec')
+        mock_subprocess = mocker.patch("asyncio.create_subprocess_exec")
         mock_proc = mocker.AsyncMock()
         mock_proc.returncode = 0
         mock_proc.communicate = mocker.AsyncMock(return_value=(b"", b"warning message"))
@@ -74,7 +71,7 @@ class TestRunCommand:
     @pytest.mark.asyncio
     async def test_run_command_no_output(self, mocker):
         """Test command execution with no output."""
-        mock_subprocess = mocker.patch('asyncio.create_subprocess_exec')
+        mock_subprocess = mocker.patch("asyncio.create_subprocess_exec")
         mock_proc = mocker.AsyncMock()
         mock_proc.returncode = 0
         mock_proc.communicate = mocker.AsyncMock(return_value=(b"", b""))
@@ -88,7 +85,7 @@ class TestRunCommand:
     @pytest.mark.asyncio
     async def test_run_command_exception(self, mocker):
         """Test command execution with exception."""
-        mock_subprocess = mocker.patch('asyncio.create_subprocess_exec')
+        mock_subprocess = mocker.patch("asyncio.create_subprocess_exec")
         mock_subprocess.side_effect = Exception("Process creation failed")
 
         result = await run_command("test_cmd", ["arg1"])

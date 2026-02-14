@@ -102,7 +102,8 @@ class WorkflowGraph:
                 checkpointer = get_checkpointer()
             except Exception as e:
                 logger.warning(
-                    f"Failed to get shared checkpointer: {e}. Falling back to in-memory checkpointer"
+                    f"Failed to get shared checkpointer: {e}. "
+                    f"Falling back to in-memory checkpointer"
                 )
                 checkpointer = None
 
@@ -253,15 +254,14 @@ class WorkflowGraph:
                         "suppress_pending_event": False,
                     }
                 except Exception as tool_error:
-                    logger.exception(
-                        f"Error executing tool {tool_call.get('name', 'unknown')}: {str(tool_error)}"
-                    )
+                    err_tool = tool_call.get("name", "unknown")
+                    logger.exception(f"Error executing tool {err_tool}: {tool_error}")
 
                     error_message = {
                         "role": "tool",
                         "tool_call_id": tool_call.get("id"),
-                        "name": tool_call.get("name", "system"),
-                        "content": f"Error executing tool {tool_call.get('name', 'unknown')}: {str(tool_error)}",
+                        "name": err_tool,
+                        "content": f"Error executing tool {err_tool}: {tool_error}",
                     }
                     tool_messages.append(error_message)
 
@@ -363,7 +363,13 @@ class WorkflowGraph:
                         {
                             "type": "workflow.error",
                             "run_id": get_state_value(initial_state, "run_id"),
-                            "error": f"The AI Agent has reached the maximum number of iterations of {settings.LLM_MAX_ITERATIONS} for the current prompt. You can continue the conversation. If you want to update the max iterations, update the LLM_MAX_ITERATIONS environment variable.",
+                            "error": (
+                                f"The AI Agent has reached the maximum number of iterations "
+                                f"of {settings.LLM_MAX_ITERATIONS} for the current prompt. "
+                                f"You can continue the conversation. If you want to update "
+                                f"the max iterations, update the LLM_MAX_ITERATIONS "
+                                f"environment variable."
+                            ),
                         }
                     )
             except Exception as e:
@@ -372,7 +378,9 @@ class WorkflowGraph:
                         {
                             "type": "workflow.error",
                             "run_id": get_state_value(initial_state, "run_id"),
-                            "error": f"An unknown error occurred while executing the workflow: {str(e)}",
+                            "error": (
+                                f"An unknown error occurred while executing the workflow: {e}"
+                            ),
                         }
                     )
 
@@ -382,7 +390,7 @@ class WorkflowGraph:
                     {
                         "type": "workflow.error",
                         "run_id": get_state_value(initial_state, "run_id"),
-                        "error": f"An unknown error occurred while executing the workflow: {str(e)}",
+                        "error": f"An unknown error occurred while executing the workflow: {e}",
                     }
                 )
 
