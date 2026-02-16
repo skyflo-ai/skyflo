@@ -42,9 +42,12 @@ stringData:
   AWS_REGION_NAME: "${AWS_REGION_NAME}"
   LLM_MODEL: "${LLM_MODEL}"
   LLM_HOST: "${LLM_HOST}"
-  JWT_SECRET: "${JWT_SECRET}"
-  POSTGRES_DATABASE_URL: "${POSTGRES_DATABASE_URL}"
-  REDIS_URL: "${REDIS_URL}"
+  # JWT_SECRET: "${JWT_SECRET}"
+  # POSTGRES_DATABASE_URL: "${POSTGRES_DATABASE_URL}"
+  # REDIS_URL: "${REDIS_URL}"
+  JWT_SECRET: "dev-jwt-secret-change-in-production"
+  POSTGRES_DATABASE_URL: "postgres://skyflo:skyflo@skyflo-ai-postgres:5432/skyflo"
+  REDIS_URL: "redis://skyflo-ai-redis:6379"
 ---
 apiVersion: v1
 kind: Secret
@@ -53,10 +56,15 @@ metadata:
   namespace: ${NAMESPACE}
 type: Opaque
 stringData:
-  POSTGRES_USER: "${POSTGRES_USER}"
-  POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-  POSTGRES_DB: "${POSTGRES_DB}"
-  POSTGRES_PORT: "${POSTGRES_PORT}"
+  # POSTGRES_USER: "${POSTGRES_USER}"
+  # POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+  # POSTGRES_DB: "${POSTGRES_DB}"
+  # POSTGRES_PORT: "${POSTGRES_PORT}"
+  POSTGRES_USER: "skyflo"
+  POSTGRES_PASSWORD: "skyflo"
+  POSTGRES_DB: "skyflo"
+  POSTGRES_PORT: "5432"
+  
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -643,6 +651,22 @@ spec:
           capabilities:
             drop:
             - ALL
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       - name: proxy
         image: skyfloaiagent/proxy:${VERSION}
         imagePullPolicy: Always
@@ -659,6 +683,22 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       securityContext:
         runAsNonRoot: false
       terminationGracePeriodSeconds: 10

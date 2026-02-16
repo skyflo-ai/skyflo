@@ -689,6 +689,22 @@ spec:
           capabilities:
             drop:
             - ALL
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       - name: proxy
         image: skyfloaiagent/proxy:${VERSION}
         imagePullPolicy: Never
@@ -705,6 +721,22 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       securityContext:
         runAsNonRoot: false
       terminationGracePeriodSeconds: 10
