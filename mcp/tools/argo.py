@@ -19,13 +19,18 @@ async def run_argo_command(command: str) -> ToolOutput:
 @mcp.tool(title="List Argo Rollouts", tags=["argo"], annotations={"readOnlyHint": True})
 async def argo_list_rollouts(
     namespace: Optional[str] = Field(
-        default="default", description="The namespace to get rollouts from"
+        default=None, description="The namespace to get rollouts from"
     ),
     all_namespaces: Optional[bool] = Field(
         default=False, description="Whether to get rollouts from all namespaces"
     ),
 ) -> ToolOutput:
     """Get Argo Rollouts information."""
+    if namespace and all_namespaces:
+        raise ValueError("namespace and all_namespaces are mutually exclusive")
+    if not namespace and not all_namespaces:
+        namespace = "default"
+
     # Use kubectl get directly since 'argo rollouts get rollouts' is not supported
     cmd_parts = ["get", "rollouts.argoproj.io", "-o", "wide"]
     if all_namespaces:
@@ -242,20 +247,17 @@ async def argo_list_experiments(
         description="The name of the rollout to get experiments for (if not specified, gets all experiments)",
     ),
     namespace: Optional[str] = Field(
-        default="default", description="The namespace to get experiments from"
+        default=None, description="The namespace to get experiments from"
     ),
     all_namespaces: Optional[bool] = Field(
         default=False, description="Whether to get experiments from all namespaces"
     ),
 ) -> ToolOutput:
     """Get Argo Rollouts experiments."""
-    if (
-        isinstance(namespace, str)
-        and namespace
-        and isinstance(all_namespaces, bool)
-        and all_namespaces
-    ):
+    if namespace and all_namespaces:
         raise ValueError("namespace and all_namespaces are mutually exclusive")
+    if not namespace and not all_namespaces:
+        namespace = "default"
 
     if rollout_name:
         cmd_parts = ["get", "experiments.argoproj.io", "-o", "json"]
@@ -302,20 +304,17 @@ async def argo_list_experiments(
 )
 async def argo_list_analysisruns(
     namespace: Optional[str] = Field(
-        default="default", description="The namespace to get analysis runs from"
+        default=None, description="The namespace to get analysis runs from"
     ),
     all_namespaces: Optional[bool] = Field(
         default=False, description="Whether to get analysis runs from all namespaces"
     ),
 ) -> ToolOutput:
     """Get Argo Rollouts analysis runs."""
-    if (
-        isinstance(namespace, str)
-        and namespace
-        and isinstance(all_namespaces, bool)
-        and all_namespaces
-    ):
+    if namespace and all_namespaces:
         raise ValueError("namespace and all_namespaces are mutually exclusive")
+    if not namespace and not all_namespaces:
+        namespace = "default"
 
     cmd_parts = ["get", "analysisruns.argoproj.io", "-o", "wide"]
     if all_namespaces:
