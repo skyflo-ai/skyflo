@@ -34,6 +34,9 @@ async def argo_list_rollouts(
     ):
         raise ValueError("namespace and all_namespaces are mutually exclusive")
 
+    if not all_namespaces and not namespace:
+        namespace = "default"
+
     # Use kubectl get directly since 'argo rollouts get rollouts' is not supported
     cmd_parts = ["get", "rollouts.argoproj.io", "-o", "wide"]
     if all_namespaces:
@@ -265,6 +268,9 @@ async def argo_list_experiments(
     ):
         raise ValueError("namespace and all_namespaces are mutually exclusive")
 
+    if not all_namespaces and not namespace:
+        namespace = "default"
+
     if rollout_name:
         cmd_parts = ["get", "experiments.argoproj.io", "-o", "json"]
         if all_namespaces:
@@ -324,6 +330,9 @@ async def argo_list_analysisruns(
         and all_namespaces
     ):
         raise ValueError("namespace and all_namespaces are mutually exclusive")
+
+    if not all_namespaces and not namespace:
+        namespace = "default"
 
     cmd_parts = ["get", "analysisruns.argoproj.io", "-o", "wide"]
     if all_namespaces:
