@@ -45,7 +45,6 @@ stringData:
   JWT_SECRET: "${JWT_SECRET}"
   POSTGRES_DATABASE_URL: "${POSTGRES_DATABASE_URL}"
   REDIS_URL: "${REDIS_URL}"
-
 ---
 apiVersion: v1
 kind: Secret
@@ -58,7 +57,6 @@ stringData:
   POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
   POSTGRES_DB: "${POSTGRES_DB}"
   POSTGRES_PORT: "${POSTGRES_PORT}"
-  
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -649,7 +647,7 @@ spec:
           httpGet:
             path: /
             port: 3000
-          initialDelaySeconds: 15
+          initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
@@ -681,7 +679,7 @@ spec:
           httpGet:
             path: /health
             port: 80
-          initialDelaySeconds: 5
+          initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
@@ -689,7 +687,7 @@ spec:
           httpGet:
             path: /health
             port: 80
-          initialDelaySeconds: 10
+          initialDelaySeconds: 15
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
