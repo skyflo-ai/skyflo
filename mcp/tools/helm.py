@@ -31,9 +31,7 @@ async def helm_list_releases(
     return await run_helm_command(cmd)
 
 
-@mcp.tool(
-    title="Add Helm Repository", tags=["helm"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Add Helm Repository", tags=["helm"], annotations={"readOnlyHint": False})
 async def helm_repo_add(
     name: str = Field(description="The name of the Helm repository"),
     url: str = Field(description="The URL of the Helm repository"),
@@ -42,17 +40,13 @@ async def helm_repo_add(
     return await run_helm_command(f"repo add {name} {url}")
 
 
-@mcp.tool(
-    title="Update Helm Repositories", tags=["helm"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Update Helm Repositories", tags=["helm"], annotations={"readOnlyHint": False})
 async def helm_repo_update() -> ToolOutput:
     """Update Helm repositories."""
     return await run_helm_command("repo update")
 
 
-@mcp.tool(
-    title="Remove Helm Repository", tags=["helm"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Remove Helm Repository", tags=["helm"], annotations={"readOnlyHint": False})
 async def helm_repo_remove(
     name: str = Field(description="The name of the Helm repository to remove"),
 ) -> ToolOutput:
@@ -60,9 +54,7 @@ async def helm_repo_remove(
     return await run_helm_command(f"repo remove {name}")
 
 
-@mcp.tool(
-    title="Install Helm Chart", tags=["helm"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Install Helm Chart", tags=["helm"], annotations={"readOnlyHint": False})
 async def helm_install(
     release_name: str = Field(description="The name of the Helm release"),
     chart: str = Field(description="The Helm chart to install"),
@@ -135,15 +127,11 @@ async def helm_install_with_values(
         return {"output": f"Error installing Helm chart: {str(e)}", "error": True}
 
 
-@mcp.tool(
-    title="Upgrade Helm Release", tags=["helm"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Upgrade Helm Release", tags=["helm"], annotations={"readOnlyHint": False})
 async def helm_upgrade(
     release_name: str = Field(description="The name of the Helm release to upgrade"),
     chart: str = Field(description="The Helm chart to upgrade to"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the release"
-    ),
+    namespace: Optional[str] = Field(default=None, description="The namespace of the release"),
     install: Optional[bool] = Field(
         default=True, description="Whether to install if the release doesn't exist"
     ),
@@ -169,9 +157,7 @@ async def helm_upgrade(
 )
 async def helm_uninstall(
     release_name: str = Field(description="The name of the Helm release to uninstall"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the release"
-    ),
+    namespace: Optional[str] = Field(default=None, description="The namespace of the release"),
     keep_history: Optional[bool] = Field(
         default=False, description="Whether to keep the release history"
     ),
@@ -193,9 +179,7 @@ async def helm_uninstall(
 async def helm_rollback(
     release_name: str = Field(description="The name of the Helm release to rollback"),
     revision: int = Field(description="The revision number to rollback to"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the release"
-    ),
+    namespace: Optional[str] = Field(default=None, description="The namespace of the release"),
     wait: Optional[bool] = Field(
         default=True, description="Whether to wait for the rollback to complete"
     ),
@@ -209,17 +193,11 @@ async def helm_rollback(
     return await run_helm_command(cmd)
 
 
-@mcp.tool(
-    title="Get Helm Release Status", tags=["helm"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Get Helm Release Status", tags=["helm"], annotations={"readOnlyHint": True})
 async def helm_status(
     release_name: str = Field(description="The name of the Helm release"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the release"
-    ),
-    output: Optional[str] = Field(
-        default=None, description="Output format (json, yaml, table)"
-    ),
+    namespace: Optional[str] = Field(default=None, description="The namespace of the release"),
+    output: Optional[str] = Field(default=None, description="Output format (json, yaml, table)"),
 ) -> ToolOutput:
     """Get the status of a Helm release."""
     cmd = f"status {release_name}"
@@ -230,14 +208,10 @@ async def helm_status(
     return await run_helm_command(cmd)
 
 
-@mcp.tool(
-    title="Get Helm Release History", tags=["helm"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Get Helm Release History", tags=["helm"], annotations={"readOnlyHint": True})
 async def helm_history(
     release_name: str = Field(description="The name of the Helm release"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the release"
-    ),
+    namespace: Optional[str] = Field(default=None, description="The namespace of the release"),
     max_revisions: Optional[int] = Field(
         default=10, description="Maximum number of revisions to show"
     ),
@@ -251,17 +225,11 @@ async def helm_history(
     return await run_helm_command(cmd)
 
 
-@mcp.tool(
-    title="Get Helm Release Values", tags=["helm"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Get Helm Release Values", tags=["helm"], annotations={"readOnlyHint": True})
 async def helm_get_values(
     release_name: str = Field(description="The name of the Helm release"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the release"
-    ),
-    output: Optional[str] = Field(
-        default="yaml", description="Output format (yaml, json, table)"
-    ),
+    namespace: Optional[str] = Field(default=None, description="The namespace of the release"),
+    output: Optional[str] = Field(default="yaml", description="Output format (yaml, json, table)"),
 ) -> ToolOutput:
     """Get the values of a Helm release."""
     cmd = f"get values {release_name}"
@@ -272,14 +240,10 @@ async def helm_get_values(
     return await run_helm_command(cmd)
 
 
-@mcp.tool(
-    title="Get Helm Release Manifest", tags=["helm"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Get Helm Release Manifest", tags=["helm"], annotations={"readOnlyHint": True})
 async def helm_get_manifest(
     release_name: str = Field(description="The name of the Helm release"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the release"
-    ),
+    namespace: Optional[str] = Field(default=None, description="The namespace of the release"),
 ) -> ToolOutput:
     """Get the manifest of a Helm release."""
     cmd = f"get manifest {release_name}"
@@ -300,17 +264,11 @@ async def helm_show_values(
     return await run_helm_command(f"show values {chart}")
 
 
-@mcp.tool(
-    title="Search Helm Repositories", tags=["helm"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Search Helm Repositories", tags=["helm"], annotations={"readOnlyHint": True})
 async def helm_search_repo(
     keyword: str = Field(description="The keyword to search for"),
-    version: Optional[str] = Field(
-        default=None, description="The chart version to search for"
-    ),
-    max_col_width: Optional[int] = Field(
-        default=50, description="Maximum column width for output"
-    ),
+    version: Optional[str] = Field(default=None, description="The chart version to search for"),
+    max_col_width: Optional[int] = Field(default=50, description="Maximum column width for output"),
 ) -> ToolOutput:
     """Search Helm repositories for charts."""
     cmd = f"search repo {keyword}"
@@ -321,9 +279,7 @@ async def helm_search_repo(
     return await run_helm_command(cmd)
 
 
-@mcp.tool(
-    title="Render Helm Template", tags=["helm"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Render Helm Template", tags=["helm"], annotations={"readOnlyHint": True})
 async def helm_template(
     release_name: str = Field(description="The name for the Helm release"),
     chart: str = Field(description="The Helm chart to render"),
@@ -339,13 +295,13 @@ async def helm_template(
 ) -> ToolOutput:
     """Render Helm chart templates without installing to preview manifests."""
     cmd = f"template {release_name} {chart}"
-    
+
     if namespace:
         cmd += f" -n {namespace}"
-    
+
     if include_crds:
         cmd += " --include-crds"
-    
+
     if values:
         try:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:

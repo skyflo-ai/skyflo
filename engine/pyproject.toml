@@ -45,7 +45,7 @@ name = "Karan Jagtiani"
 email = "karan@skyflo.ai"
 
 [project.optional-dependencies]
-default = ["pytest>=8.0.2", "pytest-cov>=4.1.0", "pytest-asyncio>=0.23.5", "pytest-mock>=3.12.0", "pytest-env>=1.1.3", "mypy>=1.8.0", "black>=24.2.0", "ruff>=0.3.0"]
+default = ["pytest>=8.0.2", "pytest-cov>=4.1.0", "pytest-asyncio>=0.23.5", "pytest-mock>=3.12.0", "pytest-env>=1.1.3", "mypy>=1.8.0", "ruff>=0.3.0"]
 
 [project.scripts]
 skyflo-engine = "engine.main:run"
@@ -62,13 +62,13 @@ path = "src/api/__about__.py"
 packages = ["src/api"]
 
 [tool.hatch.envs.default]
-dependencies = ["pytest>=8.0.2", "pytest-cov>=4.1.0", "pytest-asyncio>=0.23.5", "pytest-mock>=3.12.0", "pytest-env>=1.1.3", "mypy>=1.8.0", "black>=24.2.0", "ruff>=0.3.0"]
+features = ["default"]
 
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests}"
 test-cov = "pytest --cov {args:src/api}"
-format = "black {args:src/api}"
-lint = "ruff check {args:src/api}"
+format = "ruff format {args:src/api}"
+lint = ["ruff check {args:src/api}", "ruff format --check {args:src/api}"]
 type-check = "mypy --install-types --non-interactive {args:src/api}"
 
 [tool.coverage.run]
@@ -91,23 +91,13 @@ target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "B", "I"]
+select = ["E", "F", "B", "I", "W"]
 ignore = [
     "B008",  # Do not perform function call in argument defaults - standard FastAPI pattern with Depends()
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "src/api/agent/prompts.py" = ["E501"]  # Allow long lines in prompt files
-"src/api/agent/graph.py" = ["E501"]  # Allow long lines in graph error messages
-"src/api/agent/model_node.py" = ["E501"]  # Allow long lines in model node messages
-"src/api/endpoints/agent.py" = ["E501"]  # Allow long lines in endpoint messages
-"src/api/endpoints/conversation.py" = ["E501"]  # Allow long lines in endpoint messages
-"src/api/integrations/jenkins/jenkins.py" = ["E501"]  # Allow long lines in integration messages
-"src/api/services/integrations.py" = ["E501"]  # Allow long lines in integration messages
-
-[tool.black]
-line-length = 100
-target-version = ["py311"]
 
 [tool.aerich]
 tortoise_orm = "src.api.config.database.TORTOISE_ORM_CONFIG"

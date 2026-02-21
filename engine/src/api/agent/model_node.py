@@ -258,9 +258,9 @@ async def run_model_turn(
                                 and hasattr(tool_call.function, "arguments")
                                 and tool_call.function.arguments
                             ):
-                                tool_calls_buffer[index][
-                                    "arguments"
-                                ] += tool_call.function.arguments
+                                tool_calls_buffer[index]["arguments"] += (
+                                    tool_call.function.arguments
+                                )
 
             except Exception as stream_error:
                 logger.error(f"Error during streaming: {stream_error}")
@@ -390,7 +390,8 @@ async def run_model_turn(
             if retry_count <= max_retries:
                 wait_time = min(60, 2**retry_count)
                 logger.warning(
-                    f"Rate limit hit, retrying in {wait_time}s (attempt {retry_count}/{max_retries})"
+                    f"Rate limit hit, retrying in {wait_time}s "
+                    f"(attempt {retry_count}/{max_retries})"
                 )
 
                 if event_callback:
@@ -415,7 +416,8 @@ async def run_model_turn(
             if _is_transient_error(e) and retry_count <= max_retries:
                 wait_time = min(30, 2**retry_count)
                 logger.warning(
-                    f"Transient error, retrying in {wait_time}s (attempt {retry_count}/{max_retries}): {e}"
+                    f"Transient error, retrying in {wait_time}s "
+                    f"(attempt {retry_count}/{max_retries}): {e}"
                 )
 
                 if event_callback:

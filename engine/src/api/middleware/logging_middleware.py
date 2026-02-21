@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
-
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         request_id = request.headers.get("X-Request-ID", "unknown")
         start_time = time.time()

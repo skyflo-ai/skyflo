@@ -6,9 +6,7 @@ from typing import Optional
 from .models import ToolOutput
 
 
-async def run_command(
-    cmd: str, args: list[str], stdin: Optional[str] = None
-) -> ToolOutput:
+async def run_command(cmd: str, args: list[str], stdin: Optional[str] = None) -> ToolOutput:
     """Run a command and return its output with error status."""
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -18,9 +16,7 @@ async def run_command(
             stderr=asyncio.subprocess.PIPE,
             stdin=asyncio.subprocess.PIPE if stdin is not None else None,
         )
-        stdout, stderr = await proc.communicate(
-            input=stdin.encode() if stdin is not None else None
-        )
+        stdout, stderr = await proc.communicate(input=stdin.encode() if stdin is not None else None)
 
         stdout_text = stdout.decode().strip()
         stderr_text = stderr.decode().strip()
@@ -38,9 +34,7 @@ async def run_command(
             output_text = stderr_text
             error = True
         else:
-            output_text = (
-                "The command was executed successfully, but no output was returned."
-            )
+            output_text = "The command was executed successfully, but no output was returned."
             error = False
 
         return {"output": output_text, "error": error}

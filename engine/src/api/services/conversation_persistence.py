@@ -279,7 +279,6 @@ class ConversationPersistenceService:
                 return
 
     async def build_llm_messages(self, conversation: Conversation) -> List[Dict[str, Any]]:
-
         messages_json: List[Dict[str, Any]] = conversation.messages_json or []
 
         llm_messages: List[Dict[str, Any]] = []

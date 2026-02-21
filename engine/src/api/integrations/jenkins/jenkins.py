@@ -94,7 +94,8 @@ def inject_jenkins_metadata_tool_args(
     if not integration or integration.status == "disabled":
         return (
             args,
-            "Jenkins integration is not configured. Admins can create one via /api/v1/integrations.",
+            "Jenkins integration is not configured. "
+            "Admins can create one via /api/v1/integrations.",
         )
 
     provided = dict(args or {})

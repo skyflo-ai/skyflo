@@ -776,6 +776,41 @@ spec:
       labels:
         app: skyflo-ai-engine
     spec:
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.36
+        command: ['sh', '-c', 'timeout=300; elapsed=0; until nc -z skyflo-ai-postgres 5432; do echo "Waiting for Postgres..."; sleep 2; elapsed=$((elapsed+2)); if [ $elapsed -ge $timeout ]; then echo "Timed out waiting for Postgres"; exit 1; fi; done']
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1002
+          runAsGroup: 1002
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 50m
+            memory: 32Mi
+      - name: wait-for-redis
+        image: busybox:1.36
+        command: ['sh', '-c', 'timeout=300; elapsed=0; until nc -z skyflo-ai-redis 6379; do echo "Waiting for Redis..."; sleep 2; elapsed=$((elapsed+2)); if [ $elapsed -ge $timeout ]; then echo "Timed out waiting for Redis"; exit 1; fi; done']
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1002
+          runAsGroup: 1002
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 50m
+            memory: 32Mi
       containers:
       - name: engine
         image: skyfloaiagent/engine:${VERSION}
@@ -806,7 +841,7 @@ spec:
           httpGet:
             path: /api/v1/health
             port: http
-          initialDelaySeconds: 60
+          initialDelaySeconds: 10
           timeoutSeconds: 5
           periodSeconds: 5
           failureThreshold: 3
@@ -814,7 +849,7 @@ spec:
           httpGet:
             path: /api/v1/health
             port: http
-          initialDelaySeconds: 60
+          initialDelaySeconds: 15
           timeoutSeconds: 5
           periodSeconds: 5
           failureThreshold: 3

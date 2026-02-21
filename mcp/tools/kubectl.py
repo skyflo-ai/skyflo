@@ -17,9 +17,7 @@ async def run_kubectl_command(command: str, stdin: Optional[str] = None) -> Tool
     return await run_command("kubectl", cmd_parts, stdin=stdin)
 
 
-@mcp.tool(
-    title="Get Kubernetes Pod Logs", tags=["k8s"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Get Kubernetes Pod Logs", tags=["k8s"], annotations={"readOnlyHint": True})
 async def k8s_logs(
     pod_name: str = Field(description="The name of the pod to get logs from"),
     namespace: Optional[str] = Field(
@@ -29,13 +27,16 @@ async def k8s_logs(
         default=50, description="The number of lines to get from the logs"
     ),
     container: Optional[str] = Field(
-        default=None, description="The name of the container to get logs from (if pod has multiple containers)"
+        default=None,
+        description="The name of the container to get logs from (if pod has multiple containers)",
     ),
     since: Optional[str] = Field(
-        default=None, description="Only return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to all logs"
+        default=None,
+        description="Only return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to all logs",
     ),
     previous: Optional[bool] = Field(
-        default=False, description="If true, print the logs for the previous instance of the container in a pod if it exists"
+        default=False,
+        description="If true, print the logs for the previous instance of the container in a pod if it exists",
     ),
 ) -> ToolOutput:
     """Get logs from a Kubernetes pod."""
@@ -59,9 +60,7 @@ async def k8s_logs(
     return await run_command("kubectl", cmd_parts)
 
 
-@mcp.tool(
-    title="Get Kubernetes Resources", tags=["k8s"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Get Kubernetes Resources", tags=["k8s"], annotations={"readOnlyHint": True})
 async def k8s_get(
     resource_type: str = Field(
         description="The type of resource to get information about (deployment, service, pod, node, ...)"
@@ -76,11 +75,10 @@ async def k8s_get(
     namespace: Optional[str] = Field(
         default=None, description="The namespace to get resources from"
     ),
-    output: Optional[str] = Field(
-        default=None, description="Output format (wide, yaml, json)"
-    ),
+    output: Optional[str] = Field(default=None, description="Output format (wide, yaml, json)"),
     label_selector: Optional[str] = Field(
-        default=None, description="Label selector to filter resources (e.g., 'app=nginx' or 'tier=frontend,environment=production')"
+        default=None,
+        description="Label selector to filter resources (e.g., 'app=nginx' or 'tier=frontend,environment=production')",
     ),
 ) -> ToolOutput:
     """Get information about Kubernetes resources."""
@@ -132,9 +130,7 @@ async def k8s_describe(
     )
 
 
-@mcp.tool(
-    title="Apply Kubernetes Manifest", tags=["k8s"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Apply Kubernetes Manifest", tags=["k8s"], annotations={"readOnlyHint": False})
 async def k8s_apply(
     content: str = Field(description="The YAML manifest content to apply"),
     namespace: Optional[str] = Field(
@@ -147,9 +143,7 @@ async def k8s_apply(
     )
 
 
-@mcp.tool(
-    title="Patch Kubernetes Resource", tags=["k8s"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Patch Kubernetes Resource", tags=["k8s"], annotations={"readOnlyHint": False})
 async def k8s_patch(
     name: str = Field(description="The name of the resource to patch"),
     resource_type: str = Field(description="The type of resource to patch"),
@@ -183,9 +177,7 @@ async def k8s_set_image(
     container_images: str = Field(
         description="Container image updates in format 'container1=image1,container2=image2'"
     ),
-    namespace: Optional[str] = Field(
-        default=None, description="The namespace of the resource"
-    ),
+    namespace: Optional[str] = Field(default=None, description="The namespace of the resource"),
 ) -> ToolOutput:
     """Update container images for a Kubernetes resource."""
     return await run_kubectl_command(
@@ -210,9 +202,7 @@ async def k8s_rollout_restart(
     )
 
 
-@mcp.tool(
-    title="Scale Kubernetes Resource", tags=["k8s"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Scale Kubernetes Resource", tags=["k8s"], annotations={"readOnlyHint": False})
 async def k8s_scale(
     name: str = Field(description="The name of the resource to scale"),
     resource_type: str = Field(description="The type of resource to scale"),
@@ -289,22 +279,25 @@ async def k8s_rollout_undo(
         default="default", description="The namespace of the resource"
     ),
     to_revision: Optional[int] = Field(
-        default=None, description="The revision number to rollback to. If not specified, rolls back to the previous revision"
+        default=None,
+        description="The revision number to rollback to. If not specified, rolls back to the previous revision",
     ),
 ) -> ToolOutput:
     """Rollback a Kubernetes resource (deployment, daemonset, or statefulset) to a previous or specific revision."""
     valid_resource_types = ["deployment", "daemonset", "statefulset"]
     if resource_type.lower() not in valid_resource_types:
-        raise ValueError(f"Invalid resource_type '{resource_type}'. Must be one of: {', '.join(valid_resource_types)}")
-    
+        raise ValueError(
+            f"Invalid resource_type '{resource_type}'. Must be one of: {', '.join(valid_resource_types)}"
+        )
+
     cmd = f"rollout undo {resource_type.lower()}/{name}"
-    
+
     if namespace:
         cmd += f" -n {namespace}"
-    
+
     if to_revision is not None:
         cmd += f" --to-revision={to_revision}"
-    
+
     return await run_kubectl_command(cmd)
 
 
@@ -322,22 +315,25 @@ async def k8s_rollout_history(
         default="default", description="The namespace of the resource"
     ),
     revision: Optional[int] = Field(
-        default=None, description="Specific revision number to see details for. If not specified, shows all revisions"
+        default=None,
+        description="Specific revision number to see details for. If not specified, shows all revisions",
     ),
 ) -> ToolOutput:
     """View rollout history for a Kubernetes resource (deployment, daemonset, or statefulset)."""
     valid_resource_types = ["deployment", "daemonset", "statefulset"]
     if resource_type.lower() not in valid_resource_types:
-        raise ValueError(f"Invalid resource_type '{resource_type}'. Must be one of: {', '.join(valid_resource_types)}")
-    
+        raise ValueError(
+            f"Invalid resource_type '{resource_type}'. Must be one of: {', '.join(valid_resource_types)}"
+        )
+
     cmd = f"rollout history {resource_type.lower()}/{name}"
-    
+
     if namespace:
         cmd += f" -n {namespace}"
-    
+
     if revision is not None:
         cmd += f" --revision={revision}"
-    
+
     return await run_kubectl_command(cmd)
 
 
@@ -351,9 +347,7 @@ async def k8s_cluster_info() -> ToolOutput:
     return await run_kubectl_command("cluster-info")
 
 
-@mcp.tool(
-    title="Cordon Kubernetes Node", tags=["k8s"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Cordon Kubernetes Node", tags=["k8s"], annotations={"readOnlyHint": False})
 async def k8s_cordon(
     node_name: str = Field(description="The name of the node to cordon"),
 ) -> ToolOutput:
@@ -361,9 +355,7 @@ async def k8s_cordon(
     return await run_kubectl_command(f"cordon {node_name}")
 
 
-@mcp.tool(
-    title="Uncordon Kubernetes Node", tags=["k8s"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Uncordon Kubernetes Node", tags=["k8s"], annotations={"readOnlyHint": False})
 async def k8s_uncordon(
     node_name: str = Field(description="The name of the node to uncordon"),
 ) -> ToolOutput:
@@ -401,9 +393,7 @@ async def k8s_run_pod(
     namespace: Optional[str] = Field(
         default="default", description="The namespace to run the pod in"
     ),
-    command: Optional[str] = Field(
-        default=None, description="The command to run in the pod"
-    ),
+    command: Optional[str] = Field(default=None, description="The command to run in the pod"),
 ) -> ToolOutput:
     """Run a temporary pod in the Kubernetes cluster."""
     args = ["run", name, f"--image={image}"]
@@ -424,9 +414,7 @@ async def k8s_run_pod(
 async def k8s_exec(
     pod_name: str = Field(description="The name of the pod to execute command in"),
     command: str = Field(description="The command to execute inside the pod"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the pod"
-    ),
+    namespace: Optional[str] = Field(default="default", description="The namespace of the pod"),
     container: Optional[str] = Field(
         default=None, description="The container name (if pod has multiple containers)"
     ),
@@ -448,9 +436,7 @@ async def k8s_exec(
     annotations={"readOnlyHint": False},
 )
 async def k8s_port_forward(
-    resource_name: str = Field(
-        description="The name of the resource to port forward to"
-    ),
+    resource_name: str = Field(description="The name of the resource to port forward to"),
     ports: str = Field(description="Port mapping in format 'local_port:remote_port'"),
     namespace: Optional[str] = Field(
         default="default", description="The namespace of the resource"
@@ -460,12 +446,11 @@ async def k8s_port_forward(
     ),
 ) -> ToolOutput:
     """Port forward to a Kubernetes resource."""
-    resource_spec = (
-        f"{resource_type}/{resource_name}" if resource_type != "pod" else resource_name
-    )
+    resource_spec = f"{resource_type}/{resource_name}" if resource_type != "pod" else resource_name
     return await run_kubectl_command(
         f"port-forward {resource_spec} {ports} {f'-n {namespace}' if namespace else ''}"
     )
+
 
 def build_kubectl_top_args(
     resource_type: str,
@@ -479,29 +464,29 @@ def build_kubectl_top_args(
 ) -> list[str]:
     """Build kubectl top command arguments from parameters."""
     args = ["top", resource_type]
-    
+
     if name:
         args.append(name)
-    
+
     if all_namespaces:
         args.append("-A")
     elif namespace:
         args.extend(["-n", namespace])
-    
+
     if containers:
         args.append("--containers")
-    
+
     if no_headers:
         args.append("--no-headers")
-    
+
     if label_selector:
         args.extend(["-l", label_selector])
-    
+
     if sort_by:
         if sort_by not in ["cpu", "memory"]:
             raise ValueError(f"sort_by must be 'cpu' or 'memory', got: {sort_by}")
         args.extend(["--sort-by", sort_by])
-    
+
     return args
 
 
@@ -514,9 +499,7 @@ async def k8s_top_pods(
     pod_name: Optional[str] = Field(
         default=None, description="The name of the pod to get metrics for"
     ),
-    namespace: Optional[str] = Field(
-        default=None, description="The namespace of the pod"
-    ),
+    namespace: Optional[str] = Field(default=None, description="The namespace of the pod"),
     all_namespaces: Optional[bool] = Field(
         default=False, description="Whether to get metrics from all namespaces"
     ),
@@ -526,17 +509,13 @@ async def k8s_top_pods(
     label_selector: Optional[str] = Field(
         default=None, description="Label selector to filter pods"
     ),
-    sort_by: Optional[str] = Field(
-        default=None, description="Sort by 'cpu' or 'memory'"
-    ),
-    no_headers: Optional[bool] = Field(
-        default=False, description="Whether to hide column headers"
-    ),
+    sort_by: Optional[str] = Field(default=None, description="Sort by 'cpu' or 'memory'"),
+    no_headers: Optional[bool] = Field(default=False, description="Whether to hide column headers"),
 ) -> ToolOutput:
     """Get resource usage metrics for Kubernetes pods."""
     if namespace and all_namespaces:
         raise ValueError("namespace and all_namespaces are mutually exclusive")
-    
+
     args = build_kubectl_top_args(
         resource_type="pods",
         name=pod_name,
@@ -560,20 +539,16 @@ async def k8s_top_nodes(
     node_name: Optional[str] = Field(
         default=None, description="The name of the node to get metrics for"
     ),
-    sort_by: Optional[str] = Field(
-        default=None, description="Sort by 'cpu' or 'memory'"
-    ),
+    sort_by: Optional[str] = Field(default=None, description="Sort by 'cpu' or 'memory'"),
     label_selector: Optional[str] = Field(
         default=None, description="Label selector to filter nodes"
     ),
-    no_headers: Optional[bool] = Field(
-        default=False, description="Whether to hide column headers"
-    ),
+    no_headers: Optional[bool] = Field(default=False, description="Whether to hide column headers"),
 ) -> ToolOutput:
     """Get resource usage metrics for Kubernetes nodes."""
     if node_name and label_selector:
         raise ValueError("node_name and label_selector are mutually exclusive")
-    
+
     args = build_kubectl_top_args(
         resource_type="nodes",
         name=node_name,

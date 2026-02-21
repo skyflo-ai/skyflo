@@ -35,14 +35,10 @@ async def argo_list_rollouts(
     return await run_command("kubectl", cmd_parts)
 
 
-@mcp.tool(
-    title="Promote Argo Rollout", tags=["argo"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Promote Argo Rollout", tags=["argo"], annotations={"readOnlyHint": False})
 async def argo_promote(
     name: str = Field(description="The name of the rollout to promote"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the rollout"
-    ),
+    namespace: Optional[str] = Field(default="default", description="The namespace of the rollout"),
     full: Optional[bool] = Field(
         default=False,
         description="Whether to do a full promotion (skip analysis, pauses, and steps)",
@@ -57,14 +53,10 @@ async def argo_promote(
     return await run_argo_command(cmd)
 
 
-@mcp.tool(
-    title="Pause Argo Rollout", tags=["argo"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Pause Argo Rollout", tags=["argo"], annotations={"readOnlyHint": False})
 async def argo_pause_rollout(
     name: str = Field(description="The name of the rollout to pause"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the rollout"
-    ),
+    namespace: Optional[str] = Field(default="default", description="The namespace of the rollout"),
 ) -> ToolOutput:
     """Pause an Argo Rollout."""
     cmd = f"pause {name}"
@@ -73,14 +65,10 @@ async def argo_pause_rollout(
     return await run_argo_command(cmd)
 
 
-@mcp.tool(
-    title="Resume Argo Rollout", tags=["argo"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Resume Argo Rollout", tags=["argo"], annotations={"readOnlyHint": False})
 async def argo_resume_rollout(
     name: str = Field(description="The name of the rollout to resume"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the rollout"
-    ),
+    namespace: Optional[str] = Field(default="default", description="The namespace of the rollout"),
 ) -> ToolOutput:
     """Resume a paused Argo Rollout."""
     cmd = f"resume {name}"
@@ -96,9 +84,7 @@ async def argo_resume_rollout(
 )
 async def argo_abort_rollout(
     name: str = Field(description="The name of the rollout to abort"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the rollout"
-    ),
+    namespace: Optional[str] = Field(default="default", description="The namespace of the rollout"),
 ) -> ToolOutput:
     """Abort an Argo Rollout."""
     cmd = f"abort {name}"
@@ -107,15 +93,11 @@ async def argo_abort_rollout(
     return await run_argo_command(cmd)
 
 
-@mcp.tool(
-    title="Set Argo Rollout Image", tags=["argo"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Set Argo Rollout Image", tags=["argo"], annotations={"readOnlyHint": False})
 async def argo_set_image(
     name: str = Field(description="The name of the rollout to update"),
     image: str = Field(description="The new container image"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the rollout"
-    ),
+    namespace: Optional[str] = Field(default="default", description="The namespace of the rollout"),
     container: Optional[str] = Field(
         default=None,
         description="The name of the container to update (if not specified, will use container=image format)",
@@ -134,14 +116,10 @@ async def argo_set_image(
     return await run_argo_command(cmd)
 
 
-@mcp.tool(
-    title="Restart Argo Rollout", tags=["argo"], annotations={"readOnlyHint": False}
-)
+@mcp.tool(title="Restart Argo Rollout", tags=["argo"], annotations={"readOnlyHint": False})
 async def argo_rollout_restart(
     name: str = Field(description="The name of the rollout to restart"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the rollout"
-    ),
+    namespace: Optional[str] = Field(default="default", description="The namespace of the rollout"),
 ) -> ToolOutput:
     """Restart an Argo Rollout."""
     cmd = f"restart {name}"
@@ -150,14 +128,10 @@ async def argo_rollout_restart(
     return await run_argo_command(cmd)
 
 
-@mcp.tool(
-    title="Get Argo Rollout Status", tags=["argo"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Get Argo Rollout Status", tags=["argo"], annotations={"readOnlyHint": True})
 async def argo_status(
     name: str = Field(description="The name of the rollout to check status"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the rollout"
-    ),
+    namespace: Optional[str] = Field(default="default", description="The namespace of the rollout"),
     watch: Optional[bool] = Field(
         default=False, description="Whether to watch the status continuously"
     ),
@@ -171,14 +145,10 @@ async def argo_status(
     return await run_argo_command(cmd)
 
 
-@mcp.tool(
-    title="Get Argo Rollout History", tags=["argo"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Get Argo Rollout History", tags=["argo"], annotations={"readOnlyHint": True})
 async def argo_history(
     name: str = Field(description="The name of the rollout to get history for"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the rollout"
-    ),
+    namespace: Optional[str] = Field(default="default", description="The namespace of the rollout"),
     revision: Optional[int] = Field(
         default=None, description="Show details for a specific revision"
     ),
@@ -199,9 +169,7 @@ async def argo_history(
 )
 async def argo_undo(
     name: str = Field(description="The name of the rollout to undo"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the rollout"
-    ),
+    namespace: Optional[str] = Field(default="default", description="The namespace of the rollout"),
     to_revision: Optional[int] = Field(
         default=None,
         description="The revision to rollback to (if not specified, will rollback to previous revision)",
@@ -216,14 +184,10 @@ async def argo_undo(
     return await run_argo_command(cmd)
 
 
-@mcp.tool(
-    title="Describe Argo Rollout", tags=["argo"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="Describe Argo Rollout", tags=["argo"], annotations={"readOnlyHint": True})
 async def argo_describe(
     name: str = Field(description="The name of the rollout to describe"),
-    namespace: Optional[str] = Field(
-        default="default", description="The namespace of the rollout"
-    ),
+    namespace: Optional[str] = Field(default="default", description="The namespace of the rollout"),
 ) -> ToolOutput:
     """Describe an Argo Rollout in detail."""
     # Use kubectl describe for rollouts
@@ -233,9 +197,7 @@ async def argo_describe(
     return await run_command("kubectl", cmd.split())
 
 
-@mcp.tool(
-    title="List Argo Experiments", tags=["argo"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="List Argo Experiments", tags=["argo"], annotations={"readOnlyHint": True})
 async def argo_list_experiments(
     rollout_name: Optional[str] = Field(
         default=None,
@@ -289,9 +251,7 @@ async def argo_list_experiments(
     return await run_command("kubectl", cmd_parts)
 
 
-@mcp.tool(
-    title="List Argo Analysis Runs", tags=["argo"], annotations={"readOnlyHint": True}
-)
+@mcp.tool(title="List Argo Analysis Runs", tags=["argo"], annotations={"readOnlyHint": True})
 async def argo_list_analysisruns(
     namespace: Optional[str] = Field(
         default="default", description="The namespace to get analysis runs from"

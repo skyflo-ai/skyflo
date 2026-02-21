@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -19,24 +20,25 @@ from ..config import settings
 from ..models.refresh_token import RefreshToken
 from ..models.user import User, UserCreate, UserUpdate
 
+logger = logging.getLogger(__name__)
+
 
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
-
     reset_password_token_secret = settings.JWT_SECRET
     verification_token_secret = settings.JWT_SECRET
 
     async def on_after_register(self, user: User, request: Optional[Request] = None) -> None:
-        print(f"User {user.id} has registered.")
+        logger.info(f"User {user.id} has registered.")
 
     async def on_after_forgot_password(
         self, user: User, token: str, request: Optional[Request] = None
     ) -> None:
-        print(f"User {user.id} has forgot their password. Reset token: {token}")
+        logger.info(f"User {user.id} requested a password reset.")
 
     async def on_after_request_verify(
         self, user: User, token: str, request: Optional[Request] = None
     ) -> None:
-        print(f"Verification requested for user {user.id}. Verification token: {token}")
+        logger.info(f"Verification requested for user {user.id}.")
 
     async def get_by_email(self, email: str) -> Optional[User]:
         return await User.get_or_none(email=email)
@@ -178,9 +180,7 @@ async def create_refresh_token(user: User) -> str:
 
 async def get_valid_refresh_token(token: str) -> Optional[RefreshToken]:
     token_hash = _hash_refresh_token(token)
-    refresh_token = await RefreshToken.get_or_none(token_hash=token_hash).prefetch_related(
-        "user"
-    )
+    refresh_token = await RefreshToken.get_or_none(token_hash=token_hash).prefetch_related("user")
     if not refresh_token:
         return None
     if refresh_token.revoked_at is not None:

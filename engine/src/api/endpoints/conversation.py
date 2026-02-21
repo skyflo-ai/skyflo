@@ -67,7 +67,10 @@ async def create_conversation(
             await Message.create(
                 conversation=conversation,
                 role="system",
-                content="Welcome to Skyflo.ai! How can I help you with your Kubernetes infrastructure today?",
+                content=(
+                    "Welcome to Skyflo.ai! How can I help you "
+                    "with your Kubernetes infrastructure today?"
+                ),
                 sequence=1,
             )
 

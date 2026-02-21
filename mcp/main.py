@@ -15,18 +15,12 @@ def main():
     parser = argparse.ArgumentParser(
         description="Skyflo.ai MCP Server for cloud-native operations through natural language"
     )
-    parser.add_argument(
-        "--port", type=int, default=8888, help="Port to run the server on"
-    )
-    parser.add_argument(
-        "--host", type=str, default="0.0.0.0", help="Host to bind the server to"
-    )
+    parser.add_argument("--port", type=int, default=8888, help="Port to run the server on")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind the server to")
 
     args = parser.parse_args()
 
-    logger.info(
-        f"Starting Skyflo.ai MCP Server on {args.host}:{args.port} with HTTP transport"
-    )
+    logger.info(f"Starting Skyflo.ai MCP Server on {args.host}:{args.port} with HTTP transport")
     mcp.run(transport="http", host=args.host, port=args.port)
 
 
