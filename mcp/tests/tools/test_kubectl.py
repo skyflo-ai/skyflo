@@ -186,7 +186,7 @@ class TestK8sPatch:
             mock_run_command.return_value = {"output": "patched", "error": False}
 
             patch_json = '{"spec": {"replicas": 3}}'
-            await k8s_patch.fn(
+            await k8s_patch(
                 name="nginx",
                 resource_type="deployment",
                 patch=patch_json,
@@ -214,7 +214,7 @@ class TestK8sPatch:
         with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run_command:
             mock_run_command.return_value = {"output": "patched", "error": False}
 
-            await k8s_patch.fn(
+            await k8s_patch(
                 name="nginx",
                 resource_type="deployment",
                 patch='{"spec": {"replicas": 5}}',
@@ -244,7 +244,7 @@ class TestK8sExec:
         with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run_command:
             mock_run_command.return_value = {"output": "output", "error": False}
 
-            await k8s_exec.fn(pod_name="nginx-pod", command="ls -la /tmp", namespace="default")
+            await k8s_exec(pod_name="nginx-pod", command="ls -la /tmp", namespace="default")
 
             mock_run_command.assert_called_once_with(
                 "kubectl", ["exec", "nginx-pod", "-n", "default", "--", "ls", "-la", "/tmp"]
@@ -256,7 +256,7 @@ class TestK8sExec:
         with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run_command:
             mock_run_command.return_value = {"output": "output", "error": False}
 
-            await k8s_exec.fn(
+            await k8s_exec(
                 pod_name="nginx-pod",
                 command="cat /etc/nginx/nginx.conf",
                 namespace="web",
@@ -288,7 +288,7 @@ class TestK8sRunPod:
         with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run_command:
             mock_run_command.return_value = {"output": "output", "error": False}
 
-            await k8s_run_pod.fn(
+            await k8s_run_pod(
                 name="debug-pod", image="busybox", namespace="default", command="sleep 3600"
             )
 
@@ -313,7 +313,7 @@ class TestK8sRunPod:
         with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run_command:
             mock_run_command.return_value = {"output": "output", "error": False}
 
-            await k8s_run_pod.fn(name="nginx-pod", image="nginx:latest", namespace="web")
+            await k8s_run_pod(name="nginx-pod", image="nginx:latest", namespace="web")
 
             mock_run_command.assert_called_once_with(
                 "kubectl", ["run", "nginx-pod", "--image=nginx:latest", "-n", "web"]
@@ -329,7 +329,7 @@ class TestK8sGet:
         with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run_command:
             mock_run_command.return_value = {"output": "output", "error": False}
 
-            await k8s_get.fn(
+            await k8s_get(
                 resource_type="pods", label_selector="app in (nginx, apache)", namespace="default"
             )
 
@@ -343,9 +343,7 @@ class TestK8sGet:
         with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run_command:
             mock_run_command.return_value = {"output": "output", "error": False}
 
-            await k8s_get.fn(
-                resource_type="deployments", name="nginx", namespace="web", output="yaml"
-            )
+            await k8s_get(resource_type="deployments", name="nginx", namespace="web", output="yaml")
 
             mock_run_command.assert_called_once_with(
                 "kubectl", ["get", "deployments", "nginx", "-n", "web", "-o", "yaml"]
@@ -357,6 +355,6 @@ class TestK8sGet:
         with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run_command:
             mock_run_command.return_value = {"output": "output", "error": False}
 
-            await k8s_get.fn(resource_type="pods", all_namespaces=True)
+            await k8s_get(resource_type="pods", all_namespaces=True)
 
             mock_run_command.assert_called_once_with("kubectl", ["get", "pods", "-A"])

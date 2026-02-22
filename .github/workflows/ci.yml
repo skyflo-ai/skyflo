@@ -36,26 +36,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.11"
-          cache: "pip"
 
-      - name: Install Hatch
-        run: python -m pip install --upgrade pip hatch
+      - name: Verify lockfile is up-to-date
+        working-directory: mcp
+        run: uv lock --check
+
+      - name: Install dependencies
+        working-directory: mcp
+        run: uv sync --frozen --extra dev
 
       - name: Lint
         working-directory: mcp
-        run: hatch run lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
 
       - name: Type check
         working-directory: mcp
-        run: hatch run type-check
+        run: uv run mypy main.py config/ utils/
 
       - name: Tests
         working-directory: mcp
-        run: hatch run test
+        run: uv run pytest tests
 
   ui:
     runs-on: ubuntu-latest

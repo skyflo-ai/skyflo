@@ -48,25 +48,22 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 pip install uv
 ```
 
-2. Prepare your environment:
+2. Install dependencies:
 
 ```console
 # Navigate to the mcp directory
 cd mcp
 
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Unix or MacOS
-.venv\Scripts\activate     # On Windows
+uv sync --extra dev
 
-# Install the package
-uv pip install -e .
+# To replicate the CI environment:
+uv sync --frozen --extra dev
 ```
 
 3. Start the server:
 
 ```console
-# Start with HTTP transport (recommended - respects uv.lock for reproducible builds)
+# Start with HTTP transport
 uv run python main.py --host 0.0.0.0 --port 8888
 ```
 
@@ -74,16 +71,14 @@ The server uses Streamable HTTP transport and provides MCP (Model Communication 
 
 ## Development Commands
 
-**Note:** Development commands require [Hatch](https://hatch.pypa.io/). Install via `pip install hatch` or `pipx install hatch`.
-
 | Command | Description |
 | --- | --- |
 | `uv run python main.py` | Start development server |
-| `hatch run lint` | Run Ruff linter to check for code issues |
-| `hatch run format` | Format code with Black |
-| `hatch run test` | Run tests with pytest |
-| `hatch run test-cov` | Run tests with coverage report |
-| `hatch run type-check` | Run mypy for type checking |
+| `uv run ruff check .` | Run Ruff linter to check for code issues |
+| `uv run ruff format .` | Format code with Ruff |
+| `uv run pytest tests` | Run tests with pytest |
+| `uv run pytest --cov tests` | Run tests with coverage report |
+| `uv run mypy --install-types --non-interactive main.py config/ utils/` | Run mypy for type checking |
 
 ## FastMCP Configuration
 
