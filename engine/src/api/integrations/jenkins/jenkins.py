@@ -1,6 +1,6 @@
 from copy import deepcopy
-from typing import Dict, List, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 def build_jenkins_secret_yaml(name: str, namespace: str, creds: Dict[str, str]) -> str:
@@ -94,7 +94,8 @@ def inject_jenkins_metadata_tool_args(
     if not integration or integration.status == "disabled":
         return (
             args,
-            "Jenkins integration is not configured. Admins can create one via /api/v1/integrations.",
+            "Jenkins integration is not configured. "
+            "Admins can create one via /api/v1/integrations.",
         )
 
     provided = dict(args or {})

@@ -1,22 +1,22 @@
-from .user import User
-from .conversation import Conversation, Message
-from .integration import Integration
-
-from .user import UserCreate, UserRead, UserUpdate, UserDB
 from .conversation import (
+    Conversation,
     ConversationCreate,
     ConversationRead,
     ConversationUpdate,
+    Message,
     MessageCreate,
     MessageRead,
 )
-from .integration import IntegrationCreate, IntegrationRead, IntegrationUpdate
+from .integration import Integration, IntegrationCreate, IntegrationRead, IntegrationUpdate
+from .refresh_token import RefreshToken
+from .user import User, UserCreate, UserDB, UserRead, UserUpdate
 
 __all__ = [
     "User",
     "Conversation",
     "Message",
     "Integration",
+    "RefreshToken",
     "UserCreate",
     "UserRead",
     "UserUpdate",

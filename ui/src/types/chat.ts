@@ -42,6 +42,7 @@ export interface ChatMessage {
   timestamp: number;
   isStreaming?: boolean;
   segments?: MessageSegment[];
+  tokenUsage?: TokenUsage;
 }
 
 export interface ChatState {
@@ -59,13 +60,6 @@ export interface ChatInterfaceProps {
   initialMessage?: string;
 }
 
-export interface ChatMessagesProps {
-  messages: ChatMessage[];
-  currentMessage?: ChatMessage | null;
-  toolExecutions: ToolExecution[];
-  isStreaming: boolean;
-}
-
 export interface ToolVisualizationProps {
   toolExecution: ToolExecution;
   isExpanded?: boolean;
@@ -80,10 +74,21 @@ export interface ChatInputProps {
   isStreaming: boolean;
   hasMessages?: boolean;
   onCancel?: () => void;
+  tokenUsage?: TokenUsage;
 }
 
 export interface Suggestion {
   text: string;
   category: string;
   icon: React.ComponentType<any>;
+}
+
+export interface TokenUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cached_tokens: number;
+  ttft?: number;
+  ttr?: number;
+  total_generation_ms?: number;
 }

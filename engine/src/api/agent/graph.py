@@ -1,21 +1,21 @@
 import logging
 import time
-from typing import Any, Dict, Literal, Optional, Callable, Awaitable
-from ..utils.clock import now_ms
+from typing import Any, Awaitable, Callable, Dict, Literal, Optional
 
-from langgraph.graph import StateGraph, START, END
-from langgraph.errors import GraphRecursionError
-from ..services.checkpointer import get_checkpointer
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.errors import GraphRecursionError
+from langgraph.graph import END, START, StateGraph
 
-from .state import AgentState
-from .model_node import ModelNode
-from ..services.tool_executor import ToolExecutor
-from ..services.mcp_client import MCPClient
-from ..services.approvals import ApprovalService
 from ..config import settings
-from ..utils.helpers import get_state_value
+from ..services.approvals import ApprovalService
+from ..services.checkpointer import get_checkpointer
+from ..services.mcp_client import MCPClient
 from ..services.stop_service import clear_stop
+from ..services.tool_executor import ToolExecutor
+from ..utils.clock import now_ms
+from ..utils.helpers import get_state_value
+from .model_node import ModelNode
+from .state import AgentState
 from .stop import StopRequested, check_stop
 
 logger = logging.getLogger(__name__)
@@ -23,17 +23,10 @@ logger = logging.getLogger(__name__)
 EventCallback = Callable[[Dict[str, Any]], Awaitable[None]]
 
 
-async def _check_stop(state: Dict[str, Any]) -> None:
-    await check_stop(state)
-
-
 def route_after_model(state: Dict[str, Any]) -> Literal["gate", "model", "final"]:
     pending_tools = get_state_value(state, "pending_tools", [])
 
     if pending_tools:
-        tool_names = [
-            tool.get("name", "unknown") for tool in pending_tools if isinstance(tool, dict)
-        ]
         return "gate"
 
     auto_turns = get_state_value(state, "auto_continue_turns", 0)
@@ -64,7 +57,7 @@ class WorkflowGraph:
         self.event_callback = event_callback
 
         self.approval_service = ApprovalService()
-        self.mcp_client = MCPClient(event_callback=self.event_callback)
+        self.mcp_client = MCPClient()
         self.tool_executor = ToolExecutor(
             approvals=self.approval_service,
             sse_publish=self.event_callback,
@@ -109,7 +102,8 @@ class WorkflowGraph:
                 checkpointer = get_checkpointer()
             except Exception as e:
                 logger.warning(
-                    f"Failed to get shared checkpointer: {e}. Falling back to in-memory checkpointer"
+                    f"Failed to get shared checkpointer: {e}. "
+                    f"Falling back to in-memory checkpointer"
                 )
                 checkpointer = None
 
@@ -127,14 +121,15 @@ class WorkflowGraph:
             self.compiled_graph = await self._compile_graph()
 
     async def _entry_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        await _check_stop(state)
+        await check_stop(state)
+        updates = {"ttft_emitted": False}
         if get_state_value(state, "awaiting_approval", False):
-            return {"awaiting_approval": False}
-        return {}
+            updates["awaiting_approval"] = False
+        return updates
 
     async def _model_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            await _check_stop(state)
+            await check_stop(state)
             result = await self.model_node(state)
 
             updated_state = {}
@@ -144,16 +139,20 @@ class WorkflowGraph:
                 updated_state["pending_tools"] = result["pending_tools"]
             if "error" in result:
                 updated_state["error"] = result["error"]
+            if "ttft_emitted" in result:
+                updated_state["ttft_emitted"] = result["ttft_emitted"]
 
             return updated_state
 
+        except StopRequested:
+            raise
         except Exception as e:
             logger.exception(f"Error in model node: {str(e)}")
             return {"error": str(e)}
 
     async def _gate_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            await _check_stop(state)
+            await check_stop(state)
 
             pending_tools = get_state_value(state, "pending_tools", [])
             if not pending_tools:
@@ -245,7 +244,7 @@ class WorkflowGraph:
                     }
                     tool_messages.append(tool_message)
 
-                except ToolExecutor.ApprovalPending as awaiting:
+                except ToolExecutor.ApprovalPending:
                     remaining_tools = pending_tools[idx:]
                     return {
                         "messages": tool_messages,
@@ -255,15 +254,14 @@ class WorkflowGraph:
                         "suppress_pending_event": False,
                     }
                 except Exception as tool_error:
-                    logger.exception(
-                        f"Error executing tool {tool_call.get('name', 'unknown')}: {str(tool_error)}"
-                    )
+                    err_tool = tool_call.get("name", "unknown")
+                    logger.exception(f"Error executing tool {err_tool}: {tool_error}")
 
                     error_message = {
                         "role": "tool",
                         "tool_call_id": tool_call.get("id"),
-                        "name": tool_call.get("name", "system"),
-                        "content": f"Error executing tool {tool_call.get('name', 'unknown')}: {str(tool_error)}",
+                        "name": err_tool,
+                        "content": f"Error executing tool {err_tool}: {tool_error}",
                     }
                     tool_messages.append(error_message)
 
@@ -294,6 +292,7 @@ class WorkflowGraph:
         end_time = time.time()
         start_time = get_state_value(state, "start_time", end_time)
         duration = end_time - start_time
+        duration_ms = int(duration * 1000)
 
         if self.event_callback:
             await self.event_callback(
@@ -302,6 +301,7 @@ class WorkflowGraph:
                     "status": "completed",
                     "run_id": get_state_value(state, "run_id"),
                     "duration": duration,
+                    "duration_ms": duration_ms,
                 }
             )
 
@@ -320,7 +320,7 @@ class WorkflowGraph:
                 current_time = time.time()
 
                 if hasattr(initial_state, "start_time"):
-                    setattr(initial_state, "start_time", current_time)
+                    initial_state.start_time = current_time
                 elif hasattr(initial_state, "__setitem__"):
                     initial_state["start_time"] = current_time
 
@@ -337,12 +337,19 @@ class WorkflowGraph:
                 result = await self.compiled_graph.ainvoke(initial_state, **kwargs)
                 return result
             except StopRequested:
+                end_time = time.time()
+                start_time = get_state_value(initial_state, "start_time", end_time)
+                duration = end_time - start_time
+                duration_ms = int(duration * 1000)
+
                 if self.event_callback:
                     await self.event_callback(
                         {
                             "type": "completed",
                             "status": "stopped",
                             "run_id": get_state_value(initial_state, "run_id"),
+                            "duration": duration,
+                            "duration_ms": duration_ms,
                         }
                     )
                 try:
@@ -356,7 +363,13 @@ class WorkflowGraph:
                         {
                             "type": "workflow.error",
                             "run_id": get_state_value(initial_state, "run_id"),
-                            "error": f"The AI Agent has reached the maximum number of iterations of {settings.LLM_MAX_ITERATIONS} for the current prompt. You can continue the conversation. If you want to update the max iterations, update the LLM_MAX_ITERATIONS environment variable.",
+                            "error": (
+                                f"The AI Agent has reached the maximum number of iterations "
+                                f"of {settings.LLM_MAX_ITERATIONS} for the current prompt. "
+                                f"You can continue the conversation. If you want to update "
+                                f"the max iterations, update the LLM_MAX_ITERATIONS "
+                                f"environment variable."
+                            ),
                         }
                     )
             except Exception as e:
@@ -365,7 +378,9 @@ class WorkflowGraph:
                         {
                             "type": "workflow.error",
                             "run_id": get_state_value(initial_state, "run_id"),
-                            "error": f"An unknown error occurred while executing the workflow: {str(e)}",
+                            "error": (
+                                f"An unknown error occurred while executing the workflow: {e}"
+                            ),
                         }
                     )
 
@@ -375,7 +390,7 @@ class WorkflowGraph:
                     {
                         "type": "workflow.error",
                         "run_id": get_state_value(initial_state, "run_id"),
-                        "error": f"An unknown error occurred while executing the workflow: {str(e)}",
+                        "error": f"An unknown error occurred while executing the workflow: {e}",
                     }
                 )
 
@@ -383,8 +398,6 @@ class WorkflowGraph:
         try:
             await self.tool_executor.close()
             await self.approval_service.close()
-            if hasattr(self, "mcp_client") and self.mcp_client:
-                await self.mcp_client.close()
 
             if self.checkpointer and hasattr(self.checkpointer, "aclose"):
                 await self.checkpointer.aclose()

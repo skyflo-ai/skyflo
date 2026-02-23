@@ -1,10 +1,8 @@
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
 from fastapi import APIRouter
 from tortoise import Tortoise
-
-from api.__about__ import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +13,6 @@ router = APIRouter()
 async def health_check() -> Dict[str, Any]:
     return {
         "status": "ok",
-        "version": __version__,
     }
 
 

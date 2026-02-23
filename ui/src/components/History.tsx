@@ -128,22 +128,23 @@ export default function History() {
   const { execute: debouncedSearch } = useDebouncedFunction(handleSearch, 400);
 
   const handleRefresh = useCallback(() => {
+    const trimmedSearch = searchQuery.trim();
+    const currentSearchTerm = trimmedSearch.length < 2 ? "" : trimmedSearch;
+    activeSearchTermRef.current = currentSearchTerm;
     setConversations([]);
     setNextCursor(null);
     setHasMore(true);
     setOpenMenuId(null);
-    setSearchQuery("");
-    activeSearchTermRef.current = "";
     setTimeout(() => {
       if (fetchConversationsRef.current) {
         fetchConversationsRef.current({
           nextCursor: null,
-          searchTerm: "",
+          searchTerm: currentSearchTerm,
           shouldReset: true,
         });
       }
     });
-  }, []);
+  }, [searchQuery]);
 
   const handleMenuToggle = (
     conversationId: string,
@@ -263,9 +264,12 @@ export default function History() {
           hasMore &&
           fetchConversationsRef.current
         ) {
+          const trimmedSearch = searchQuery.trim();
+          const currentSearchTerm =
+            trimmedSearch.length < 2 ? "" : trimmedSearch;
           fetchConversationsRef.current({
             nextCursor,
-            searchTerm: searchQuery.trim(),
+            searchTerm: currentSearchTerm,
             shouldReset: false,
           });
         }

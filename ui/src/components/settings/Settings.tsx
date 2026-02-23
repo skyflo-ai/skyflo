@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
 import TeamSettings from "./TeamSettings";
 import ProfileSettings from "./ProfileSettings";
 import { User } from "@/types/auth";
 import { motion } from "framer-motion";
 import { MdError } from "react-icons/md";
-import { IoSettingsOutline } from "react-icons/io5";
 
 const fadeInVariants = {
   hidden: { opacity: 0 },

@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { AiOutlineStop } from "react-icons/ai";
 
-import { MdAccessTime, MdDoneAll, MdClose } from "react-icons/md";
+import { MdAccessTime, MdDoneAll } from "react-icons/md";
 import { cn } from "@/lib/utils";
 
 interface PendingApprovalsBarProps {

@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { User, AuthState } from "@/types/auth";
 
 interface AuthStore extends AuthState {
-  login: (user: User, token: string) => void;
+  login: (user: User, token: string | null) => void;
   logout: () => void;
   setLoading: (isLoading: boolean) => void;
 }
@@ -16,10 +16,10 @@ export const useAuthStore = create<AuthStore>()(
       isLoading: false,
       isAuthenticated: false,
 
-      login: (user: User, token: string) =>
+      login: (user: User, token: string | null) =>
         set({
           user,
-          token,
+          token: token || null,
           isAuthenticated: true,
           isLoading: false,
         }),
@@ -39,8 +39,11 @@ export const useAuthStore = create<AuthStore>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
-        token: state.token,
-        isAuthenticated: state.isAuthenticated,
+      }),
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...(persistedState as Partial<AuthStore>),
+        isAuthenticated: !!(persistedState as Partial<AuthStore>)?.user,
       }),
     }
   )

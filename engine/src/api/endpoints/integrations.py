@@ -3,21 +3,12 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ..config import rate_limit_dependency
-from ..models.integration import IntegrationRead, IntegrationCreate, IntegrationUpdate
-from ..services.integrations import IntegrationService
-from ..services.auth import current_active_user
+from ..models.integration import IntegrationCreate, IntegrationRead, IntegrationUpdate
 from ..models.user import User
+from ..services.auth import current_active_user, verify_admin_role
+from ..services.integrations import IntegrationService
 
 router = APIRouter()
-
-
-async def verify_admin_role(user: User = Depends(current_active_user)) -> User:
-    if user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can perform this action",
-        )
-    return user
 
 
 @router.post("/", response_model=IntegrationRead, dependencies=[rate_limit_dependency])
@@ -33,12 +24,12 @@ async def create_integration(payload: IntegrationCreate, user: User = Depends(ve
         )
         return IntegrationRead.model_validate(created)
     except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create integration: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/", response_model=List[IntegrationRead], dependencies=[rate_limit_dependency])
@@ -53,7 +44,7 @@ async def list_integrations(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to list integrations: {str(e)}",
-        )
+        ) from e
 
 
 @router.patch(
@@ -76,7 +67,7 @@ async def update_integration(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update integration: {str(e)}",
-        )
+        ) from e
 
 
 @router.delete(
@@ -96,4 +87,4 @@ async def delete_integration(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete integration: {str(e)}",
-        )
+        ) from e

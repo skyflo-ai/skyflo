@@ -243,6 +243,8 @@ class ConversationPersistenceService:
                 self._message.token_usage = assistant["token_usage"]
                 await self._message.save()
 
+        await conversation.update_from_dict({"messages_json": messages}).save()
+
     async def append_tool_segment(
         self, conversation_id: str, tool_execution: Dict[str, Any], timestamp: int
     ) -> None:
@@ -325,7 +327,6 @@ class ConversationPersistenceService:
                 return
 
     async def build_llm_messages(self, conversation: Conversation) -> List[Dict[str, Any]]:
-
         messages_json: List[Dict[str, Any]] = conversation.messages_json or []
 
         llm_messages: List[Dict[str, Any]] = []

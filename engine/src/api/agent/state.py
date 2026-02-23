@@ -1,7 +1,8 @@
+import operator
 import time
 import uuid
-import operator
-from typing import Any, Dict, List, Optional, Annotated
+from typing import Annotated, Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -21,6 +22,7 @@ class AgentState(BaseModel):
     auto_continue_turns: int = 0
     awaiting_approval: bool = False
     suppress_pending_event: bool = False
+    ttft_emitted: bool = False
     approval_decisions: Dict[str, bool] = Field(default_factory=dict)
 
     class Config:

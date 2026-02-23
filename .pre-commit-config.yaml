@@ -1,0 +1,26 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.14
+    hooks:
+      - id: ruff
+        name: ruff lint
+        files: ^(engine|mcp)/
+      - id: ruff-format
+        name: ruff format
+        files: ^(engine|mcp)/
+  - repo: local
+    hooks:
+      - id: ui-lint
+        name: ui lint
+        entry: yarn --cwd ui lint
+        language: system
+        files: ^ui/
+        types_or: [javascript, jsx, ts, tsx]
+        pass_filenames: false
+      - id: mcp-test
+        name: mcp test
+        entry: bash -c 'cd mcp && hatch run test'
+        language: system
+        files: ^mcp/
+        pass_filenames: false
+        stages: [manual]

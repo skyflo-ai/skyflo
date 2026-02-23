@@ -1,6 +1,6 @@
 # MCP Server for Skyflo.ai
 
-This is the MCP server for Skyflo.ai. It unifies Kubernetes (kubectl, Argo Rollouts, Helm) and CI/CD systems (starting with Jenkins) behind a FastMCP server, enabling natural-language execution by the [Engine](../engine) with integration-aware tool discovery, and secure credential resolution over HTTP or SSE.
+This is the MCP server for Skyflo.ai. It unifies Kubernetes (kubectl, Argo Rollouts, Helm) and CI/CD systems (starting with Jenkins) behind a FastMCP server, enabling natural-language execution by the [Engine](../engine) with integration-aware tool discovery, and secure credential resolution over HTTP via Streamable HTTP transport.
 
 ## Architecture
 
@@ -15,7 +15,7 @@ The FastMCP server serves as the core tool execution engine:
 - Implements safety mechanisms and validation checks
 - Handles both synchronous and asynchronous operations
 - Supports comprehensive tool documentation and metadata
-- Built-in HTTP and SSE transport support
+- Built-in Streamable HTTP transport support
 - Automatic tool discovery and registration
 
 ## Features
@@ -48,32 +48,41 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 pip install uv
 ```
 
-2. Prepare your environment:
+2. Install dependencies:
 
 ```console
 # Navigate to the mcp directory
 cd mcp
 
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Unix or MacOS
-.venv\Scripts\activate     # On Windows
+uv sync --extra dev
 
-# Install the package
-uv pip install -e .
+# To replicate the CI environment:
+uv sync --frozen --extra dev
 ```
 
 3. Start the server:
 
 ```console
-# Start with HTTP transport (default)
+# Start with HTTP transport
 uv run python main.py --host 0.0.0.0 --port 8888
-
-# Or start with SSE transport
-uv run python main.py --sse --host 0.0.0.0 --port 8888
 ```
 
-The server provides MCP (Model Communication Protocol) interface for AI agents to interact with cloud-native tools.
+The server uses Streamable HTTP transport and provides MCP (Model Communication Protocol) interface for AI agents to interact with cloud-native tools.
+
+## Development Commands
+
+| Command | Description |
+| --- | --- |
+| `uv run python main.py` | Start development server |
+| `uv run ruff check .` | Run Ruff linter to check for code issues |
+| `uv run ruff format .` | Format code with Ruff |
+| `uv run pytest tests` | Run tests with pytest |
+| `uv run pytest --cov tests` | Run tests with coverage report |
+| `uv run mypy --install-types --non-interactive main.py config/ utils/` | Run mypy for type checking |
+
+## FastMCP Configuration
+
+This project includes a `fastmcp.json` for MCP client integrations and dependency metadata. It defines the server entrypoint and required Python dependencies without embedding them in code.
 
 ## Testing
 

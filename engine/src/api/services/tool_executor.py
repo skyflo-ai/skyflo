@@ -3,14 +3,14 @@ import logging
 import uuid
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from .tools_cache import ToolsCache
-from .approvals import ApprovalService
-from .mcp_client import MCPClient
-from .integrations import IntegrationService
 from ..config import settings
-from ..utils.sanitization import mcp_tools_to_openai_format
 from ..integrations.jenkins import filter_jenkins_tools, inject_jenkins_metadata_tool_args
 from ..utils.clock import now_ms
+from ..utils.sanitization import mcp_tools_to_openai_format
+from .approvals import ApprovalService
+from .integrations import IntegrationService
+from .mcp_client import MCPClient
+from .tools_cache import ToolsCache
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +25,14 @@ class ToolExecutor:
         sse_publish: Optional[EventCallback] = None,
         mcp_client: Optional[MCPClient] = None,
         owns_client: bool = True,
+        tools_cache: Optional[ToolsCache] = None,
     ):
         self.mcp_url = settings.MCP_SERVER_URL
         self.sse_publish = sse_publish
         self._mcp_client: Optional[MCPClient] = mcp_client
         self._owns_client: bool = owns_client if mcp_client is None else False
 
-        self._tools = ToolsCache()
+        self._tools = tools_cache or ToolsCache()
         self._integrations = (
             IntegrationService(mcp_client=self._mcp_client) if mcp_client else IntegrationService()
         )
@@ -44,7 +45,7 @@ class ToolExecutor:
 
     async def _get_mcp_client(self) -> MCPClient:
         if self._mcp_client is None:
-            self._mcp_client = MCPClient(event_callback=self.sse_publish)
+            self._mcp_client = MCPClient()
             self._owns_client = True
         return self._mcp_client
 
@@ -63,8 +64,6 @@ class ToolExecutor:
             return None
 
     async def close(self) -> None:
-        if self._mcp_client and self._owns_client:
-            await self._mcp_client.close()
         self._mcp_client = None
         await self.approvals.close()
 
@@ -317,7 +316,7 @@ class ToolExecutor:
                         "type": "tool.error",
                         "call_id": call_id,
                         "tool": name,
-                        "title": locals().get("title", name),
+                        "title": locals().get("tool_title", name),
                         "error": str(e),
                         "run_id": run_id,
                         "timestamp": now_ms(),

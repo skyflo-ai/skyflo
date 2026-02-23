@@ -23,7 +23,7 @@ MCP server that exposes standardized cloud-native tools for the Engine to execut
    - Built with FastMCP; single entrypoint registers tools and metadata
    - Tool categories: `kubectl`, `argo` (Rollouts), `helm`, and `jenkins` (CI)
    - Safety checks, validation, and clear parameter docs (Pydantic)
-   - Supports HTTP and SSE transports; automatic tool discovery and registration
+   - Uses FastMCP Streamable HTTP transport for Engine communication; automatic tool discovery and registration
    - Executes commands securely against cluster resources
 
 3. **Command Center** (`/ui`):
@@ -73,6 +73,7 @@ Skyflo.ai employs a graph-based workflow powered by [LangGraph](https://github.c
 - **Tool Execution via MCP**: Standardized tools for `kubectl`, `argo` (Rollouts), and `helm`
 - **Human-in-the-Loop Safety**: Explicit approvals required for WRITE operations
 - **SSE Streaming**: Live tokens, tool progress, and results
+- **Token Usage & Metrics**: Real-time tracking of token consumption, TTFT, and TTR latency
 - **Resource Discovery**: Automatic discovery to ground actions
 - **Multi-stage Operations**: Complex workflows broken into manageable steps
 - **Context-aware Responses**: Maintains conversation history

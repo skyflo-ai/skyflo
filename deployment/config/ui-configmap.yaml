@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skyflo-ui-config
+  namespace: ${NAMESPACE}
+data:
+  NEXT_PUBLIC_APP_NAME: "Skyflo.ai"
+  NODE_ENV: "production"
+  NEXT_PUBLIC_ENABLE_ANALYTICS: "false"
+  NEXT_PUBLIC_ENABLE_FEEDBACK: "false"
+  API_URL: "http://skyflo-ai-engine:8080/api/v1"
+  NEXT_PUBLIC_API_URL: "/api/v1"

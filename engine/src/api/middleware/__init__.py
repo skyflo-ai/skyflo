@@ -2,11 +2,13 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from .logging_middleware import LoggingMiddleware
 
 
 def setup_middleware(app: FastAPI) -> None:
     """Set up all middleware for the application."""
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[

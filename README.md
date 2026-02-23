@@ -11,7 +11,7 @@ Skyflo.ai is your AI co-pilot for Cloud & DevOps that unifies Kubernetes operati
 Install Skyflo.ai in your Kubernetes cluster using a single command:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/deployment/install.sh -o install.sh && chmod +x install.sh && ./install.sh
+curl -fsSL https://skyflo.ai/install.sh | bash
 ```
 
 Skyflo can be configured to use different LLM providers (like OpenAI, Anthropic, Gemini, Groq, etc.), or even use a self-hosted model.

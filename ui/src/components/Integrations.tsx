@@ -337,18 +337,7 @@ export default function Integrations() {
             </div>
           </div>
         ) : (
-          <>
-            {integrations.length === 0 ? (
-              <div className="text-center py-12 px-4">
-                <div className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-8 inline-block">
-                  <h3 className="text-lg font-semibold text-slate-300 mb-2">
-                    No results found
-                  </h3>
-                  <p className="text-slate-400">Try a different search term.</p>
-                </div>
-              </div>
-            ) : null}
-            <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               {integrations.map((integration) => {
                 const providerInfo = getProviderInfo(integration.provider);
 
@@ -441,8 +430,7 @@ export default function Integrations() {
                   </div>
                 );
               })}
-            </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -450,7 +438,7 @@ export default function Integrations() {
       <InputModal
         isOpen={createModal.isOpen}
         onClose={() => setCreateModal({ isOpen: false })}
-        onSubmit={(_formData) => {
+        onSubmit={() => {
           const metadata = { api_url: createApiUrl };
           const credentials = {
             username: createUsername,
@@ -549,13 +537,28 @@ export default function Integrations() {
       <InputModal
         isOpen={editModal.isOpen}
         onClose={() => setEditModal({ isOpen: false, integration: null })}
-        onSubmit={(_formData) => {
+        onSubmit={() => {
           if (!editModal.integration) return;
           const updateData: UpdateIntegrationData = {
             status: editStatus,
-            metadata: { api_url: editApiUrl },
           };
-          const creds: Record<string, any> = {};
+          const { provider, metadata: existingMetadata } = editModal.integration;
+          const trimmedApiUrl = editApiUrl.trim();
+          const providerSupportsApiUrl = provider in PROVIDERS;
+          const shouldIncludeMetadata =
+            trimmedApiUrl.length > 0 ||
+            providerSupportsApiUrl ||
+            Boolean(existingMetadata?.api_url);
+          if (shouldIncludeMetadata) {
+            const metadata: Record<string, string> = {};
+            if (trimmedApiUrl.length > 0 || providerSupportsApiUrl) {
+              metadata.api_url = trimmedApiUrl;
+            } else if (existingMetadata?.api_url) {
+              metadata.api_url = existingMetadata.api_url;
+            }
+            updateData.metadata = metadata;
+          }
+          const creds: Record<string, string> = {};
           if (editUsername.trim()) creds.username = editUsername.trim();
           if (editApiToken.trim()) creds.api_token = editApiToken.trim();
           if (Object.keys(creds).length > 0) updateData.credentials = creds;

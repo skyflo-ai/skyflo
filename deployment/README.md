@@ -8,6 +8,13 @@
 - KinD
 - kubectl
 
+## Configuration Defaults
+
+Non-sensitive defaults are provided via per-service ConfigMaps (Engine, MCP, and UI).
+Sensitive values (API keys, JWT secret, database URLs) are runtime-only and are
+expected to be supplied during installation via `install.sh`. This is a
+temporary model until a secure UI-based installer provisions Kubernetes Secrets.
+
 ## Setup KinD Cluster
 
 ```bash

@@ -103,11 +103,24 @@ docker compose -f deployment/local.docker-compose.yaml up -d
 ### Run the Engine
 
 ```bash
-source .venv/bin/activate
-uvicorn api.asgi:app --host 0.0.0.0 --port 8080 --reload
+# Using uv (recommended - respects uv.lock for reproducible builds)
+uv run uvicorn src.api.asgi:app --host 0.0.0.0 --port 8080 --reload
 ```
 
 Service will be available at `http://localhost:8080`.
+
+## Development Commands
+
+**Note:** Development commands require [Hatch](https://hatch.pypa.io/). Install via `pip install hatch` or `pipx install hatch`.
+
+| Command | Description |
+| ------- | ----------- |
+| `uv run uvicorn src.api.asgi:app --host 0.0.0.0 --port 8080 --reload` | Start development server with hot reload |
+| `hatch run lint` | Run Ruff linter to check for code issues |
+| `hatch run type-check` | Run mypy for type checking |
+| `hatch run format` | Format code with Black |
+| `hatch run test` | Run tests with pytest |
+| `hatch run test-cov` | Run tests with coverage report |
 
 ## API
 
@@ -117,6 +130,7 @@ Base path: `/api/v1`
 - `POST /agent/chat` (SSE): stream tokens/events
 - `POST /agent/approvals/{call_id}` (SSE): approve/deny pending tool
 - `POST /agent/stop`: stop a specific run
+- `GET /agent/tools`: list available MCP tools with metadata (name, title, tags, annotations)
 - `POST /conversations`, `GET /conversations`, `GET/PATCH/DELETE /conversations/{id}`
 - Auth (`/auth/jwt/*`, `/auth/register/*`, `/auth/verify/*`, `/auth/reset-password/*`, `/auth/users/*`), plus:
   - `GET /auth/is_admin_user`
