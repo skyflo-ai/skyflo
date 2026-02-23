@@ -1,6 +1,6 @@
 # Description
 
-Please include a summary of the changes and which issue is fixed. Explain the motivation for the changes.
+Please include a summary of the changes and the motivation behind them.
 
 ## Related Issue(s)
 
@@ -23,14 +23,21 @@ Please describe the tests you've added/performed to verify your changes.
 
 ## Checklist
 
-- [ ] My code follows the [coding standards](CONTRIBUTING.md#coding-standards) for this project
+### Before Requesting Review
+
+- [ ] I have tested my changes locally
+- [ ] My code follows the [coding standards](CONTRIBUTING.md#coding-standards)
 - [ ] I have added/updated necessary documentation
-- [ ] I have added tests that prove my fix/feature works
-- [ ] New and existing tests pass with my changes
 - [ ] I have checked for and resolved any merge conflicts
-- [ ] My commits follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/#summary) format
 - [ ] I have linked this PR to relevant issue(s)
+
+### Code Quality
+
+- [ ] No debug `print` statements or `console.log` calls
+- [ ] No `package-lock.json` (we use `yarn` only for the UI)
+- [ ] No redundant or self-explanatory comments
+- [ ] Error handling does not expose internal details to users
 
 ## Screenshots (if applicable)
 
-## Additional Notes 
+## Additional Notes

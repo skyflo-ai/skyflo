@@ -1,4 +1,5 @@
 from fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 mcp = FastMCP(
     "Skyflo.ai MCP Server",
@@ -11,15 +12,17 @@ mcp = FastMCP(
     3. Execute progressive deployments with Argo Rollouts (blue/green, canary strategies)
     4. Troubleshoot and diagnose cluster issues with comprehensive validation
     """,
-    dependencies=[
-        "pydantic",
-        "kubernetes",
-        "helm",
-        "argo",
-    ],
 )
 
-from tools import kubectl
-from tools import helm
-from tools import argo
-from tools import jenkins
+
+@mcp.custom_route("/mcp/v1/health", methods=["GET"])
+async def health_check(request):
+    return JSONResponse({"status": "ok"})
+
+
+# Import tool modules to register them with the MCP server
+# The @mcp.tool() decorators execute at import time
+import tools.argo  # noqa: E402, F401
+import tools.helm  # noqa: E402, F401
+import tools.jenkins  # noqa: E402, F401
+import tools.kubectl  # noqa: E402, F401

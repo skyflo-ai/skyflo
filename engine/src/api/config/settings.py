@@ -1,10 +1,10 @@
 from typing import Optional
+
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-
     APP_NAME: str
     APP_VERSION: str
     APP_DESCRIPTION: str
@@ -25,10 +25,10 @@ class Settings(BaseSettings):
 
     JWT_SECRET: str = "CHANGE_ME_IN_PRODUCTION"
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # One week in minutes
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    MCP_SERVER_URL: str = "http://127.0.0.1:8888"
+    MCP_SERVER_URL: str = "http://127.0.0.1:8888/mcp"
 
     INTEGRATIONS_SECRET_NAMESPACE: Optional[str] = Field(default="default")
 

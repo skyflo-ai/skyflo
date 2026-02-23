@@ -82,6 +82,25 @@ export interface TokenEvent {
   conversation_id: string;
 }
 
+export interface TokenUsageEvent {
+  type: "token.usage";
+  source: "turn_check" | "main";
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cached_tokens?: number;
+  conversation_id: string;
+  timestamp: number;
+}
+
+export interface TTFTEvent {
+  type: "ttft";
+  duration: number;
+  timestamp: number;
+  run_id: string;
+}
+
 export interface ReadyEvent {
   type: "ready";
   run_id: string;
@@ -99,8 +118,9 @@ export interface ErrorEvent {
 
 export interface CompletedEvent {
   type: "completed";
-  status: "completed" | "error";
+  status: "completed" | "error" | "stopped";
   run_id?: string;
+  duration_ms?: number;
 }
 
 export interface WorkflowCompleteEvent {
@@ -125,6 +145,8 @@ export type Event =
   | ToolErrorEvent
   | ToolsPendingEvent
   | TokenEvent
+  | TokenUsageEvent
+  | TTFTEvent
   | ReadyEvent
   | HeartbeatEvent
   | ErrorEvent

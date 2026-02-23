@@ -1,6 +1,12 @@
 # Build stage
 FROM node:20-slim AS builder
 
+ARG NEXT_PUBLIC_APP_VERSION=dev
+ARG NEXT_PUBLIC_APP_NAME=Skyflo.ai
+ARG NEXT_PUBLIC_API_URL=/api/v1
+ARG NEXT_PUBLIC_ENABLE_ANALYTICS=false
+ARG NEXT_PUBLIC_ENABLE_FEEDBACK=false
+
 RUN apt-get update && apt-get install -y \
     bash \
     curl \
@@ -13,7 +19,7 @@ WORKDIR /app
 COPY ui/package.json ui/yarn.lock ./
 RUN yarn install --frozen-lockfile
 
-# Copy source files and environment file
+# Copy source files
 COPY ui/tsconfig.json ./
 COPY ui/next.config.mjs ./
 COPY ui/tailwind.config.ts ./
@@ -22,10 +28,14 @@ COPY ui/components.json ./
 COPY ui/.eslintrc.json ./
 COPY ui/src ./src
 COPY ui/public ./public
-COPY ui/.env ./.env.production
 
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
+ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_ENABLE_ANALYTICS=$NEXT_PUBLIC_ENABLE_ANALYTICS
+ENV NEXT_PUBLIC_ENABLE_FEEDBACK=$NEXT_PUBLIC_ENABLE_FEEDBACK
 RUN yarn build
 
 # Production stage
@@ -41,11 +51,10 @@ RUN groupadd -g 1002 skyflogroup \
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy necessary files from builder
+# Copy files from builder
 COPY --from=builder --chown=skyflo:skyflogroup /app/.next/standalone ./
 COPY --from=builder --chown=skyflo:skyflogroup /app/.next/static ./.next/static
 COPY --from=builder --chown=skyflo:skyflogroup /app/public ./public
-COPY --from=builder --chown=skyflo:skyflogroup /app/.env.production ./.env
 
 # Expose the UI port
 EXPOSE 3000

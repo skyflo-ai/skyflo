@@ -15,10 +15,10 @@ authors = [
 ]
 
 dependencies = [
-    "mcp>=1.5.0",
-    "pydantic>=2.10.6",
-    "httpx>=0.28.1",
-    "fastmcp>=2.12.3",
+    "mcp==1.26.0",
+    "pydantic==2.12.5",
+    "httpx==0.28.1",
+    "fastmcp==3.0.1",
 ]
 
 [project.optional-dependencies]
@@ -28,6 +28,7 @@ dev = [
     "pytest-asyncio>=0.23.5",
     "pytest-mock>=3.12.0",
     "mypy>=1.8.0",
+    "ruff==0.15.2",
 ]
 
 [project.scripts]
@@ -44,18 +45,14 @@ path = "__about__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["."]
 
-[tool.hatch.envs.default]
-dependencies = [
-    "pytest>=8.0.2",
-    "pytest-cov>=4.1.0",
-    "pytest-asyncio>=0.23.5",
-    "mypy>=1.8.0",
-]
+[tool.mypy]
+python_version = "3.11"
+explicit_package_bases = true
+ignore_missing_imports = true
 
-[tool.hatch.envs.default.scripts]
-test = "pytest {args:tests}"
-test-cov = "pytest --cov {args:.}"
-type-check = "mypy --install-types --non-interactive {args:. tests}"
+[[tool.mypy.overrides]]
+module = "tools.*"
+ignore_errors = true  # FastMCP decorator type stubs don't match usage patterns
 
 [tool.coverage.run]
 source = ["."]
@@ -75,3 +72,18 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "W"]
+ignore = [
+    "B008",  # Do not perform function call in argument defaults - standard FastMCP pattern with Field()
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tools/*.py" = ["E501"]  # Allow long lines in tool descriptions
+"tests/*.py" = ["E501"]  # Allow long lines in test assertions
+"tests/**/*.py" = ["E501"]  # Allow long lines in test assertions

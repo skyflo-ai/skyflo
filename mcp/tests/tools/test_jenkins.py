@@ -1,10 +1,8 @@
 """Tests for tools.jenkins module."""
 
 import pytest
-from tools.jenkins import (
-    _parse_credentials_ref,
-    build_job_path
-)
+
+from tools.jenkins import _parse_credentials_ref, build_job_path
 
 
 class TestParseCredentialsRef:
@@ -24,7 +22,9 @@ class TestParseCredentialsRef:
 
     def test_parse_credentials_ref_invalid_format(self):
         """Test parsing invalid credentials reference format."""
-        with pytest.raises(ValueError, match="credentials_ref must be in the form 'namespace/name'"):
+        with pytest.raises(
+            ValueError, match="credentials_ref must be in the form 'namespace/name'"
+        ):
             _parse_credentials_ref("invalid-format")
 
     def test_parse_credentials_ref_empty_namespace(self):
@@ -44,7 +44,9 @@ class TestParseCredentialsRef:
 
     def test_parse_credentials_ref_colon_in_name(self):
         """Test parsing credentials reference with colon in name."""
-        with pytest.raises(ValueError, match="credentials_ref must be in the form 'namespace/name'"):
+        with pytest.raises(
+            ValueError, match="credentials_ref must be in the form 'namespace/name'"
+        ):
             _parse_credentials_ref("default/my:secret")
 
 

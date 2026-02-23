@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import ChatHeader from "./ChatHeader";
-import ChatSuggestions from "./ChatSuggestions";
 import { ChatInput } from "./ChatInput";
 import Loader from "@/components/ui/Loader";
 
@@ -35,20 +34,6 @@ export function Welcome() {
       setError("Failed to start conversation. Please try again.");
       setIsInitializing(false);
     }
-  };
-
-  const handleSuggestionClick = (suggestionText: string) => {
-    setInputValue(suggestionText);
-    setTimeout(() => {
-      const textArea = document.querySelector("textarea");
-      if (textArea) {
-        textArea.focus();
-        textArea.setSelectionRange(
-          suggestionText.length,
-          suggestionText.length
-        );
-      }
-    }, 100);
   };
 
   const handleSubmit = () => {

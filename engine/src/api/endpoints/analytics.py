@@ -1,11 +1,12 @@
-from collections import defaultdict
-from datetime import date, timedelta, datetime
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Dict, Any, List, Optional
 import logging
+from collections import defaultdict
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..config import rate_limit_dependency
-from ..models.conversation import MetricsAggregation, DailyMetrics, Message
+from ..models.conversation import DailyMetrics, Message, MetricsAggregation
 from ..services.auth import fastapi_users
 
 logger = logging.getLogger(__name__)
@@ -150,8 +151,16 @@ async def get_metrics(
         current_date = period_start.date()
         while current_date <= period_end_dt.date():
             stats = daily_map.get(current_date, _empty_daily_stats())
-            avg_ttft = stats["ttft_ms_sum"] / stats["ttft_count"] if stats["ttft_count"] > 0 else None
-            avg_ttr = stats["ttr_ms_sum"] / stats["ttr_count"] if stats["ttr_count"] > 0 else None
+            avg_ttft = (
+                stats["ttft_ms_sum"] / stats["ttft_count"]
+                if stats["ttft_count"] > 0
+                else None
+            )
+            avg_ttr = (
+                stats["ttr_ms_sum"] / stats["ttr_count"]
+                if stats["ttr_count"] > 0
+                else None
+            )
 
             daily_breakdown.append(
                 DailyMetrics(
@@ -171,12 +180,28 @@ async def get_metrics(
         avg_ttr_ms = period_ttr_sum / period_ttr_count if period_ttr_count > 0 else None
 
         total_conversations = len(conversation_ids)
-        avg_cost_per_conversation = total_cost / total_conversations if total_conversations > 0 else 0.0
-        avg_tokens_per_conversation = total_tokens / total_conversations if total_conversations > 0 else 0.0
+        avg_cost_per_conversation = (
+            total_cost / total_conversations
+            if total_conversations > 0
+            else 0.0
+        )
+        avg_tokens_per_conversation = (
+            total_tokens / total_conversations
+            if total_conversations > 0
+            else 0.0
+        )
 
-        cache_hit_rate = min((total_cached_tokens / total_prompt_tokens), 1.0) if total_prompt_tokens > 0 else 0.0
+        cache_hit_rate = (
+            min((total_cached_tokens / total_prompt_tokens), 1.0)
+            if total_prompt_tokens > 0
+            else 0.0
+        )
 
-        approval_acceptance_rate = (total_approvals / (total_approvals + total_rejections)) if (total_approvals + total_rejections) > 0 else None
+        approval_acceptance_rate = (
+            (total_approvals / (total_approvals + total_rejections))
+            if (total_approvals + total_rejections) > 0
+            else None
+        )
 
         return MetricsAggregation(
             period_start=period_start,
@@ -206,3 +231,4 @@ async def get_metrics(
             status_code=500,
             detail=f"Error getting metrics: {str(e)}",
         ) from e
+
