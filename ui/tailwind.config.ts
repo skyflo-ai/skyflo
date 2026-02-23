@@ -26,6 +26,7 @@ const config: Config = {
           primary: "#0F1D2F", // 2e87e6, purple: 8e30d1
           hover: "#1a6fc9",
         },
+        "primary-cyan": "#30CAF1",
       },
       borderRadius: {
         lg: "var(--radius)",
