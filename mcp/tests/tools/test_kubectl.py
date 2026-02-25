@@ -234,6 +234,136 @@ class TestK8sPatch:
                 ],
             )
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("patch_type", ["strategic", "merge", "json"])
+    async def test_k8s_patch_valid_patch_types(self, patch_type):
+        """Test that all valid patch types work."""
+        with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"output": "patched", "error": False}
+
+            await k8s_patch(
+                name="nginx",
+                resource_type="deployment",
+                patch="{}",
+                patch_type=patch_type,
+            )
+            args = mock_run.call_args[0][1]
+            assert f"--type={patch_type}" in args
+
+    @pytest.mark.asyncio
+    async def test_k8s_patch_uppercase_patch_type(self):
+        """Test that uppercase patch types are normalized."""
+        with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"output": "patched", "error": False}
+
+            await k8s_patch(
+                name="nginx",
+                resource_type="deployment",
+                patch="{}",
+                patch_type="MERGE",
+            )
+            args = mock_run.call_args[0][1]
+            assert "--type=merge" in args
+
+    @pytest.mark.asyncio
+    async def test_k8s_patch_mixed_case_patch_type(self):
+        """Test that mixed case patch types are normalized."""
+        with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"output": "patched", "error": False}
+
+            await k8s_patch(
+                name="nginx",
+                resource_type="deployment",
+                patch="{}",
+                patch_type="Strategic",
+            )
+
+            args = mock_run.call_args[0][1]
+            assert "--type=strategic" in args
+
+    @pytest.mark.asyncio
+    async def test_k8s_patch_whitespace_patch_type(self):
+        """Test that whitespace is stripped."""
+        with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"output": "patched", "error": False}
+
+            await k8s_patch(
+                name="nginx",
+                resource_type="deployment",
+                patch="{}",
+                patch_type=" merge ",
+            )
+
+            args = mock_run.call_args[0][1]
+            assert "--type=merge" in args
+
+    @pytest.mark.asyncio
+    async def test_k8s_patch_invalid_patch_type(self):
+        """Test that invalid patch type raises ValueError with helpful message."""
+        with pytest.raises(ValueError) as exc_info:
+            await k8s_patch(
+                name="nginx",
+                resource_type="deployment",
+                patch="{}",
+                patch_type="invalid",
+            )
+
+        error = str(exc_info.value)
+        assert "Invalid patch_type 'invalid'" in error
+        assert "strategic" in error
+        assert "merge" in error
+        assert "json" in error
+
+    @pytest.mark.asyncio
+    async def test_k8s_patch_none_patch_type(self):
+        """Test that None patch_type uses default."""
+        with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"output": "patched", "error": False}
+
+            await k8s_patch(
+                name="nginx",
+                resource_type="deployment",
+                patch="{}",
+                patch_type=None,
+            )
+
+            args = mock_run.call_args[0][1]
+            assert "--type=strategic" in args
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("patch_type", ["", "   "])
+    async def test_k8s_patch_blank_patch_type(self, patch_type):
+        """Blank or whitespace-only patch_type should raise ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            await k8s_patch(
+                name="nginx",
+                resource_type="deployment",
+                patch="{}",
+                patch_type=patch_type,
+            )
+
+        error = str(exc_info.value)
+        assert "Invalid patch_type" in error
+        assert "strategic" in error
+        assert "merge" in error
+        assert "json" in error
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("invalid_patch_type", [123, {}, [], True])
+    async def test_k8s_patch_non_string_patch_type(self, invalid_patch_type):
+        """Non-string patch_type should raise ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            await k8s_patch(
+                name="nginx",
+                resource_type="deployment",
+                patch="{}",
+                patch_type=invalid_patch_type,
+            )
+
+        error = str(exc_info.value)
+        assert "Invalid patch_type" in error
+        assert "strategic" in error and "merge" in error and "json" in error
+
 
 class TestK8sExec:
     """Test cases for k8s_exec function with space handling."""
@@ -358,3 +488,75 @@ class TestK8sGet:
             await k8s_get(resource_type="pods", all_namespaces=True)
 
             mock_run_command.assert_called_once_with("kubectl", ["get", "pods", "-A"])
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("output_fmt", ["wide", "yaml", "json", "name"])
+    async def test_k8s_get_valid_output_formats(self, output_fmt):
+        """Test that all valid output formats work."""
+        with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"output": "...", "error": False}
+
+            await k8s_get(resource_type="pods", output=output_fmt)
+            args = mock_run.call_args[0][1]
+            assert "-o" in args
+            assert output_fmt in args
+
+    @pytest.mark.asyncio
+    async def test_k8s_get_uppercase_output(self):
+        """Test that uppercase output format is normalized."""
+        with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"output": "...", "error": False}
+
+            await k8s_get(resource_type="pods", output="YAML")
+            args = mock_run.call_args[0][1]
+            assert "-o" in args
+            idx = args.index("-o")
+            assert args[idx + 1] == "yaml"
+
+    @pytest.mark.asyncio
+    async def test_k8s_get_whitespace_output(self):
+        """Test that whitespace in output format is stripped."""
+        with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"output": "...", "error": False}
+
+            await k8s_get(resource_type="pods", output=" json ")
+            args = mock_run.call_args[0][1]
+            idx = args.index("-o")
+            assert args[idx + 1] == "json"
+
+    @pytest.mark.asyncio
+    async def test_k8s_get_invalid_output_format(self):
+        """Test that invalid output format raises ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            await k8s_get(resource_type="pods", output="csv")
+
+        error = str(exc_info.value)
+        assert "Invalid output format 'csv'" in error
+        assert "wide" in error
+        assert "yaml" in error
+        assert "json" in error
+        assert "name" in error
+
+    @pytest.mark.asyncio
+    async def test_k8s_get_none_output(self):
+        """Test that None output doesn't add -o flag."""
+        with patch("tools.kubectl.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"output": "...", "error": False}
+
+            await k8s_get(resource_type="pods", output=None)
+            args = mock_run.call_args[0][1]
+            assert "-o" not in args
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("output", ["", "   "])
+    async def test_k8s_get_blank_output(self, output):
+        """Blank or whitespace-only output should raise ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            await k8s_get(resource_type="pods", output=output)
+
+        error = str(exc_info.value)
+        assert "Invalid output format" in error
+        assert "wide" in error
+        assert "yaml" in error
+        assert "json" in error
+        assert "name" in error

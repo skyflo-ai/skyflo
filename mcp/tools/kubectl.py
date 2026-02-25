@@ -2,13 +2,48 @@
 
 import asyncio
 import shlex
-from typing import Optional
+from typing import Annotated, Optional
 
 from pydantic import Field
 
 from config.server import mcp
 from utils.commands import run_command
 from utils.models import ToolOutput
+
+_VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"wide", "yaml", "json", "name"})
+_VALID_PATCH_TYPES: frozenset[str] = frozenset({"strategic", "merge", "json"})
+
+
+def _normalize_enum_arg(
+    value: object,
+    *,
+    param_name: str,
+    allowed_values: frozenset[str],
+    default: Optional[str] = None,
+) -> Optional[str]:
+    allowed_sorted = sorted(allowed_values)
+
+    if value is None:
+        return default
+
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Invalid {param_name} {value!r}. Must be one of: {', '.join(allowed_sorted)}"
+        )
+
+    normalized = value.strip().lower()
+
+    if normalized == "":
+        raise ValueError(
+            f"Invalid {param_name} '{value}'. Must be one of: {', '.join(allowed_sorted)}"
+        )
+
+    if normalized not in allowed_values:
+        raise ValueError(
+            f"Invalid {param_name} '{value.strip()}'. Must be one of: {', '.join(allowed_sorted)}"
+        )
+
+    return normalized
 
 
 async def run_kubectl_command(command: str, stdin: Optional[str] = None) -> ToolOutput:
@@ -75,7 +110,10 @@ async def k8s_get(
     namespace: Optional[str] = Field(
         default=None, description="The namespace to get resources from"
     ),
-    output: Optional[str] = Field(default=None, description="Output format (wide, yaml, json)"),
+    output: Annotated[
+        Optional[str],
+        Field(description="Output format for kubectl get (wide, yaml, json, name)"),
+    ] = None,
     label_selector: Optional[str] = Field(
         default=None,
         description="Label selector to filter resources (e.g., 'app=nginx' or 'tier=frontend,environment=production')",
@@ -96,13 +134,20 @@ async def k8s_get(
     if isinstance(name, str) and name and all_namespaces:
         all_namespaces = False
 
+    output_normalized = _normalize_enum_arg(
+        output,
+        param_name="output format",
+        allowed_values=_VALID_OUTPUT_FORMATS,
+        default=None,
+    )
+
     args = ["get", resource_type]
     if isinstance(name, str) and name:
         args.append(name)
     if isinstance(namespace, str) and namespace:
         args.extend(["-n", namespace])
-    if isinstance(output, str) and output:
-        args.extend(["-o", output])
+    if output_normalized is not None:
+        args.extend(["-o", output_normalized])
     if isinstance(all_namespaces, bool) and all_namespaces:
         args.append("-A")
     if isinstance(label_selector, str) and label_selector:
@@ -151,18 +196,26 @@ async def k8s_patch(
     namespace: Optional[str] = Field(
         default="default", description="The namespace of the resource"
     ),
-    patch_type: Optional[str] = Field(
-        default="strategic", description="The type of patch (strategic, merge, json)"
-    ),
+    patch_type: Annotated[
+        Optional[str],
+        Field(description="The type of patch (strategic, merge, json)"),
+    ] = None,
 ) -> ToolOutput:
     """Patch a Kubernetes resource."""
+
+    patch_type_normalized = _normalize_enum_arg(
+        patch_type,
+        param_name="patch_type",
+        allowed_values=_VALID_PATCH_TYPES,
+        default="strategic",
+    )
+
     args = ["patch", resource_type, name]
     if isinstance(namespace, str) and namespace:
         args.extend(["-n", namespace])
     args.append("--patch")
     args.append(patch)
-    if patch_type:
-        args.append(f"--type={patch_type}")
+    args.append(f"--type={patch_type_normalized}")
     return await run_command("kubectl", args)
 
 
