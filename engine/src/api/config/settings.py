@@ -1,6 +1,7 @@
 from typing import Literal, Optional
+from urllib.parse import urlparse
 
-from pydantic import Field, conint
+from pydantic import Field, conint, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -12,6 +13,8 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     LOG_LEVEL: str = "INFO"
+
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
 
     POSTGRES_DATABASE_URL: str = Field(default="postgres://postgres:postgres@localhost:5432/skyflo")
 
@@ -47,6 +50,32 @@ class Settings(BaseSettings):
         default=None, env="LLM_THINKING_BUDGET_TOKENS"
     )
     AGENT_TYPE: str = "assistant"
+
+    @field_validator("CORS_ORIGINS")
+    @classmethod
+    def validate_cors_origins(cls, v: str) -> str:
+        normalized = []
+        for raw in v.split(","):
+            origin = raw.strip()
+            if not origin:
+                continue
+            parsed = urlparse(origin)
+            if parsed.scheme not in ("http", "https"):
+                raise ValueError(
+                    f"Invalid CORS origin '{origin}'. Must use http or https scheme."
+                )
+            if not parsed.netloc:
+                raise ValueError(
+                    f"Invalid CORS origin '{origin}'. Missing a valid host."
+                )
+            if parsed.path not in ("", "/") or parsed.params or parsed.query or parsed.fragment:
+                raise ValueError(
+                    f"Invalid CORS origin '{origin}'. Paths, query strings, and fragments are not allowed."
+                )
+            normalized.append(f"{parsed.scheme}://{parsed.netloc}")
+        if not normalized:
+            raise ValueError("CORS_ORIGINS must contain at least one valid origin.")
+        return ",".join(dict.fromkeys(normalized))
 
     class Config:
         env_file = ".env"
