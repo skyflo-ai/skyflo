@@ -71,7 +71,8 @@ export function ChatInput({
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         autoFocus
-                        placeholder="Ask Sky to perform any action on your Kubernetes setup"
+                        aria-label="Message input"
+                        placeholder="Ready."
                         className="w-full bg-transparent text-white text-sm tracking-wide outline-none focus:outline-none focus-visible:outline-none resize-none h-auto min-h-[70px] overflow-hidden transition-[border-color,box-shadow] duration-200 placeholder:text-white/60 p-6 pr-16"
                         rows={1}
                         onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
@@ -170,7 +171,8 @@ export function ChatInput({
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       autoFocus
-                      placeholder="Ready when you are."
+                      aria-label="Message input"
+                      placeholder="Ready."
                       className="relative z-10 w-full rounded-[28px] bg-transparent text-white text-sm tracking-wide outline-none focus:outline-none focus-visible:outline-none resize-none h-auto min-h-[60px] overflow-hidden transition-[border-color,box-shadow] duration-200 placeholder:text-white/60 p-6 pr-16"
                       rows={1}
                       onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {

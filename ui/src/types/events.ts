@@ -76,6 +76,21 @@ export interface ToolsPendingEvent {
   }>;
 }
 
+export interface ThinkingEvent {
+  type: "thinking";
+  text: string;
+  conversation_id: string;
+  run_id: string;
+}
+
+export interface ThinkingCompleteEvent {
+  type: "thinking.complete";
+  content: string;
+  duration_ms: number;
+  run_id: string;
+  timestamp: number;
+}
+
 export interface TokenEvent {
   type: "token";
   text: string;
@@ -144,6 +159,8 @@ export type Event =
   | ToolApprovedEvent
   | ToolErrorEvent
   | ToolsPendingEvent
+  | ThinkingEvent
+  | ThinkingCompleteEvent
   | TokenEvent
   | TokenUsageEvent
   | TTFTEvent

@@ -36,8 +36,8 @@ async def generate_chat_title(
         "model": model,
         "messages": judge_messages,
         "response_format": TitleDecision,
-        "temperature": 0.2,
-        "max_tokens": 64,
+        "reasoning_effort": "low",
+        "drop_params": True,
     }
     if api_key:
         completion_kwargs["api_key"] = api_key

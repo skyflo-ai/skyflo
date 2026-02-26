@@ -102,37 +102,32 @@ export const markdownComponents = {
     />
   ),
   table: ({ node, ...props }: MarkdownProps) => (
-    <div className="overflow-x-auto my-4">
-      <table
-        className="min-w-full bg-gray-800 border border-gray-600 rounded-lg"
-        {...props}
-      />
+    <div className="overflow-x-auto my-4 rounded-lg ring-1 ring-zinc-800/50">
+      <table className="min-w-full" {...props} />
     </div>
   ),
   thead: ({ node, ...props }: MarkdownProps) => (
-    <thead className="bg-gray-700" {...props} />
+    <thead className="border-b border-zinc-800/50 bg-zinc-800/15" {...props} />
   ),
   tbody: ({ node, ...props }: MarkdownProps) => (
-    <tbody className="divide-y divide-gray-600" {...props} />
+    <tbody className="divide-y divide-zinc-800/30" {...props} />
   ),
   tr: ({ node, ...props }: MarkdownProps) => (
-    <tr className="hover:bg-gray-700/50 transition-colors" {...props} />
+    <tr className="transition-colors hover:bg-zinc-800/25" {...props} />
   ),
   th: ({ node, ...props }: MarkdownProps) => (
     <th
-      className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider border-b border-gray-600"
+      className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-widest"
       {...props}
     />
   ),
   td: ({ node, ...props }: MarkdownProps) => (
     <td
-      className="px-4 py-2 text-md text-white border-b border-gray-700"
+      className="px-4 py-2.5 text-sm text-zinc-300 tabular-nums"
       {...props}
     />
   ),
-  hr: ({ node, ...props }: MarkdownProps) => (
-    <hr className="border-gray-600 my-6" {...props} />
-  ),
+  hr: () => null,
   strong: ({ node, ...props }: MarkdownProps) => (
     <strong className="font-semibold" {...props} />
   ),

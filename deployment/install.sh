@@ -114,25 +114,15 @@ prompt_llm_configuration() {
 
     if [ -n "$API_KEY_VAR_NAME" ]; then
         print_colored "yellow" "Authentication required for provider: $LLM_PROVIDER_RAW"
-        if [[ "$LLM_PROVIDER_RAW" == "openai" || "$LLM_PROVIDER_RAW" == "groq" || "$LLM_PROVIDER_RAW" == "anthropic" || \
-              "$LLM_PROVIDER_RAW" == "gemini" || "$LLM_PROVIDER_RAW" == "mistral" || "$LLM_PROVIDER_RAW" == "cohere" ]]; then
-            while true; do
-                read -r -s -p "$API_KEY_VAR_NAME: " API_KEY_VALUE </dev/tty
-                echo ""
-                if [ -z "$API_KEY_VALUE" ]; then
-                    print_colored "red" "$API_KEY_VAR_NAME is required for $LLM_PROVIDER_RAW."
-                else
-                    break
-                fi
-            done
-        else
-            read -r -s -p "$API_KEY_VAR_NAME (optional, press Enter to skip): " API_KEY_VALUE </dev/tty
+        while true; do
+            read -r -s -p "$API_KEY_VAR_NAME: " API_KEY_VALUE </dev/tty
             echo ""
             if [ -z "$API_KEY_VALUE" ]; then
-                API_KEY_VALUE=""
-                print_colored "yellow" "ℹ $API_KEY_VAR_NAME not provided. Continuing without it."
+                print_colored "red" "$API_KEY_VAR_NAME is required for $LLM_PROVIDER_RAW."
+            else
+                break
             fi
-        fi
+        done
         export "$API_KEY_VAR_NAME"="$API_KEY_VALUE"
     fi
 
@@ -211,10 +201,14 @@ Version: ${VERSION}
 ========================================
 "
 
-read -r -p "Target Kubernetes namespace [default: skyflo-ai]: " NAMESPACE </dev/tty
 if [ -z "$NAMESPACE" ]; then
-    NAMESPACE="skyflo-ai"
-    print_colored "yellow" "ℹ No namespace provided. Using 'skyflo-ai'."
+    read -r -p "Target Kubernetes namespace [default: skyflo-ai]: " NAMESPACE </dev/tty
+    if [ -z "$NAMESPACE" ]; then
+        NAMESPACE="skyflo-ai"
+        print_colored "yellow" "ℹ No namespace provided. Using 'skyflo-ai'."
+    fi
+else
+    print_colored "green" "✓ Using namespace from environment: $NAMESPACE"
 fi
 
 export NAMESPACE

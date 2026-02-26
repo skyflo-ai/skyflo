@@ -165,7 +165,7 @@ class WorkflowGraph:
                     for tool_call in pending_tools:
                         try:
                             tool_name = tool_call.get("name", "unknown")
-                            tool_call_id = tool_call.get("id")
+                            display_id = tool_call.get("call_id") or tool_call.get("id")
                             tool_args = (
                                 tool_call.get("args", {}) if isinstance(tool_call, dict) else {}
                             )
@@ -188,7 +188,7 @@ class WorkflowGraph:
 
                             pending_payload.append(
                                 {
-                                    "call_id": tool_call_id,
+                                    "call_id": display_id,
                                     "tool": tool_name,
                                     "title": title_value,
                                     "args": tool_args,
@@ -215,7 +215,8 @@ class WorkflowGraph:
             for idx, tool_call in enumerate(pending_tools):
                 try:
                     tool_name = tool_call["name"]
-                    tool_call_id = tool_call.get("id")
+                    original_id = tool_call.get("id")
+                    display_id = tool_call.get("call_id") or original_id
                     tool_args = tool_call.get("args", {}) if isinstance(tool_call, dict) else {}
 
                     tool_results = await self.tool_executor.execute(
@@ -226,7 +227,7 @@ class WorkflowGraph:
                             "conversation_id": get_state_value(state, "conversation_id"),
                             "approval_decisions": get_state_value(state, "approval_decisions", {}),
                         },
-                        call_id=tool_call_id,
+                        call_id=display_id,
                     )
 
                     result_content = ""
@@ -238,7 +239,7 @@ class WorkflowGraph:
 
                     tool_message = {
                         "role": "tool",
-                        "tool_call_id": tool_call_id,
+                        "tool_call_id": original_id,
                         "name": tool_name,
                         "content": result_content,
                     }
@@ -259,7 +260,7 @@ class WorkflowGraph:
 
                     error_message = {
                         "role": "tool",
-                        "tool_call_id": tool_call.get("id"),
+                        "tool_call_id": original_id,
                         "name": err_tool,
                         "content": f"Error executing tool {err_tool}: {tool_error}",
                     }

@@ -156,6 +156,58 @@ input:-webkit-autofill:active {
   animation: gradient-move 3s ease infinite;
 }
 
+.thinking-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.thinking-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thinking-scroll::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 4px;
+}
+
+.thinking-scroll::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+.thinking-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
+.thinking-fade {
+  -webkit-mask-image: linear-gradient(to bottom, black 65%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 65%, transparent 100%);
+}
+
+@keyframes text-shimmer {
+  0% {
+    background-position: 100% 0%;
+  }
+  100% {
+    background-position: -100% 0%;
+  }
+}
+
+.thinking-text-shimmer {
+  background: linear-gradient(
+    90deg,
+    #71717a 0%,
+    #71717a 40%,
+    #d4d4d8 50%,
+    #71717a 60%,
+    #71717a 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer 2.5s ease-in-out infinite;
+}
+
 
 /* Liquid glass effect utilities */
 .lg-wrapper {

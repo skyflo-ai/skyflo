@@ -177,5 +177,5 @@ See [TRADEMARKS.md](TRADEMARKS.md) for usage rules.
 ## Community
 
 * [Discord](https://discord.gg/kCFNavMund)
-* [GitHub Discussions](https://github.com/skyflo-ai/skyflo/discussions)
 * [X](https://x.com/skyflo_ai)
+* [LinkedIn](https://www.linkedin.com/company/skyflo)

@@ -1,72 +1,142 @@
-# Skyflo.ai - AI Agent for Cloud & DevOps
-
 <p align="center">
-  <img src="./assets/readme.png" alt="Skyflo.ai" width="1000"/>
+  <a href="https://skyflo.ai">
+    <img src="./assets/readme.png" alt="Skyflo – Self-Hosted AI Control Layer for Kubernetes and CI/CD (Jenkins)" width="1000"/>
+  </a>
 </p>
 
-Skyflo.ai is your AI co-pilot for Cloud & DevOps that unifies Kubernetes operations and CI/CD systems (starting with Jenkins) through natural language with a safety-first, human-in-the-loop design.
+<h3 align="center">Self-Hosted AI Control Layer for Kubernetes & CI/CD</h3>
 
-## ⚡ Quick Start
+<p align="center">
+  <a href="https://github.com/skyflo-ai/skyflo/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/skyflo-ai/skyflo/ci.yml?branch=main&label=CI" alt="CI Status">
+  </a>&nbsp;
+  <a href="https://github.com/skyflo-ai/skyflo/releases">
+    <img src="https://img.shields.io/github/v/release/skyflo-ai/skyflo" alt="Release">
+  </a>&nbsp;
+  <a href="https://github.com/skyflo-ai/skyflo/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/skyflo-ai/skyflo" alt="License">
+  </a>
+</p>
 
-Install Skyflo.ai in your Kubernetes cluster using a single command:
+<p align="center">
+  <a href="https://skyflo.ai">Website</a> ·
+  <a href="docs/install.md">Installation</a> ·
+  <a href="docs/architecture.md">Architecture</a> ·
+  <a href="https://discord.gg/kCFNavMund">Discord</a>
+</p>
+
+---
+
+Skyflo is a **self-hosted AI operations agent** for **Kubernetes and CI/CD** with **native Jenkins support**. It turns natural language into **typed, auditable tool execution**, enforced by an **approval gate for every mutating operation**.
+
+Skyflo is not a CLI wrapper, not an autonomous mutation bot, and not a GitOps control plane. It is an **in-cluster execution runtime** that enforces deterministic control before anything changes in production.
+
+---
+
+### Quick Start
+
+Install Skyflo inside your Kubernetes cluster:
 
 ```bash
 curl -fsSL https://skyflo.ai/install.sh | bash
 ```
 
-Skyflo can be configured to use different LLM providers (like OpenAI, Anthropic, Gemini, Groq, etc.), or even use a self-hosted model.
+Bring your own LLM (OpenAI, Anthropic, Gemini, Groq, self-hosted). See [docs/install.md](docs/install.md).
 
-See the [Installation Guide](https://github.com/skyflo-ai/skyflo/blob/main/docs/install.md) for details.
+---
 
-## 🚀 Key Features
+### Execution Model
 
-- **Unified AI Copilot**: One agent for K8s, Jenkins, Helm, and Argo Rollouts
-- **Human-in-the-loop Design**: Approval required for any mutating operation
-- **Plan → Execute → Verify**: Iterative loop where the agent keeps going untill the task is done 
-- **Real-time Streaming**: Everything that the agent does is streamed to the UI in real time
-- **MCP-based tool execution**: Standardized tools for safe, consistent actions
-- **Built for Teams**: Manage teams, integrations, rate limiting and much more
+Skyflo enforces a strict loop for every infrastructure change:
 
-## 🛠️ Supported Tools
+1. **Plan**: generate a concrete, replayable plan
+2. **Approve**: explicit approval for every mutating tool call
+3. **Execute**: run typed tools via MCP (Kubernetes, Helm, Argo Rollouts, Jenkins)
+4. **Verify**: validate state against the declared intent
+5. **Persist**: store tool-level audit history
 
-Skyflo.ai executes Cloud & DevOps operations through standardized tools and integrations:
+No blind `kubectl apply`. No silent automation. No untracked changes.
 
-* **Kubernetes**: Resource discovery; get/describe; logs/exec; **safe apply/diff** flows.
-* **Argo Rollouts**: Inspect status; pause/resume; promote/cancel; analyze progressive delivery.
-* **Helm**: Search, install/upgrade/rollback with dry-run and diff-first safety.
-* **Jenkins (new)**: Jobs, builds, logs, SCM, identity—**secure auth & CSRF handling**, integration-aware tool filtering, and automatic parameter injection from configured credentials.
+---
 
-Write/mutating operations require explicit approval from the user.
+### Safety Properties
 
-## 🎯 Who is Skyflo.ai for?
+* Approval gate for every mutating operation
+* Typed tool execution (schema-validated inputs)
+* Persisted audit trail with tool results
+* Replayable control loop (plan → approve → execute → verify)
+* Runs inside your cluster (data stays in your environment)
+* No outbound data to Skyflo servers
+* LLM-agnostic (no vendor lock-in)
 
-Skyflo.ai is purpose-built for:
+---
 
-- **DevOps Engineers**
-- **Cloud Architects**
-- **IT Managers**
-- **SRE Teams**
-- **Security Professionals**
+### Supported Tools
 
-## 🏗️ Architecture
+| Tool              | Capabilities                                                                     |
+| ----------------- | -------------------------------------------------------------------------------- |
+| **Kubernetes**    | discovery, get/describe, logs/exec, diff-first apply, rollout history, rollbacks |
+| **Helm**          | template, install/upgrade/rollback, dry-run, diff-first safety                   |
+| **Argo Rollouts** | status, pause/resume, promote/cancel, progressive delivery control               |
+| **Jenkins**       | jobs/builds/logs, parameters, SCM context, build control                         |
 
-Read more about the architecture of Skyflo.ai in the [Architecture](docs/architecture.md) documentation.
+All mutating operations require explicit approval.
 
-## 🤝 Contributing
+---
 
-We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for details on getting started.
+### Demo
 
-## 📜 Code of Conduct
+<p align="center">
+  <img src="assets/demo.gif" alt="Skyflo Demo" width="100%"/>
+</p>
 
-We have a [Code of Conduct](CODE_OF_CONDUCT.md) that we ask all contributors to follow.
+Deterministic plans. Explicit approval. Verified execution.
 
-## 🌐 Community
+---
 
-- [Discord](https://discord.gg/kCFNavMund)
-- [Twitter/X](https://x.com/skyflo_ai)
-- [YouTube](https://www.youtube.com/@SkyfloAI)
-- [GitHub Discussions](https://github.com/skyflo-ai/skyflo/discussions)
+### Comparison
 
-## 📄 License
+| Capability                    | CLI Assistants | Autonomous Agents | GitOps Platforms | **Skyflo** |
+| ----------------------------- | -------------: | ----------------: | ---------------: | ---------: |
+| Natural language ops          |            Yes |               Yes |          Limited |        Yes |
+| Mandatory mutation approval   |       Optional |                No |         PR-based |        Yes |
+| Deterministic control loop    |             No |                No |          Partial |        Yes |
+| Kubernetes + CI unified       |             No |           Partial |               No |        Yes |
+| In-cluster deployment         |        Partial |           Partial |           Varies |        Yes |
+| Team RBAC + audit             |             No |           Limited |              Yes |        Yes |
+| Real-time execution streaming |             No |                No |               No |        Yes |
 
-Skyflo.ai is open source and licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+---
+
+### System Architecture
+
+| Component                | Description                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| [**Engine**](engine)     | LangGraph workflow: planner, approval gate, verifier, persistence, auth/RBAC |
+| [**MCP Server**](mcp)    | Typed tools for Kubernetes, Helm, Argo Rollouts, Jenkins                     |
+| [**Command Center**](ui) | Next.js UI with real-time streaming, approvals, team admin                   |
+
+Details: [docs/architecture.md](docs/architecture.md)
+
+---
+
+### Contributing
+
+Apache 2.0 OSS. High-signal contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+### License
+
+Apache 2.0. See [LICENSE](LICENSE).
+
+---
+
+### Community
+
+<p>
+  <a href="https://skyflo.ai">Website</a> ·
+  <a href="https://discord.gg/kCFNavMund">Discord</a> ·
+  <a href="https://x.com/skyflo_ai">X</a> ·
+  <a href="https://www.linkedin.com/company/skyflo">LinkedIn</a>
+</p>

@@ -8,7 +8,7 @@ type Props = {
 };
 
 export default function SphereLogoLoader({
-  size = 200,
+  size = 150,
   logoSrc = "/logo_vector_transparent.png",
   alt = "Skyflo.ai",
 }: Props) {
@@ -35,7 +35,7 @@ export default function SphereLogoLoader({
             alt={alt}
             width={logo}
             height={logo}
-            className="logo-img"
+            className="logo-img opacity-60"
             priority
           />
         </div>
@@ -76,21 +76,21 @@ export default function SphereLogoLoader({
           border-radius: 50%;
           overflow: hidden;
           background:
-    /* highlight fleck — lower alpha */ radial-gradient(
+            radial-gradient(
               110% 110% at 30% 25%,
               rgba(255, 255, 255, 0.18) 0%,
               rgba(255, 255, 255, 0.04) 18%,
               transparent 22%
             ),
-            /* main glow — lower alpha & slower falloff */
-              radial-gradient(
-                120% 120% at 50% 70%,
-                rgba(14, 165, 233, 0.48) 0%,
-                rgba(14, 165, 233, 0.32) 24%,
-                var(--sf-core) 62%,
-                rgba(0, 0, 0, 0.88) 100%
-              );
-          box-shadow: inset 0 0 60px rgba(14, 165, 233, 0.12),
+            radial-gradient(
+              120% 120% at 50% 70%,
+              rgba(14, 165, 233, 0.48) 0%,
+              rgba(14, 165, 233, 0.32) 24%,
+              var(--sf-core) 62%,
+              rgba(0, 0, 0, 0.88) 100%
+            );
+          box-shadow:
+            inset 0 0 60px rgba(14, 165, 233, 0.12),
             0 20px 60px rgba(56, 189, 248, 0.08);
         }
 
@@ -106,19 +106,22 @@ export default function SphereLogoLoader({
         @keyframes sweepRotate {
           0% {
             transform: rotate(90deg);
-            box-shadow: 0 10px 22px 0 rgba(255, 255, 255, 0.55) inset,
+            box-shadow:
+              0 10px 22px 0 rgba(255, 255, 255, 0.55) inset,
               0 24px 34px 0 rgba(56, 189, 248, 0.45) inset,
               0 64px 68px 0 rgba(30, 64, 175, 0.65) inset;
           }
           50% {
             transform: rotate(270deg);
-            box-shadow: 0 10px 20px 0 rgba(255, 255, 255, 0.5) inset,
+            box-shadow:
+              0 10px 20px 0 rgba(255, 255, 255, 0.5) inset,
               0 20px 14px 0 rgba(34, 211, 238, 0.45) inset,
               0 42px 66px 0 rgba(9, 24, 54, 0.7) inset;
           }
           100% {
             transform: rotate(450deg);
-            box-shadow: 0 10px 22px 0 rgba(255, 255, 255, 0.55) inset,
+            box-shadow:
+              0 10px 22px 0 rgba(255, 255, 255, 0.55) inset,
               0 24px 34px 0 rgba(56, 189, 248, 0.45) inset,
               0 64px 68px 0 rgba(30, 64, 175, 0.65) inset;
           }
@@ -171,7 +174,7 @@ export default function SphereLogoLoader({
           position: absolute;
           inset: 0;
           border-radius: 50%;
-          opacity: 0.12; /* was 0.24 */
+          opacity: 0.12;
           mix-blend-mode: overlay;
           pointer-events: none;
           background-size: 120px 120px;

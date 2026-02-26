@@ -1,97 +1,55 @@
-# Unleash Skyflo.ai
+# Installing Skyflo on Kubernetes
 
-This guide will help you deploy Skyflo.ai in minutes, whether you're experimenting locally or deploying in production.
-
-## Prerequisites
-
-### For Local Development
-- Docker
-- KinD (Kubernetes in Docker)
-- kubectl command-line tool
-- gettext (for envsubst)
-- curl
-
-### For Production
-- Access to a Kubernetes cluster (v1.19+)
-- kubectl command-line tool
-- gettext (for envsubst)
-- curl
-
-Skyflo supports multiple LLM providers through environment variables:
-
-1. **API Keys**: Set provider-specific API keys:
-
-```env
-OPENAI_API_KEY=sk-...     # For OpenAI models
-GROQ_API_KEY=gsk-...      # For Groq models
-ANTHROPIC_API_KEY=sk-...  # For Anthropic models
-```
-
-2. **Model Selection**: Set `LLM_MODEL` to specify the model:
-
-```env
-LLM_MODEL=gpt-4o  # OpenAI (default)
-# Or for other providers:
-# LLM_MODEL=groq/llama-3-70b-versatile
-# LLM_MODEL=anthropic/claude-3-sonnet
-```
-
-3. **Self-hosted Models**: For Ollama or other self-hosted models, set:
-
-```env
-LLM_HOST=http://your-model-host:port
-```
-
-> _We recommend using `gpt-4o` by OpenAI as the LLM provider_
-
-## Installation Options
-
-Skyflo.ai offers two deployment options:
-
-### 1. Production Deployment
-
-For deploying Skyflo.ai in a production environment:
+Deploy Skyflo to any Kubernetes cluster with a single command. The interactive installer provisions all resources, configures your LLM provider, and generates secrets automatically.
 
 ```bash
-curl -sL https://skyflo.ai/install.sh -o install.sh && chmod +x install.sh && ./install.sh
+curl -sL https://skyflo.ai/install.sh | bash
 ```
 
-Optional environment variables for production:
+You will be prompted for:
+
+1. **Target namespace** (default: `skyflo-ai`)
+2. **LLM model** in `provider/model` format (e.g. `openai/gpt-4o`, `anthropic/claude-sonnet-4-6`)
+3. **Provider API key**
+4. **Self-hosted LLM endpoint** (if applicable)
+
+Secrets, database credentials, and internal service URLs are generated automatically.
+
+## Verify
+
 ```bash
-export JWT_SECRET='your-custom-jwt-secret'  # Auto-generated if not provided
-export POSTGRES_DATABASE_URL='your-postgres-url'  # Default: postgres://skyflo:skyflo@skyflo-ai-postgres:5432/skyflo
-export REDIS_HOST='your-redis-host:port'  # Default: skyflo-ai-redis:6379
+kubectl get pods -n skyflo-ai
 ```
 
-#### Production Setup - AWS
+All pods should reach `Running` status. The Engine waits for PostgreSQL and Redis to become healthy before starting.
 
-1. Apply the following Ingress configuration (adjust the values according to your AWS setup):
+## Ingress
+
+Expose Skyflo through an Ingress resource. The manifest below is cloud-agnostic. Add provider-specific annotations for your environment.
+
+1. Create the Ingress manifest:
 
 ```yaml
 # skyflo-ai-ingress.yaml
-
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: skyflo-ai-ingress
   namespace: skyflo-ai
   annotations:
-    alb.ingress.kubernetes.io/scheme: internal
-    alb.ingress.kubernetes.io/subnets: subnet-xxxxx, subnet-yyyyy  # Replace with your subnet IDs
-    alb.ingress.kubernetes.io/security-groups: sg-xxxxx  # Replace with your security group ID
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/xxxxx  # Replace with your SSL cert ARN
-    alb.ingress.kubernetes.io/target-type: instance
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80,"HTTPS": 443}]'
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # Add cloud-specific annotations below
 spec:
-  ingressClassName: alb
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - your-domain.com
+    secretName: skyflo-ai-tls
   rules:
-  - host: your-domain.com  # Replace with your domain
+  - host: your-domain.com
     http:
       paths:
-      - path: /*
-        pathType: ImplementationSpecific
+      - path: /
+        pathType: Prefix
         backend:
           service:
             name: skyflo-ai-ui
@@ -99,89 +57,213 @@ spec:
               number: 80
 ```
 
-Apply the configuration:
+<details>
+<summary>AWS ALB</summary>
+
+```yaml
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/subnets: subnet-xxxxx, subnet-yyyyy
+    alb.ingress.kubernetes.io/security-groups: sg-xxxxx
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/xxxxx
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80,"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+spec:
+  ingressClassName: alb
+```
+
+</details>
+
+<details>
+<summary>GCP Cloud Load Balancer</summary>
+
+```yaml
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: gce
+    networking.gke.io/managed-certificates: skyflo-ai-cert
+    kubernetes.io/ingress.global-static-ip-name: skyflo-ai-ip
+spec:
+  ingressClassName: gce
+```
+
+</details>
+
+<details>
+<summary>Azure Application Gateway</summary>
+
+```yaml
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+    appgw.ingress.kubernetes.io/backend-protocol: "http"
+spec:
+  ingressClassName: azure-application-gateway
+```
+
+</details>
+
+2. Apply:
+
 ```bash
 kubectl apply -f skyflo-ai-ingress.yaml
 ```
 
-2. After applying the configuration, the AWS Load Balancer Controller will provision an Application Load Balancer. Get the ALB DNS name:
+3. Retrieve the external address:
+
 ```bash
 kubectl get ingress -n skyflo-ai
 ```
 
-3. Configure your DNS provider to point your domain to the ALB DNS name using a CNAME record.
+4. Point your domain to the load balancer address via DNS (CNAME for hostname, A record for IP).
 
+---
 
-### 2. Local Development with KinD
-Perfect for development, testing, and exploring Skyflo.ai features in a local environment:
+## Reference
 
-1. Create the KinD cluster
-```bash
-kind create cluster --config deployment/local.kind.yaml 
-```
-2. Configure secrets and runtime defaults (all variables used by deployment/local.install.yaml, mirroring the logic in deployment/install.sh)
+### Prerequisites
 
-```bash
-export NAMESPACE=skyflo-ai
-export LLM_MODEL=openai/gpt-4o                # pick any provider/model pair
-export OPENAI_API_KEY=sk-your-key             # or GROQ_API_KEY/ANTHROPIC_API_KEY/etc.
-export JWT_SECRET=$(openssl rand -base64 32)
-export POSTGRES_DATABASE_URL=postgres://skyflo:skyflo@skyflo-ai-postgres:5432/skyflo
-export REDIS_URL=redis://skyflo-ai-redis:6379/0
-export MCP_SERVER_URL=http://skyflo-ai-mcp:8081
-export INTEGRATIONS_SECRET_NAMESPACE=$NAMESPACE
-```
-> Set any additional provider keys from `deployment/local.install.yaml` if you plan to use them (e.g., `GROQ_API_KEY`, `GEMINI_API_KEY`, `HF_TOKEN`, etc.).
+The installer validates these automatically.
 
-3. Apply the local manifest
+- Kubernetes cluster (v1.19+)
+- kubectl
+- gettext (for `envsubst`)
+- curl
+- openssl
+
+### Version Pinning
 
 ```bash
-envsubst < deployment/local.install.yaml | kubectl apply -f -
-```
-4. Port-forward the UI service and open the app
-
-```bash
-kubectl port-forward svc/skyflo-ai-ui -n $NAMESPACE 30080:80
+VERSION=v0.5.0 bash <(curl -sL https://skyflo.ai/install.sh)
 ```
 
-The Skyflo UI will now be available on your localhost:
-> `http://localhost:30080`
+### Deployed Resources
 
-Follow `deployment/README.md` for building the Docker images locally and loading them into the KinD cluster via `kind load docker-image`.
+| Resource | Description |
+|----------|-------------|
+| Engine Deployment | FastAPI backend with LangGraph agent (port 8080) |
+| MCP Deployment | FastMCP tool server with kubectl, Helm, Argo, Jenkins (port 8888) |
+| UI Deployment | Next.js frontend with Nginx proxy sidecar (port 80) |
+| Controller Deployment | Kubernetes operator for SkyfloAI CRD (Go) |
+| PostgreSQL StatefulSet | Primary database with 5Gi persistent volume |
+| Redis StatefulSet | Pub/sub, rate limiting, stop signals with 1Gi volume |
+| ConfigMaps | Non-sensitive configuration for Engine, MCP, and UI |
+| Secrets | JWT secret, database URLs, LLM API keys |
+| NetworkPolicy | Restricts MCP ingress to Engine pods only |
+| RBAC | ServiceAccounts, ClusterRole, ClusterRoleBinding |
+| CRD | `skyfloais.skyflo.ai` custom resource definition |
 
-## Verifying the Installation
+### Generated Values
 
-Check the status of your deployment:
-```bash
-kubectl get pods -n skyflo-ai
+The following are created automatically unless pre-set as environment variables:
+
+| Variable | Default |
+|----------|---------|
+| `JWT_SECRET` | Random 32-byte base64 |
+| `POSTGRES_PASSWORD` | Random URL-safe string |
+| `POSTGRES_DATABASE_URL` | In-cluster PostgreSQL |
+| `REDIS_URL` | `redis://skyflo-ai-redis:6379/0` |
+| `MCP_SERVER_URL` | `http://skyflo-ai-mcp:8888/mcp` |
+
+### LLM Configuration
+
+The installer configures your LLM provider interactively. Use the reference below to pre-set values as environment variables or to modify the configuration after installation.
+
+#### Supported Models
+
+Set `LLM_MODEL` using `provider/model` format:
+
+```env
+LLM_MODEL=gemini/gemini-2.5-pro       # Gemini (recommended)
+LLM_MODEL=moonshot/kimi-k2.5          # Moonshot
+LLM_MODEL=deepseek/deepseek-reasoner  # Deepseek
+LLM_MODEL=groq/openai/gpt-oss-120b    # Groq
+LLM_MODEL=anthropic/claude-sonnet-4-6 # Anthropic
+LLM_MODEL=openai/gpt-5.3-codex        # OpenAI
+LLM_MODEL=ollama/llama3.1:8b          # Ollama (self-hosted)
 ```
+
+Skyflo connects to LLM providers through LiteLLM. See the full [list of supported models](https://models.litellm.ai/).
+
+#### API Keys
+
+```env
+ANTHROPIC_API_KEY=sk-...    # Anthropic
+MOONSHOT_API_KEY=sk-...     # Moonshot
+DEEPSEEK_API_KEY=sk-...     # Deepseek
+GROQ_API_KEY=gsk-...        # Groq
+GEMINI_API_KEY=AI-...       # Gemini
+OPENAI_API_KEY=sk-...       # OpenAI
+```
+
+Additional providers: AWS Bedrock, HuggingFace, Databricks, Fireworks AI, Together AI, NVIDIA NIM, Perplexity, xAI, and others.
+
+#### Self-hosted Models
+
+For Ollama or other self-hosted endpoints:
+
+```env
+LLM_HOST=http://your-model-host:port
+```
+
+#### Reasoning Models
+
+Skyflo auto-detects reasoning capabilities using LiteLLM's model registry. Models with native reasoning support (OpenAI o-series, Anthropic Claude with extended thinking, DeepSeek-R1) are enabled automatically at `high` effort. The reasoning process streams to the UI in collapsible thinking blocks.
+
+Setting `LLM_REASONING_EFFORT` to `high` yields the best results with Skyflo.
+
+To override defaults, set these environment variables on the Engine:
+
+```env
+LLM_REASONING_EFFORT=high              # low, medium, high
+LLM_THINKING_BUDGET_TOKENS=10000       # Anthropic-specific
+LLM_MAX_TOKENS=16384                   # Max tokens when thinking is enabled
+```
+
+### Building from Source
+
+See [deployment/README.md](../deployment/README.md).
 
 ## Uninstalling
 
-To remove Skyflo.ai and all its components:
+```bash
+curl -sL https://skyflo.ai/uninstall.sh | bash
+```
+
+Pin a specific version:
 
 ```bash
-curl -fsSL https://skyflo.ai/uninstall.sh | bash
+VERSION=<version> bash <(curl -sL https://skyflo.ai/uninstall.sh)
 ```
+
+The uninstaller prompts for the target namespace and whether to delete persistent volume claims. Confirming deletion permanently removes all PostgreSQL and Redis data.
 
 ## Troubleshooting
 
 1. Check pod status:
+
 ```bash
 kubectl get pods -n skyflo-ai
 kubectl describe pod <pod-name> -n skyflo-ai
 ```
 
 2. View logs:
+
 ```bash
 kubectl logs <pod-name> -n skyflo-ai
 ```
 
 3. Common issues:
-- If pods are stuck in "Pending" state, check your cluster's resources
-- For "ImagePullBackOff", verify your container registry access
-- For connection issues, ensure all services are running and properly configured
+- Pods stuck in `Pending`: insufficient cluster resources
+- `ImagePullBackOff`: verify container registry access and image tags
+- Engine not starting: confirm PostgreSQL and Redis pods are healthy
+- Connection failures: verify services with `kubectl get svc -n skyflo-ai`
 
-## Need Help?
+## Community
 
-Join our [Discord community](https://discord.gg/kCFNavMund) for support and discussions.
+- [Discord](https://discord.gg/kCFNavMund)
+- [Website](https://skyflo.ai)

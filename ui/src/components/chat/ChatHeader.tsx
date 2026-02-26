@@ -9,16 +9,11 @@ const ChatHeader = () => {
       </div>
 
       <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-100">
-          I'm{" "}
-          <span className="relative whitespace-nowrap px-1">
-            <span className="bg-gradient-to-r from-[#00B7FF] via-[#0094E8] to-[#0056B3] bg-clip-text text-transparent">
-              Sky
-            </span>
-          </span>
+        <h1 className="text-3xl font-semibold tracking-[0.02em] text-gray-200">
+          Skyflo
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-gray-400">
-          Your DevOps Copilot for Kubernetes & Jenkins
+          Deterministic operations for modern infrastructure
         </p>
       </div>
     </div>
