@@ -29,6 +29,14 @@ export type MessageSegment =
       timestamp?: number;
     }
   | {
+      kind: "thinking";
+      id: string;
+      text: string;
+      isComplete?: boolean;
+      durationMs?: number;
+      timestamp?: number;
+    }
+  | {
       kind: "tool";
       id: string;
       toolExecution: ToolExecution;

@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, conint
 from pydantic_settings import BaseSettings
 
 
@@ -38,11 +38,15 @@ class Settings(BaseSettings):
     LLM_HOST: Optional[str] = Field(default=None, env="LLM_HOST")
     OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
     LLM_MAX_ITERATIONS: int = 25
+    LLM_MAX_TOKENS: Optional[conint(ge=1)] = Field(default=None, env="LLM_MAX_TOKENS")
 
-    LLM_TEMPERATURE: float = 0.2
-    MODEL_NAME: str = "gpt-4o"
+    LLM_REASONING_EFFORT: Optional[Literal["low", "medium", "high", "default"]] = Field(
+        default=None, env="LLM_REASONING_EFFORT"
+    )
+    LLM_THINKING_BUDGET_TOKENS: Optional[conint(ge=0)] = Field(
+        default=None, env="LLM_THINKING_BUDGET_TOKENS"
+    )
     AGENT_TYPE: str = "assistant"
-    TEMPERATURE: float = 0.2
 
     class Config:
         env_file = ".env"

@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ["latin"] });
 const AuthProvider = dynamic(
   () =>
     import("@/components/auth/AuthProvider").then((mod) => mod.AuthProvider),
-  { ssr: false }
+  { ssr: false },
 );
 
 export default function RootLayout({
@@ -21,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>Skyflo.ai | AI Agent for Cloud & DevOps</title>
+        <title>Skyflo</title>
       </head>
       <body className={`${inter.className} bg-dark text-gray-200`}>
         {/* SVG filter used by the liquid glass effect */}

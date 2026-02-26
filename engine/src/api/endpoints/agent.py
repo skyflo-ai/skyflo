@@ -77,7 +77,11 @@ async def publish_event(channel: str, event: str, payload: Dict[str, Any]):
 
 
 async def create_sse_event_generator(
-    request: Request, channel: str, run_id: str, workflow_kwargs: Dict[str, Any], endpoint_name: str
+    request: Request,
+    channel: str,
+    run_id: str,
+    workflow_kwargs: Dict[str, Any],
+    endpoint_name: str,
 ) -> AsyncGenerator[bytes, None]:
     """Create a reusable SSE event generator for workflow execution."""
     r = await get_redis_client()
@@ -215,6 +219,17 @@ def create_event_callback(
                     duration_ms=int(event.get("duration") or 0),
                 )
                 await persistence.apply_usage_snapshot(conversation_id, event_run_id)
+            elif event_type == "thinking.complete":
+                raw_content = event.get("content")
+                if raw_content is not None:
+                    thinking_content = str(raw_content).strip()
+                    if thinking_content and thinking_content.lower() != "none":
+                        await persistence.append_thinking_segment(
+                            conversation_id=conversation_id,
+                            text=thinking_content,
+                            timestamp=int(event.get("timestamp", now_ms())),
+                            duration_ms=int(event.get("duration_ms") or 0),
+                        )
             elif event_type == "generation.complete":
                 content = str(event.get("content", ""))
                 if content:
@@ -382,7 +397,9 @@ async def run_agent_workflow(
     except Exception as e:
         logger.exception(f"Error in agent workflow for run {run_id}: {str(e)}")
         await publish_event(
-            channel, "workflow_error", {"run_id": run_id, "error": str(e), "status": "error"}
+            channel,
+            "workflow_error",
+            {"run_id": run_id, "error": str(e), "status": "error"},
         )
 
 
@@ -594,7 +611,11 @@ async def stop_run(request: Request, user=Depends(fastapi_users.current_user(opt
             {"run_id": req.run_id, "result": {"done": True}, "status": "stopped"},
         )
 
-        return {"status": "stopped", "conversation_id": req.conversation_id, "run_id": req.run_id}
+        return {
+            "status": "stopped",
+            "conversation_id": req.conversation_id,
+            "run_id": req.run_id,
+        }
     except HTTPException:
         raise
     except Exception as e:

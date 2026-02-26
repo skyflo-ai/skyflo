@@ -6,6 +6,8 @@ import {
   WorkflowCompleteEvent,
   TokenUsageEvent,
   TTFTEvent,
+  ThinkingEvent,
+  ThinkingCompleteEvent,
 } from "@/types/events";
 import { ChatMessage, ToolExecution, TokenUsage } from "@/types/chat";
 
@@ -21,8 +23,10 @@ export interface ChatServiceCallbacks {
   onToolProgress?: (
     execution: ToolExecution,
     message?: string,
-    progress?: number
+    progress?: number,
   ) => void;
+  onThinking?: (token: string, conversationId: string) => void;
+  onThinkingComplete?: (content: string, durationMs: number) => void;
   onToken?: (token: string, conversationId: string) => void;
   onTokenUsage?: (usage: TokenUsage, source: "turn_check" | "main") => void;
   onTTFT?: (duration: number, runId: string) => void;
@@ -44,7 +48,7 @@ export class ChatService {
 
   async startStream(
     messages: ChatMessage[],
-    conversationId: string
+    conversationId: string,
   ): Promise<void> {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL + "/agent/chat";
 
@@ -76,7 +80,7 @@ export class ChatService {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          `HTTP ${response.status}: ${response.statusText} - ${errorText}`
+          `HTTP ${response.status}: ${response.statusText} - ${errorText}`,
         );
       }
 
@@ -108,7 +112,7 @@ export class ChatService {
     callId: string,
     approve: boolean,
     reason?: string,
-    conversationId?: string
+    conversationId?: string,
   ): Promise<void> {
     const apiUrl =
       process.env.NEXT_PUBLIC_API_URL + `/agent/approvals/${callId}`;
@@ -138,7 +142,7 @@ export class ChatService {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          `HTTP ${response.status}: ${response.statusText} - ${errorText}`
+          `HTTP ${response.status}: ${response.statusText} - ${errorText}`,
         );
       }
 
@@ -167,7 +171,7 @@ export class ChatService {
   }
 
   private async parseSSEStream(
-    body: ReadableStream<Uint8Array>
+    body: ReadableStream<Uint8Array>,
   ): Promise<void> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
@@ -190,7 +194,7 @@ export class ChatService {
       }
     } catch (error) {
       this.callbacks.onError?.(
-        error instanceof Error ? error.message : "Stream error"
+        error instanceof Error ? error.message : "Stream error",
       );
     } finally {
       reader.releaseLock();
@@ -385,6 +389,27 @@ export class ChatService {
         }
         break;
 
+      case "thinking": {
+        if (this.hasCompleted) {
+          return;
+        }
+        const thinkingEvent = event as ThinkingEvent;
+        this.callbacks.onThinking?.(
+          thinkingEvent.text,
+          thinkingEvent.conversation_id,
+        );
+        break;
+      }
+
+      case "thinking.complete": {
+        if (this.hasCompleted) {
+          return;
+        }
+        const e = event as ThinkingCompleteEvent;
+        this.callbacks.onThinkingComplete?.(e.content ?? "", e.duration_ms);
+        break;
+      }
+
       case "token":
         if (this.hasCompleted) {
           return;
@@ -401,7 +426,7 @@ export class ChatService {
             total_tokens: usageEvent.total_tokens,
             cached_tokens: usageEvent.cached_tokens ?? 0,
           },
-          usageEvent.source
+          usageEvent.source,
         );
         break;
       }

@@ -1,31 +1,41 @@
-# MCP Server for Skyflo.ai
+# Skyflo MCP Server
 
-This is the MCP server for Skyflo.ai. It unifies Kubernetes (kubectl, Argo Rollouts, Helm) and CI/CD systems (starting with Jenkins) behind a FastMCP server, enabling natural-language execution by the [Engine](../engine) with integration-aware tool discovery, and secure credential resolution over HTTP via Streamable HTTP transport.
+MCP server exposing schema-validated infrastructure tools for Kubernetes, Helm, Argo Rollouts, and Jenkins to the [Engine](../engine) over Streamable HTTP transport. Tool annotations drive the approval gate for every mutating operation.
+
+See [docs/architecture.md](../docs/architecture.md) for full system context.
 
 ## Architecture
 
-The MCP Server is built using FastMCP:
-
 ### FastMCP Server
 
-The FastMCP server serves as the core tool execution engine:
+The FastMCP server is the core tool execution layer:
 
-- Single entrypoint through `server.py`
-- Registers standardized tool definitions for kubectl, argo rollouts, helm, and jenkins
-- Implements safety mechanisms and validation checks
-- Handles both synchronous and asynchronous operations
-- Supports comprehensive tool documentation and metadata
+- CLI entrypoint via `main.py` (accepts `--host` and `--port` arguments)
+- FastMCP instance created in `config/server.py`, tools registered via `@mcp.tool()` decorators at import time
+- All CLI tools (kubectl, helm) executed as async subprocesses via `utils/commands.py`
+- Jenkins tools use an async HTTP client (`httpx`) with credentials resolved from Kubernetes Secrets
+- MCP tool annotations (`readOnlyHint`, `destructiveHint`) drive the Engine's approval policy
 - Built-in Streamable HTTP transport support
-- Automatic tool discovery and registration
+- Custom health check endpoint at `GET /mcp/v1/health`
 
-## Features
+## Tools
 
-### Tool Categories
+### Categories
 
-1. `kubectl` - Kubernetes tools: [/tools/kubectl.py](tools/kubectl.py)
-2. `argo` - Argo Rollouts tools: [/tools/argo.py](tools/argo.py)
-3. `helm` - Helm tools: [/tools/helm.py](tools/helm.py)
-4. `jenkins` - Jenkins tools: [/tools/jenkins.py](tools/jenkins.py)
+1. `kubectl` - Kubernetes operations: [tools/kubectl.py](tools/kubectl.py)
+2. `helm` - Helm chart management: [tools/helm.py](tools/helm.py)
+3. `argo` - Argo Rollouts progressive delivery: [tools/argo.py](tools/argo.py)
+4. `jenkins` - Jenkins CI/CD pipelines: [tools/jenkins.py](tools/jenkins.py)
+
+### Annotations
+
+Every tool carries MCP annotations that the Engine uses for its approval gate:
+
+- `readOnlyHint: true` - read-only tools execute without approval (e.g. `k8s_get`, `k8s_logs`)
+- `readOnlyHint: false` - mutating tools require explicit approval (e.g. `k8s_apply`, `k8s_scale`)
+- `destructiveHint: true` - destructive tools are flagged for extra caution (e.g. `k8s_delete`, `k8s_drain`, `helm_uninstall`, `argo_abort_rollout`)
+
+Each tool also has a `tags` list (e.g. `k8s`, `helm`, `argo`, `jenkins`, `metrics`) and a human-readable `title`.
 
 ## Installation
 
@@ -67,7 +77,7 @@ uv sync --frozen --extra dev
 uv run python main.py --host 0.0.0.0 --port 8888
 ```
 
-The server uses Streamable HTTP transport and provides MCP (Model Communication Protocol) interface for AI agents to interact with cloud-native tools.
+The server uses Streamable HTTP transport and provides an MCP interface for the Engine to execute infrastructure tools.
 
 ## Development Commands
 
@@ -80,15 +90,33 @@ The server uses Streamable HTTP transport and provides MCP (Model Communication 
 | `uv run pytest --cov tests` | Run tests with coverage report |
 | `uv run mypy --install-types --non-interactive main.py config/ utils/` | Run mypy for type checking |
 
-## FastMCP Configuration
+## Configuration
+
+### FastMCP
 
 This project includes a `fastmcp.json` for MCP client integrations and dependency metadata. It defines the server entrypoint and required Python dependencies without embedding them in code.
 
+### Environment Variables
+
+Defined in `.env.example`:
+
+- `APP_NAME`, `APP_VERSION`, `APP_DESCRIPTION` - application metadata
+- `DEBUG` - debug mode toggle
+- `LOG_LEVEL` - logging level (default `INFO`)
+- `MAX_RETRY_ATTEMPTS`, `RETRY_BASE_DELAY`, `RETRY_MAX_DELAY`, `RETRY_EXPONENTIAL_BASE` - retry policy
+
+### Jenkins Credential Resolution
+
+Jenkins tools receive `api_url` and `credentials_ref` as parameters from the Engine (injected via integration metadata). The `credentials_ref` points to a Kubernetes Secret in `namespace/name` format. At runtime, the MCP server:
+
+1. Validates the reference format and characters
+2. Calls `kubectl get secret <name> -n <namespace> -o json` with a 5-second timeout
+3. Decodes `username` and `api-token` from the Secret's base64-encoded data
+4. Creates an authenticated `httpx.AsyncClient` with CSRF crumb support
+
 ## Testing
 
-### Running Tests
-
-The MCP server includes comprehensive test coverage for all tool implementations. Tests are organized in a structured directory layout that mirrors the source code:
+Tests are organized in a structured directory layout that mirrors the source code:
 
 ```
 tests/
@@ -101,10 +129,6 @@ tests/
     └── test_commands.py    # Command execution tests
 ```
 
-#### Quick Start
-
-**Using the test runner script**
-
 ```bash
 # Navigate to mcp directory
 cd mcp
@@ -116,41 +140,50 @@ cd mcp
 ./run_tests.sh --coverage 80
 ```
 
-## Development
+## Component Structure
 
-### Component Structure
-
-```
+```text
 mcp/
+├── main.py                  # CLI entrypoint (--host, --port)
+├── config/
+│   └── server.py            # FastMCP instance, health check, tool imports
 ├── tools/                   # Tool implementations
 │   ├── __init__.py          # Package initialization
-│   ├── kubectl.py           # Kubernetes tools
-│   ├── argo.py              # Argo Rollouts tools
-│   ├── helm.py              # Helm tools
-│   └── jenkins.py           # Jenkins tools
-├── config/server.py         # FastMCP server entrypoint
+│   ├── kubectl.py           # Kubernetes tools (22)
+│   ├── helm.py              # Helm tools (16)
+│   ├── argo.py              # Argo Rollouts tools (13)
+│   └── jenkins.py           # Jenkins tools (13)
+├── utils/
+│   ├── commands.py          # Async subprocess execution
+│   └── models.py            # Shared type definitions (ToolOutput)
+├── tests/                   # Mirrors source structure
+│   ├── tools/               # Tool-level tests
+│   └── utils/               # Utility tests
 ├── __about__.py             # Version information
-├── pyproject.toml           # Project dependencies
+├── .env.example             # Environment variable template
+├── fastmcp.json             # MCP client integration metadata
+├── run_tests.sh             # Test runner with coverage threshold
+├── pyproject.toml           # Project dependencies and tooling
 └── README.md                # Documentation
 ```
 
 ### Best Practices
 
 - **Tool Implementation**
-
-  - Use clear documentation and type hints with Pydantic Field descriptions
+  - Register tools using `@mcp.tool()` with `title`, `tags`, and `annotations`
+  - Use Pydantic `Field` descriptions for all parameters
   - Implement proper error handling and validation
   - Follow async/await patterns for command execution
-  - Register tools using the `register_tools(mcp)` pattern
+  - Return `ToolOutput` typed dicts with `output` and `error` fields
 
 - **Server Development**
-  - Use FastMCP decorators for tool registration
-  - Implement proper command execution with error handling
-  - Provide clear tool descriptions and parameter documentation
+  - Import tool modules in `config/server.py` to trigger decorator registration
+  - Use `utils/commands.py` for subprocess execution with consistent error handling
+  - Set `readOnlyHint` and `destructiveHint` annotations accurately for each tool
 
-## Community and Support
+## Community
 
 - [Website](https://skyflo.ai)
-- [Discord Community](https://discord.gg/kCFNavMund)
-- [Twitter/X Updates](https://x.com/skyflo_ai)
-- [GitHub Discussions](https://github.com/skyflo-ai/skyflo/discussions)
+- [Discord](https://discord.gg/kCFNavMund)
+- [X](https://x.com/skyflo_ai)
+- [LinkedIn](https://www.linkedin.com/company/skyflo)

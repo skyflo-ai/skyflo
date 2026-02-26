@@ -123,9 +123,9 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       return;
     }
 
-    const getLastSegment = () => {
+    const getSegments = () => {
       if (currentMessage?.segments?.length) {
-        return currentMessage.segments[currentMessage.segments.length - 1];
+        return currentMessage.segments;
       }
 
       const lastMessage = messages[messages.length - 1];
@@ -133,19 +133,23 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         lastMessage?.type === "assistant" &&
         (lastMessage as any).segments?.length
       ) {
-        const segments = (lastMessage as any).segments;
-        return segments[segments.length - 1];
+        return (lastMessage as any).segments;
       }
 
-      return null;
+      return [];
     };
 
-    const lastSegment = getLastSegment();
+    const segments = getSegments();
+    const lastSegment = segments.length > 0 ? segments[segments.length - 1] : null;
+    const hasExecutingTool = segments.some(
+      (seg: any) =>
+        seg.kind === "tool" && seg.toolExecution?.status === "executing"
+    );
 
     if (
       lastSegment?.kind === "text" ||
-      (lastSegment?.kind === "tool" &&
-        lastSegment.toolExecution.status === "executing")
+      lastSegment?.kind === "thinking" ||
+      hasExecutingTool
     ) {
       setWaitingForFirstUpdate(false);
       return;
@@ -422,8 +426,81 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       onToolApproved: updateExistingMessageWithTool,
       onToolDenied: updateMessageWithTool,
       onToolError: updateMessageWithTool,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        onToken: (token: string, _conversationId: string) => {
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      onThinking: (token: string, _conversationId: string) => {
+        setWaitingForFirstUpdate(false);
+        updateCurrentMessage((prev) => {
+          if (!prev) {
+            return {
+              id: crypto.randomUUID(),
+              type: "assistant",
+              content: "",
+              timestamp: Date.now(),
+              isStreaming: true,
+              segments: [
+                {
+                  kind: "thinking" as const,
+                  id: crypto.randomUUID(),
+                  text: token,
+                  isComplete: false,
+                },
+              ],
+              tokenUsage: { ...liveUsageRef.current },
+            };
+          }
+          const segments = prev.segments ? [...prev.segments] : [];
+          const last = segments[segments.length - 1];
+          if (last && last.kind === "thinking" && !last.isComplete) {
+            segments[segments.length - 1] = {
+              ...last,
+              text: last.text + token,
+            };
+          } else {
+            segments.push({
+              kind: "thinking" as const,
+              id: crypto.randomUUID(),
+              text: token,
+              isComplete: false,
+            });
+          }
+          return { ...prev, segments };
+        });
+      },
+
+      onThinkingComplete: (content: string, durationMs: number) => {
+        updateCurrentMessage((prev) => {
+          if (!prev) return prev;
+          const segments = prev.segments ? [...prev.segments] : [];
+          let idx = segments.findLastIndex(
+            (s) => s.kind === "thinking" && !s.isComplete
+          );
+          if (idx < 0) {
+            for (let i = segments.length - 1; i >= 0; i--) {
+              const s = segments[i];
+              if (s.kind === "thinking" && !s.durationMs) {
+                idx = i;
+                break;
+              }
+            }
+          }
+          if (idx >= 0) {
+            const seg = segments[idx];
+            if (seg.kind === "thinking") {
+              segments[idx] = {
+                ...seg,
+                text: content,
+                isComplete: true,
+                durationMs,
+              };
+            }
+          }
+          return { ...prev, segments };
+        });
+      },
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      onToken: (token: string, _conversationId: string) => {
         setWaitingForFirstUpdate(false);
         updateCurrentMessage((prev) => {
           if (!prev) {
@@ -440,6 +517,14 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             };
           }
           const segments = prev.segments ? [...prev.segments] : [];
+
+          for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i];
+            if (seg.kind === "thinking" && !seg.isComplete) {
+              segments[i] = { ...seg, isComplete: true };
+            }
+          }
+
           const last = segments[segments.length - 1];
           if (last && last.kind === "text") {
             segments[segments.length - 1] = {

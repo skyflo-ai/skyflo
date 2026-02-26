@@ -1,6 +1,8 @@
-# Skyflo.ai Engine Service
+# Skyflo Engine
 
-The Skyflo.ai Engine is the backend intelligence layer that connects the [UI](../ui) and the [MCP server](../mcp) to turn natural-language requests into **safe Cloud & DevOps operations** across Kubernetes and CI/CD systems, with a human-in-the-loop workflow.
+The Engine is Skyflo's backend orchestration layer for DevOps and SRE teams. It connects the [Command Center](../ui) and the [MCP server](../mcp), turning natural language into typed, auditable Kubernetes and CI/CD operations with an approval gate for every mutating tool call.
+
+See [docs/architecture.md](../docs/architecture.md) for full system context.
 
 ## Architecture
 
@@ -21,30 +23,38 @@ The workflow is a compact graph compiled with an optional Postgres checkpointer:
 - Nodes: `entry` → `model` → `gate` → `final` with conditional routing
 - `model` runs an LLM turn (via LiteLLM) and may produce tool calls
 - `gate` executes MCP tools (with approval policy) and feeds results back to the model
-- Auto‑continue is applied conservatively based on a “next speaker” decision
-- Stop requests are honored mid‑stream via Redis flags
+- Auto-continue is applied conservatively based on a "next speaker" decision
+- Stop requests are honored mid-stream via Redis flags
 
 Checkpointer:
 - Postgres checkpointer via `langgraph-checkpoint-postgres` when `ENABLE_POSTGRES_CHECKPOINTER=true`
-- Falls back to in‑memory if Postgres is unavailable
+- Falls back to in-memory if Postgres is unavailable
 
 ### Event Streaming (SSE + Redis)
 
-All workflow events stream over SSE from `/api/v1/agent/chat` and `/api/v1/agent/approvals/{call_id}`. Internally, the Engine uses Redis pub/sub channels keyed by a unique run id. Event types include (non‑exhaustive):
+All workflow events stream over SSE from `/api/v1/agent/chat` and `/api/v1/agent/approvals/{call_id}`. Internally, the Engine uses Redis pub/sub channels keyed by a unique run id. Event types include (non-exhaustive):
 
 - `ready`, `heartbeat`
+- `thinking`, `thinking.complete`
 - `token`, `generation.start`, `generation.complete`
-- `tools.pending`, `tool.executing`, `tool.result`, `tool.error`, `tool.approved`, `tool.denied`
-- `completed`, `workflow_complete`, `workflow_error`
+- `tools.pending`, `tool.executing`, `tool.awaiting_approval`, `tool.result`, `tool.error`, `tool.approved`, `tool.denied`
+- `token.usage`, `ttft`
+- `completed`, `workflow_complete`, `workflow_error`, `workflow.error`
 
 ## Features
 
-- Natural language operations with tool execution via MCP
-- SSE streaming for tokens, tool progress, and results
+- Natural language operations with typed tool execution via MCP
+- SSE streaming for tokens, thinking/reasoning content, tool progress, and results
+- Thinking/reasoning model support with configurable effort and budget (Anthropic, OpenAI, DeepSeek, etc.)
+- Multi-provider LLM support (OpenAI, Groq, Ollama, Gemini, etc.) via LiteLLM
+- Approval gate derived from MCP annotations (`readOnlyHint`, `destructiveHint`)
 - Auth with fastapi-users (JWT), first user becomes admin
+- Refresh token rotation with cookie-based session management
 - Team admin endpoints (list/add/update/remove members)
-- Conversation CRUD with persisted message timeline and title generation
+- Conversation CRUD with persisted message timeline and automatic title generation
+- Token usage tracking with TTFT and TTR metrics per conversation
 - Rate limiting via Redis (fastapi-limiter)
+- Graceful mid-stream workflow stop via Redis flags
 - Optional Postgres checkpointer for resilient workflow state
 - Integrations admin (CRUD) with secure credential storage (Kubernetes Secret)
 
@@ -70,7 +80,7 @@ Minimum to set for local dev:
 - `POSTGRES_DATABASE_URL` (e.g. `postgres://postgres:postgres@localhost:5432/skyflo`)
 - `REDIS_URL` (e.g. `redis://localhost:6379/0`)
 - `JWT_SECRET`
-- LLM provider key, e.g. `OPENAI_API_KEY` when `LLM_MODEL=openai/gpt-4o`
+- LLM provider key, e.g. `MOONSHOT_API_KEY` when `LLM_MODEL=moonshot/kimi-k2.5`
 
 2) Install dependencies and the package in editable mode.
 
@@ -93,7 +103,7 @@ aerich migrate
 aerich upgrade
 ```
 
-### Optional: Start local PostgreSQL + Redis
+### Optional: Start Local PostgreSQL + Redis
 
 ```bash
 # From project root
@@ -103,7 +113,7 @@ docker compose -f deployment/local.docker-compose.yaml up -d
 ### Run the Engine
 
 ```bash
-# Using uv (recommended - respects uv.lock for reproducible builds)
+# Using uv (recommended, respects uv.lock for reproducible builds)
 uv run uvicorn src.api.asgi:app --host 0.0.0.0 --port 8080 --reload
 ```
 
@@ -118,7 +128,7 @@ Service will be available at `http://localhost:8080`.
 | `uv run uvicorn src.api.asgi:app --host 0.0.0.0 --port 8080 --reload` | Start development server with hot reload |
 | `hatch run lint` | Run Ruff linter to check for code issues |
 | `hatch run type-check` | Run mypy for type checking |
-| `hatch run format` | Format code with Black |
+| `hatch run format` | Format code with Ruff |
 | `hatch run test` | Run tests with pytest |
 | `hatch run test-cov` | Run tests with coverage report |
 
@@ -136,10 +146,12 @@ Base path: `/api/v1`
   - `GET /auth/is_admin_user`
   - `GET /auth/me`, `PATCH /auth/me`
   - `PATCH /auth/users/me/password`
+  - `POST /auth/refresh/issue`, `POST /auth/refresh` (refresh token rotation)
+  - `POST /auth/logout` (revoke refresh token, clear cookies)
 - Team admin (`/team/*`): members list/add/update/remove (requires admin)
- - Integrations (`/integrations/*`): list/create/update/delete (admin only)
+- Integrations (`/integrations/*`): list (authenticated), create/update/delete (admin only)
 
-### SSE chat example
+### SSE Chat Example
 
 ```bash
 curl -N -H "Content-Type: application/json" \
@@ -148,7 +160,7 @@ curl -N -H "Content-Type: application/json" \
   http://localhost:8080/api/v1/agent/chat
 ```
 
-### Approvals example
+### Approvals Example
 
 ```bash
 curl -N -H "Content-Type: application/json" \
@@ -167,23 +179,25 @@ Defined in `src/api/config/settings.py` (Pydantic Settings, `.env` loaded). Key 
 - Redis & Rate limit: `REDIS_URL`, `RATE_LIMITING_ENABLED`, `RATE_LIMIT_PER_MINUTE`
 - Auth: `JWT_SECRET`, `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`
 - MCP: `MCP_SERVER_URL`
- - Integrations: `INTEGRATIONS_SECRET_NAMESPACE` (default `default`)
-- Workflow: `MAX_AUTO_CONTINUE_TURNS`, `LLM_MAX_ITERATIONS`, `LLM_TEMPERATURE`
-- LLM: `LLM_MODEL` (e.g. `openai/gpt-4o`), `LLM_HOST` (optional), provider API key envs like `OPENAI_API_KEY`
+- Integrations: `INTEGRATIONS_SECRET_NAMESPACE` (default `default`)
+- Workflow: `MAX_AUTO_CONTINUE_TURNS`, `LLM_MAX_ITERATIONS`
+- LLM: `LLM_MODEL` (e.g. `moonshot/kimi-k2.5`), `LLM_HOST` (optional), provider API key envs like `MOONSHOT_API_KEY`
+- Thinking/Reasoning: `LLM_REASONING_EFFORT` (`low`, `medium`, `high`), `LLM_THINKING_BUDGET_TOKENS` (Anthropic-specific), `LLM_MAX_TOKENS` (optional override when thinking is enabled)
 
 ## Component Structure
 
-```
+```text
 engine/
 ├── src/
 │   └── api/
-│       ├── agent/          # LangGraph workflow (graph, model node, state, prompts)
+│       ├── agent/          # LangGraph workflow (graph, model node, state, prompts, stop)
 │       ├── config/         # Settings, DB, rate limiting
 │       ├── endpoints/      # FastAPI routers (agent, auth, conversations, team, integrations, health)
+│       ├── integrations/   # Provider-specific helpers (Jenkins)
 │       ├── middleware/     # CORS, logging
-│       ├── models/         # Tortoise ORM models (User, Conversation, Message, Integration)
+│       ├── models/         # Tortoise ORM models (User, Conversation, Message, Integration, RefreshToken)
 │       ├── schemas/        # Pydantic schemas (team)
-│       ├── services/       # MCP client, tool executor, approvals, limiter, persistence, titles
+│       ├── services/       # MCP client, tool executor, approvals, limiter, persistence, titles, checkpointer, stop, tools cache
 │       └── utils/          # Helpers, sanitization, time
 ├── migrations/              # Aerich migrations
 └── pyproject.toml          # Project dependencies and tooling
@@ -198,14 +212,15 @@ engine/
 | Migrations           | Aerich                           |
 | Authentication       | fastapi-users (+ tortoise)       |
 | Streaming            | SSE + Redis (pub/sub)            |
-| Rate limiting        | fastapi-limiter + Redis          |
+| Rate Limiting        | fastapi-limiter + Redis          |
 | AI Agent             | LangGraph                        |
 | LLM Integration      | LiteLLM                          |
+| MCP Communication    | FastMCP                          |
 | Database             | PostgreSQL                       |
 
-## Community and Support
+## Community
 
-- Website: https://skyflo.ai
-- Discord: https://discord.gg/kCFNavMund
-- X/Twitter: https://x.com/skyflo_ai
-- GitHub Discussions: https://github.com/skyflo-ai/skyflo/discussions
+- [Website](https://skyflo.ai)
+- [Discord](https://discord.gg/kCFNavMund)
+- [X](https://x.com/skyflo_ai)
+- [LinkedIn](https://www.linkedin.com/company/skyflo)

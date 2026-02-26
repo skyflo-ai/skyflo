@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { ChatMessage } from "../../types/chat";
+import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolVisualization } from "./ToolVisualization";
 import { TokenUsageDisplay } from "./TokenUsageDisplay";
+import { CopyMessageMenu } from "./CopyMessageMenu";
 import { markdownComponents } from "../ui/markdown-components";
 
 interface ChatMessagesViewProps {
@@ -71,6 +74,16 @@ export function ChatMessages({
       <div className={cn("relative", showUsage && "pb-10")}>
         <div className="space-y-2 px-4">
           {segments.map((seg) => {
+            if (seg.kind === "thinking") {
+              return (
+                <ThinkingBlock
+                  key={seg.id}
+                  text={seg.text}
+                  isComplete={seg.isComplete}
+                  durationMs={seg.durationMs}
+                />
+              );
+            }
             if (seg.kind === "text") {
               return (
                 <div
@@ -79,6 +92,7 @@ export function ChatMessages({
                 >
                   <ReactMarkdown
                     className="text-base leading-relaxed"
+                    remarkPlugins={[remarkGfm]}
                     components={markdownComponents}
                   >
                     {seg.text}
@@ -105,6 +119,12 @@ export function ChatMessages({
             );
           })}
         </div>
+        {!message.isStreaming &&
+          message.segments?.some((s) => s.kind === "text") && (
+            <div className="px-4 pt-2">
+              <CopyMessageMenu message={message} />
+            </div>
+          )}
         {showUsage && (
           <div className="absolute left-1/2 bottom-2 -translate-x-1/2">
             <TokenUsageDisplay usage={usage} visible={isHovered} />

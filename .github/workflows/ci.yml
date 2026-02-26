@@ -24,7 +24,7 @@ jobs:
           cache: "pip"
 
       - name: Install Hatch
-        run: python -m pip install --upgrade pip hatch
+        run: python -m pip install --upgrade pip "hatch>=1.13,<2.0"
 
       - name: Lint
         working-directory: engine

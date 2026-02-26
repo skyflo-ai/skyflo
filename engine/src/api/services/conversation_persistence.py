@@ -1,8 +1,14 @@
 import json
+import logging
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from ..models.conversation import Conversation, TokenUsageMetrics
+from tortoise.exceptions import DoesNotExist
+
+from ..models.conversation import Conversation, Message, TokenUsageMetrics
+
+logger = logging.getLogger(__name__)
 
 
 class ConversationPersistenceService:
@@ -204,6 +210,86 @@ class ConversationPersistenceService:
 
         await conversation.update_from_dict({"messages_json": messages}).save()
 
+    async def append_thinking_segment(
+        self, conversation_id: str, text: str, timestamp: int, duration_ms: int = 0
+    ) -> None:
+        conversation = await Conversation.get(id=conversation_id)
+        messages: List[Dict[str, Any]] = conversation.messages_json or []
+        created_at = datetime.fromtimestamp(timestamp / 1000.0, tz=timezone.utc)
+
+        if not messages or messages[-1].get("type") != "assistant":
+            msg_id = str(uuid.uuid4())
+            assistant_message = {
+                "id": msg_id,
+                "type": "assistant",
+                "content": "",
+                "timestamp": timestamp,
+                "segments": [
+                    {
+                        "kind": "thinking",
+                        "id": str(uuid.uuid4()),
+                        "text": text,
+                        "isComplete": True,
+                        "durationMs": duration_ms,
+                        "timestamp": timestamp,
+                    }
+                ],
+            }
+            messages.append(assistant_message)
+
+            seq = await Message.filter(conversation_id=conversation_id).count() + 1
+            await Message.create(
+                id=uuid.UUID(msg_id),
+                conversation=conversation,
+                role="assistant",
+                content="",
+                sequence=seq,
+                message_metadata={"segments": assistant_message["segments"]},
+                created_at=created_at,
+            )
+        else:
+            assistant = messages[-1]
+            segments: List[Dict[str, Any]] = assistant.get("segments", [])
+
+            segments.append(
+                {
+                    "kind": "thinking",
+                    "id": str(uuid.uuid4()),
+                    "text": text,
+                    "isComplete": True,
+                    "durationMs": duration_ms,
+                    "timestamp": timestamp,
+                }
+            )
+
+            assistant["segments"] = segments
+
+            assistant_id = assistant.get("id")
+            if assistant_id:
+                try:
+                    msg_row = await Message.get(id=uuid.UUID(assistant_id))
+                    msg_row.message_metadata = {"segments": segments}
+                    await msg_row.save()
+                except DoesNotExist:
+                    seq = await Message.filter(conversation_id=conversation_id).count() + 1
+                    await Message.create(
+                        id=uuid.UUID(assistant_id),
+                        conversation=conversation,
+                        role="assistant",
+                        content="",
+                        sequence=seq,
+                        message_metadata={"segments": segments},
+                        created_at=created_at,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to persist thinking segment for message %s in conversation %s",
+                        assistant_id,
+                        conversation_id,
+                    )
+
+        await conversation.update_from_dict({"messages_json": messages}).save()
+
     async def append_tool_segment(
         self, conversation_id: str, tool_execution: Dict[str, Any], timestamp: int
     ) -> None:
@@ -294,7 +380,9 @@ class ConversationPersistenceService:
             if mtype != "assistant":
                 continue
 
-            segments: List[Dict[str, Any]] = msg.get("segments", []) or []
+            segments: List[Dict[str, Any]] = [
+                s for s in (msg.get("segments", []) or []) if s.get("kind") != "thinking"
+            ]
             first_tool_index = next(
                 (i for i, segment in enumerate(segments) if segment.get("kind") == "tool"), -1
             )

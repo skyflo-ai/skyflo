@@ -105,6 +105,131 @@ const getTextColor = (status: string) => {
   }
 };
 
+const isMultilineContent = (str: string): boolean => {
+  if (typeof str !== "string") return false;
+  const trimmed = str.trim();
+  return trimmed.length > 0 && trimmed.split("\n").length >= 2;
+};
+
+const isEmbeddedJson = (str: string): boolean => {
+  if (typeof str !== "string") return false;
+  const trimmed = str.trim();
+  if (
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  ) {
+    try {
+      JSON.parse(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+};
+
+const isStructuredContent = (str: string): boolean => {
+  return isMultilineContent(str) || isEmbeddedJson(str);
+};
+
+const isYamlContent = (str: string): boolean => {
+  if (!isMultilineContent(str)) return false;
+
+  const lines = str.trim().split("\n").filter((l) => l.trim().length > 0);
+  let yamlPatterns = 0;
+  for (const line of lines) {
+    const t = line.trim();
+    if (/^[\w][\w.-]*:\s/.test(t) || /^[\w][\w.-]*:$/.test(t)) yamlPatterns++;
+    if (/^-\s+/.test(t)) yamlPatterns++;
+  }
+  return yamlPatterns >= 2;
+};
+
+const yamlQuote = (str: string): string => {
+  if (
+    str === "" ||
+    /^(true|false|null|yes|no|on|off)$/i.test(str) ||
+    /^[\d.+-]/.test(str) ||
+    /[:{}\[\],&#*?|>!%@`"'\n]/.test(str)
+  ) {
+    return JSON.stringify(str);
+  }
+  return str;
+};
+
+const jsonToYaml = (value: unknown, indent: number = 0): string => {
+  const pad = "  ".repeat(indent);
+
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "boolean") return String(value);
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return yamlQuote(value);
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "[]";
+    return value
+      .map((item) => {
+        if (typeof item === "object" && item !== null && !Array.isArray(item)) {
+          const entries = Object.entries(item);
+          if (entries.length === 0) return `${pad}- {}`;
+          const contentIndent = indent + 1;
+          return entries
+            .map(([k, v], i) => {
+              const prefix = i === 0 ? `${pad}- ` : `${pad}  `;
+              if (typeof v === "object" && v !== null) {
+                const isEmpty = Array.isArray(v)
+                  ? v.length === 0
+                  : Object.keys(v).length === 0;
+                if (isEmpty)
+                  return `${prefix}${k}: ${Array.isArray(v) ? "[]" : "{}"}`;
+                const childIndent = Array.isArray(v)
+                  ? contentIndent
+                  : contentIndent + 1;
+                return `${prefix}${k}:\n${jsonToYaml(v, childIndent)}`;
+              }
+              return `${prefix}${k}: ${jsonToYaml(v)}`;
+            })
+            .join("\n");
+        }
+        return `${pad}- ${jsonToYaml(item, indent + 1)}`;
+      })
+      .join("\n");
+  }
+
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return "{}";
+    return entries
+      .map(([k, v]) => {
+        if (typeof v === "object" && v !== null) {
+          const isEmpty = Array.isArray(v)
+            ? v.length === 0
+            : Object.keys(v).length === 0;
+          if (isEmpty)
+            return `${pad}${k}: ${Array.isArray(v) ? "[]" : "{}"}`;
+          const childIndent = Array.isArray(v) ? indent : indent + 1;
+          return `${pad}${k}:\n${jsonToYaml(v, childIndent)}`;
+        }
+        return `${pad}${k}: ${jsonToYaml(v)}`;
+      })
+      .join("\n");
+  }
+
+  return String(value);
+};
+
+const tryFormatAsYaml = (str: string): string | null => {
+  try {
+    const parsed = JSON.parse(str.trim());
+    if (typeof parsed === "object" && parsed !== null) {
+      return jsonToYaml(parsed);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 export function ToolVisualization({
   toolExecution,
   isExpanded = false,
@@ -138,7 +263,54 @@ export function ToolVisualization({
   };
 
   const formatArgs = (args: Record<string, any>) => {
-    return JSON.stringify(args, null, 2);
+    const entries = Object.entries(args);
+    const hasFormattable = entries.some(
+      ([, v]) => typeof v === "string" && isStructuredContent(v)
+    );
+
+    if (!hasFormattable) {
+      return JSON.stringify(args, null, 2);
+    }
+
+    return (
+      <>
+        {"{\n"}
+        {entries.map(([key, value], idx) => {
+          const isLast = idx === entries.length - 1;
+          const comma = isLast ? "" : ",";
+
+          if (typeof value === "string" && isStructuredContent(value)) {
+            const formatted = tryFormatAsYaml(value) ?? value.trim();
+            const indented = formatted
+              .split("\n")
+              .map((line) => `    ${line}`)
+              .join("\n");
+            return (
+              <span key={`${key}-${idx}`}>
+                {`  "${key}":\n`}
+                <span className="text-emerald-300/80">{indented}</span>
+                {`${comma}\n`}
+              </span>
+            );
+          }
+
+          const formatted =
+            typeof value === "object" && value !== null
+              ? JSON.stringify(value, null, 2)
+                  .split("\n")
+                  .map((line, i) => (i === 0 ? line : `  ${line}`))
+                  .join("\n")
+              : JSON.stringify(value);
+
+          return (
+            <span key={`${key}-${idx}`}>
+              {`  "${key}": ${formatted}${comma}\n`}
+            </span>
+          );
+        })}
+        {"}"}
+      </>
+    );
   };
 
   const handleApprove = async (reason?: string) => {
@@ -186,24 +358,30 @@ export function ToolVisualization({
   const getResultText = (result?: Array<{ type: string; text?: string }>) => {
     if (!result || result.length === 0) return "No result";
 
-    return result
-      .map((item) => {
-        if (item.type === "text" && item.text) {
-          try {
-            const parsed = JSON.parse(item.text);
-            if (parsed.content && Array.isArray(parsed.content)) {
-              return parsed.content
-                .map((content: any) => content.text || content)
-                .join("\n");
-            }
-            return JSON.stringify(parsed, null, 2);
-          } catch {
-            return item.text;
+    const textParts = result.map((item) => {
+      if (item.type === "text" && item.text) {
+        try {
+          const parsed = JSON.parse(item.text);
+          if (parsed.content && Array.isArray(parsed.content)) {
+            return parsed.content
+              .map((content: any) => content.text || content)
+              .join("\n");
           }
+          return JSON.stringify(parsed, null, 2);
+        } catch {
+          return item.text;
         }
-        return JSON.stringify(item, null, 2);
-      })
-      .join("\n");
+      }
+      return JSON.stringify(item, null, 2);
+    });
+
+    const combined = textParts.join("\n");
+
+    if (isYamlContent(combined)) {
+      return <span className="text-emerald-300/80">{combined}</span>;
+    }
+
+    return combined;
   };
 
   return (

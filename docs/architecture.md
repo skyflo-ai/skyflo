@@ -1,96 +1,91 @@
 # Architecture
 
-[Skyflo.ai](https://skyflo.ai) is an AI co-pilot for Cloud & DevOps that unifies **Kubernetes operations and CI/CD systems (starting with Jenkins)** behind a natural-language interface. The [Engine](../engine) runs a LangGraph workflow with a **human-in-the-loop safety gate** for any changes, executes tools via the [MCP server](../mcp), and streams **sanitized, real-time SSE** updates to the [UI](../ui).
+Skyflo is a self-hosted AI operations agent for Kubernetes and CI/CD automation with native Jenkins support. The [Engine](../engine) runs a LangGraph workflow with an approval gate for every mutating operation, executes typed tools via the [MCP server](../mcp), and streams real-time SSE updates to the [Command Center](../ui).
 
 ## Components
 
-Skyflo.ai follows a clean architecture with the following components:
+### Engine (`/engine`)
 
-1. **Engine** (`/engine`):
-Core backend service that turns natural language into safe Cloud Native operations using a  LangGraph workflow.
+Core backend that turns natural language into safe, auditable infrastructure operations using a LangGraph workflow.
 
-   - LangGraph-based execution with nodes: `entry` → `model` → `gate` → `final`
-   - LLM integration via LiteLLM with controlled auto‑continue and iteration limits
-   - Approval policy for WRITE operations with human-in-the-loop safety
-   - Manages authentication, conversations, titles, persistence, and rate limiting
-   - Communicates with the MCP server for tool discovery and execution
-   - Real-time Server-Sent Events (SSE) streaming for tokens, tool progress, and workflow events
-   - Uses Redis pub/sub internally for streaming and stop signals; optional Postgres checkpointer for resilience
+- LangGraph execution graph: `entry` → `model` → `gate` → `final` with conditional routing
+- Multi-provider LLM support (OpenAI, Groq, Ollama, Gemini, etc.) via LiteLLM with controlled auto-continue and iteration limits
+- Annotation-based approval policy using MCP `readOnlyHint` for the approval gate
+- JWT authentication with refresh token rotation and cookie-based session management
+- Conversation management, automatic title generation, persistence, and rate limiting
+- Tool discovery and execution via FastMCP
+- Thinking/reasoning model support with streamed reasoning tokens and configurable effort/budget
+- Real-time SSE streaming for tokens, thinking content, tool progress, token usage metrics, and workflow events
+- Graceful mid-stream workflow stop via Redis flags
+- Redis pub/sub for internal streaming; optional Postgres checkpointer for resilience
 
-2. **MCP Server** (`/mcp`):
-MCP server that exposes standardized cloud-native tools for the Engine to execute.
+### MCP Server (`/mcp`)
 
-   - Built with FastMCP; single entrypoint registers tools and metadata
-   - Tool categories: `kubectl`, `argo` (Rollouts), `helm`, and `jenkins` (CI)
-   - Safety checks, validation, and clear parameter docs (Pydantic)
-   - Uses FastMCP Streamable HTTP transport for Engine communication; automatic tool discovery and registration
-   - Executes commands securely against cluster resources
+Model Context Protocol (MCP) server exposing schema-validated infrastructure tools for the Engine.
 
-3. **Command Center** (`/ui`):
-UI command center delivering real-time insights and control for cloud native operations.
+- Built with FastMCP; 64 tools registered via `@mcp.tool()` decorators with titles, tags, and annotations
+- Tool categories: `kubectl` (22), `helm` (16), `argo` Rollouts (13), and `jenkins` CI (13)
+- Tool annotations (`readOnlyHint`, `destructiveHint`) drive the Engine's approval policy
+- CLI tools (kubectl, helm) run as async subprocesses; Jenkins uses an httpx client with credentials resolved from Kubernetes Secrets
+- Streamable HTTP transport for Engine communication; automatic tool discovery
+- Pydantic-validated parameters with clear Field descriptions
 
-   - Next.js 14 application with a responsive Markdown-based chat UI
-   - Streams tokens and tool events from the Engine via SSE
-   - Server-side API routes (BFF) proxy to the Engine, forwarding cookies/auth headers
-   - Displays real-time workflow progress, tool results, and terminal-like outputs
-   - Manages conversations, profile/password, and team administration (roles, invitations)
+### Command Center (`/ui`)
 
-4. **Kubernetes Controller** (`/kubernetes-controller`):
-Kubernetes controller orchestrating secure, scalable deployments in cloud native environments.
+Next.js command interface for real-time operations visibility and control.
 
-   - Implements custom resource definitions (CRDs) for the Kubernetes operator
-   - Manages deployment and configuration of all Skyflo.ai components within Kubernetes clusters
-   - Provides unified deployment through a single `SkyfloAI` custom resource
-   - Handles dynamic configuration updates and scaling of components
-   - Implements secure RBAC management for cluster interactions
-   - Supports namespace isolation and fine-grained access control
-   - Manages standard Kubernetes resources (Deployments, Services) for UI and API components
-   - Monitors and reports component health through status conditions
+- Next.js 14 with Radix UI + shadcn/ui primitives and Tailwind CSS
+- Streams tokens, thinking/reasoning content, tool events, and token usage metrics from the Engine via SSE
+- Collapsible thinking blocks showing the model's reasoning process
+- Inline tool approval/deny UI with bulk approval bar
+- Server-side API routes (BFF) proxy to the Engine, forwarding cookies/auth headers
+- Zustand-backed auth state with automatic refresh token rotation
+- Real-time workflow progress, tool results, and terminal-style outputs
+- Conversation management, integrations admin, profile/password, and team administration
 
-## Agent Architecture
+### Kubernetes Controller (`/kubernetes-controller`)
 
-Skyflo.ai employs a graph-based workflow powered by [LangGraph](https://github.com/LangChain-AI/langgraph). The workflow is organized into the following phases:
+Go-based Kubernetes operator managing Skyflo component lifecycle via CRD.
 
-1. **Model Phase (Planning)**:
+- Custom resource definition (`SkyfloAI`) for declarative deployment
+- Manages all Skyflo components (Engine, MCP, UI) through a single custom resource
+- Dynamic configuration updates and scaling
+- RBAC management for cluster interactions
+- Namespace isolation and fine-grained access control
+- Health monitoring through status conditions
+
+## Execution Workflow
+
+Skyflo uses a graph-based workflow powered by [LangGraph](https://github.com/LangChain-AI/langgraph). The workflow enforces a deterministic loop:
+
+1. **Plan**
    - Analyzes the user's natural language to determine intent
    - Performs lightweight discovery when needed to ground the plan
    - Produces structured tool calls for the next phase
 
-2. **Tool Gate (Execution)**:
-   - Executes MCP tools (`kubectl`, `argo`, `helm`) with validated parameters
-   - Requires explicit approval for any WRITE/mutating operation
+2. **Approve and Execute**
+   - Executes MCP tools (`kubectl`, `argo`, `helm`, `jenkins`) with validated parameters
+   - Requires explicit approval for every mutating tool call
    - Resolves dynamic parameters from previous steps and supports recursive operations
-   - Streams progress/results back to the model and UI
+   - Streams progress and results back to the model and UI
 
-3. **Verification Phase**:
+3. **Verify**
    - Evaluates outcomes against the original intent and summarizes results
-   - Decides whether to auto‑continue, request approval, or stop
-   - If issues are detected, routes context back to the model phase for refinement
+   - Decides whether to auto-continue, request approval, or stop
+   - Routes context back to the model phase for refinement if issues are detected
 
-## Features
-
-- **Natural Language Kubernetes Management**: Perform operations via natural language
-- **Tool Execution via MCP**: Standardized tools for `kubectl`, `argo` (Rollouts), and `helm`
-- **Human-in-the-Loop Safety**: Explicit approvals required for WRITE operations
-- **SSE Streaming**: Live tokens, tool progress, and results
-- **Token Usage & Metrics**: Real-time tracking of token consumption, TTFT, and TTR latency
-- **Resource Discovery**: Automatic discovery to ground actions
-- **Multi-stage Operations**: Complex workflows broken into manageable steps
-- **Context-aware Responses**: Maintains conversation history
-- **Conversation Persistence**: Saved timelines with title generation
-- **Team Administration**: Roles, invitations, and member management
-- **Rate Limiting**: Protects services via Redis-backed limiter
-- **Optional Checkpointer**: Postgres-backed workflow resilience
-- **Progressive Delivery**: Argo Rollouts support
-- **Package Management**: Helm install/upgrade/rollback
-- **External Integrations**: Jenkins CI with secure credentials and integration-aware tools
-- **Terminal-style Output**: Live command output visualization
+4. **Persist**
+   - Stores tool calls, parameters, and results
+   - Supports audit and replay
 
 ## Technical Stack
 
-- **Backend**: Python 3.11+, FastAPI, LangGraph, LiteLLM, Tortoise ORM, Aerich, Redis, PostgreSQL
-- **Frontend**: React, Next.js 14, TypeScript, Tailwind CSS
-- **AI/ML**: LangGraph, LLM integration via LiteLLM
-- **Infrastructure**: Kubernetes, Argo Rollouts, Helm
-- **Communication**: Server-Sent Events (SSE), Redis pub/sub
-- **Security**: JWT authentication via fastapi-users, role-based access (admin)
+| Layer          | Technologies                                                                           |
+|----------------|----------------------------------------------------------------------------------------|
+| Backend        | Python 3.11+, FastAPI, LangGraph, LiteLLM, Tortoise ORM, Aerich, Redis, PostgreSQL    |
+| MCP            | FastMCP, httpx, Pydantic, Streamable HTTP transport                                    |
+| Frontend       | React, Next.js 14, TypeScript, Tailwind CSS, Radix UI + shadcn/ui, Zustand, framer-motion |
+| AI/ML          | LangGraph, multi-provider LLM integration via LiteLLM                                 |
+| Infrastructure | Kubernetes, Argo Rollouts, Helm                                                       |
+| Communication  | Server-Sent Events (SSE), Redis pub/sub                                                |
+| Security       | JWT + refresh token rotation via fastapi-users, role-based access, HttpOnly cookies    |
