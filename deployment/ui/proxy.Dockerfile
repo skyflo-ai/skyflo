@@ -1,7 +1,7 @@
 FROM nginx:1.25-alpine
 
 #Adding curl
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl=8.14.1-r2
 
 # Copy nginx configuration
 COPY deployment/ui/nginx.conf /etc/nginx/conf.d/default.conf

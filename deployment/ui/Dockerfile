@@ -44,7 +44,8 @@ RUN yarn build
 FROM node:20-slim AS runner
 
 #Adding curl
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  curl=7.88.1-10+deb12u14 \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
