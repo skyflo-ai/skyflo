@@ -84,5 +84,10 @@ LABEL org.opencontainers.image.description="Skyflo.ai MCP Server - Open Source A
 # Switch to non-root user
 USER skyflo
 
+#Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8888/mcp/v1/health || exit 1
+  
+
 # Use the entrypoint script
 ENTRYPOINT ["/app/entrypoint.sh"]

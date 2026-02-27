@@ -67,5 +67,9 @@ LABEL org.opencontainers.image.description="Skyflo.ai Engine Service - Open Sour
 # Switch to non-root user
 USER skyflo
 
+#Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8080/api/v1/health || exit 1
+
 # Use the entrypoint script
 ENTRYPOINT ["/app/entrypoint.sh"]

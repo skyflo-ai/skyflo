@@ -1,6 +1,8 @@
 # Build stage
 FROM node:20-slim AS builder
 
+
+
 ARG NEXT_PUBLIC_APP_VERSION=dev
 ARG NEXT_PUBLIC_APP_NAME=Skyflo.ai
 ARG NEXT_PUBLIC_API_URL=/api/v1
@@ -41,6 +43,10 @@ RUN yarn build
 # Production stage
 FROM node:20-slim AS runner
 
+#Adding curl
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Create app user
@@ -64,6 +70,10 @@ LABEL org.opencontainers.image.description="UI for Skyflo.ai - Open Source AI Ag
 
 # Switch to non-root user
 USER skyflo
+
+#Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:3000/ || exit 1
 
 # Start the application
 CMD ["node", "server.js"] 
