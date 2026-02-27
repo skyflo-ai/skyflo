@@ -1,6 +1,6 @@
-FROM nginx:1.25-alpine
+FROM nginx:1.25-alpine3.19
 
-#Adding curl
+# Adding curl
 RUN apk add --no-cache curl=8.14.1-r2
 
 # Copy nginx configuration
