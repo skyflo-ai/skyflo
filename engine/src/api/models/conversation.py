@@ -1,7 +1,7 @@
 """Conversation and Message models for chat history."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
@@ -43,6 +43,7 @@ class Message(Model):
     sequence = fields.IntField()
     message_metadata = fields.JSONField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
+    token_usage = fields.JSONField(null=True)
 
     class Meta:
         """Tortoise ORM model configuration."""
@@ -125,3 +126,34 @@ class ConversationUpdate(BaseModel):
     is_active: Optional[bool] = None
     conversation_metadata: Optional[Dict[str, Any]] = None
     messages_json: Optional[List[Dict[str, Any]]] = None
+
+
+class DailyMetrics(BaseModel):
+    date: date
+    cost: float
+    prompt_tokens: int
+    completion_tokens: int
+    cached_tokens: int
+    total_tokens: int
+    avg_ttft_ms: Optional[float]
+    avg_ttr_ms: Optional[float]
+
+class MetricsAggregation(BaseModel):
+    period_start: datetime
+    period_end: datetime
+    total_cost: float
+    total_tokens: int
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    total_cached_tokens: int
+    total_conversations: int
+    avg_ttft_ms: Optional[float]
+    avg_ttr_ms: Optional[float]
+    avg_cost_per_conversation: float
+    avg_tokens_per_conversation: float
+    cache_hit_rate: float
+    daily_breakdown: List[DailyMetrics]
+    total_approvals: int
+    total_rejections: int
+    approval_acceptance_rate: Optional[float]
+

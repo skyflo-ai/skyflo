@@ -1,13 +1,20 @@
 import json
+import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
-from ..models.conversation import Conversation, TokenUsageMetrics
+from ..models.conversation import Conversation, Message, TokenUsageMetrics
+
+logger = logging.getLogger(__name__)
 
 
 class ConversationPersistenceService:
     def __init__(self):
         self._usage_buffers: Dict[str, Dict[str, Any]] = {}
+        self._message: Message | None = None
+
+    def _clear_message(self) -> None:
+        self._message = None
 
     def _usage_key(self, conversation_id: Optional[str], run_id: Optional[str]) -> Optional[str]:
         if not conversation_id or not run_id:
@@ -31,6 +38,13 @@ class ConversationPersistenceService:
                 "ttr_ms": None,
             }
         return self._usage_buffers.get(key)
+
+    async def _get_next_sequence(self, conversation) -> int:
+        latest_message = await Message.filter(
+            conversation_id=conversation.id
+        ).order_by('-sequence').first()
+        sequence: int = latest_message.sequence + 1 if latest_message else 1
+        return sequence
 
     def record_token_usage(
         self,
@@ -136,6 +150,7 @@ class ConversationPersistenceService:
 
     async def finalize_usage_snapshot(self, conversation_id: str, run_id: Optional[str]) -> None:
         await self._apply_usage_to_latest_assistant(conversation_id, run_id, finalize=True)
+        self._clear_message()
 
     async def append_user_message(self, conversation_id: str, content: str, timestamp: int) -> None:
         conversation = await Conversation.get(id=conversation_id)
@@ -157,6 +172,13 @@ class ConversationPersistenceService:
 
         messages.append(user_message)
         await conversation.update_from_dict({"messages_json": messages}).save()
+        sequence: int = await self._get_next_sequence(conversation=conversation)
+        await Message.create(
+            conversation_id=conversation.id,
+            role="user",
+            content=content,
+            sequence=sequence,
+        )
 
     async def append_text_segment(
         self, conversation_id: str, text: str, timestamp: int, run_id: Optional[str] = None
@@ -180,6 +202,17 @@ class ConversationPersistenceService:
                 ],
             }
             messages.append(assistant_message)
+
+            if not self._message:
+                sequence = await self._get_next_sequence(conversation=conversation)
+
+                self._message = await Message.create(
+                    conversation=conversation,
+                    role="assistant",
+                    content=text,
+                    sequence=sequence,
+                )
+
         else:
             assistant = messages[-1]
             segments: List[Dict[str, Any]] = assistant.get("segments", [])
@@ -196,11 +229,19 @@ class ConversationPersistenceService:
             assistant["content"] = assistant.get("content", "") + text
             assistant["segments"] = segments
 
+            if self._message:
+                content = self._message.content + text.strip('{}')
+                self._message.content = content
+                self._message.message_metadata = segments
+                await self._message.save()
+
         if run_id:
             usage_snapshot = self._snapshot_usage(conversation_id, run_id)
             if usage_snapshot:
                 assistant = messages[-1]
                 assistant["token_usage"] = TokenUsageMetrics(**usage_snapshot).model_dump()
+                self._message.token_usage = assistant["token_usage"]
+                await self._message.save()
 
         await conversation.update_from_dict({"messages_json": messages}).save()
 
@@ -246,6 +287,10 @@ class ConversationPersistenceService:
         segments.append(segment)
         assistant["segments"] = segments
 
+        if self._message:
+            self._message.message_metadata = segments
+            await self._message.save()
+
         await conversation.update_from_dict({"messages_json": messages}).save()
 
     async def update_tool_segment_status(
@@ -276,6 +321,9 @@ class ConversationPersistenceService:
                 segments[i] = seg
                 assistant["segments"] = segments
                 await conversation.update_from_dict({"messages_json": messages}).save()
+                if self._message:
+                    self._message.message_metadata = segments
+                    await self._message.save()
                 return
 
     async def build_llm_messages(self, conversation: Conversation) -> List[Dict[str, Any]]:
@@ -430,3 +478,5 @@ class ConversationPersistenceService:
         if not normalized:
             return
         await conversation.update_from_dict({"title": normalized}).save()
+        # Clear the message reference to prevent cross-conversation data corruption
+        self._clear_message()
