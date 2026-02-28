@@ -204,13 +204,20 @@ async def argo_list_experiments(
         description="The name of the rollout to get experiments for (if not specified, gets all experiments)",
     ),
     namespace: Optional[str] = Field(
-        default="default", description="The namespace to get experiments from"
+        default=None, description="The namespace to get experiments from"
     ),
     all_namespaces: Optional[bool] = Field(
         default=False, description="Whether to get experiments from all namespaces"
     ),
 ) -> ToolOutput:
     """Get Argo Rollouts experiments."""
+    if (
+        isinstance(namespace, str)
+        and namespace
+        and isinstance(all_namespaces, bool)
+        and all_namespaces
+    ):
+        raise ValueError("namespace and all_namespaces are mutually exclusive")
     if rollout_name:
         cmd_parts = ["get", "experiments.argoproj.io", "-o", "json"]
         if all_namespaces:
@@ -254,13 +261,20 @@ async def argo_list_experiments(
 @mcp.tool(title="List Argo Analysis Runs", tags=["argo"], annotations={"readOnlyHint": True})
 async def argo_list_analysisruns(
     namespace: Optional[str] = Field(
-        default="default", description="The namespace to get analysis runs from"
+        default=None, description="The namespace to get analysis runs from"
     ),
     all_namespaces: Optional[bool] = Field(
         default=False, description="Whether to get analysis runs from all namespaces"
     ),
 ) -> ToolOutput:
     """Get Argo Rollouts analysis runs."""
+    if (
+        isinstance(namespace, str)
+        and namespace
+        and isinstance(all_namespaces, bool)
+        and all_namespaces
+    ):
+        raise ValueError("namespace and all_namespaces are mutually exclusive")
     cmd_parts = ["get", "analysisruns.argoproj.io", "-o", "wide"]
     if all_namespaces:
         cmd_parts.append("-A")
