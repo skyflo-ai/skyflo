@@ -72,7 +72,6 @@ LABEL org.opencontainers.image.description="UI for Skyflo.ai - Open Source AI Ag
 # Switch to non-root user
 USER skyflo
 
-#Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:3000/ || exit 1
 
