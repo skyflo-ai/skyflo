@@ -235,7 +235,10 @@ async def argo_list_experiments(
             filtered_items = [
                 item
                 for item in items
-                if item.get("metadata", {}).get("name", "").startswith(rollout_name)
+                if any(
+                    ref.get("kind") == "Rollout" and ref.get("name") == rollout_name
+                    for ref in (item.get("metadata", {}).get("ownerReferences") or [])
+                )
             ]
             if not filtered_items:
                 return {
