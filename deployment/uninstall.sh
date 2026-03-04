@@ -17,7 +17,7 @@ print_colored() {
 # Fetch latest version from GitHub
 LATEST_VERSION=$(curl -sL --connect-timeout 10 --max-time 30 https://api.github.com/repos/skyflo-ai/skyflo/releases/latest \
     | grep -m 1 '"tag_name":' \
-    | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+    | sed 's/.*"tag_name": *"//;s/".*//')
 
 if [ -z "$LATEST_VERSION" ]; then
     print_colored "red" "Warning: failed to determine the latest release version."
@@ -25,7 +25,7 @@ if [ -z "$LATEST_VERSION" ]; then
 fi
 
 print_colored "yellow" "
-Skyflo.ai Kubernetes Uninstaller
+Skyflo Kubernetes Uninstaller
 ================================
 "
 
@@ -58,11 +58,11 @@ export VERSION
 
 # Namespace configuration
 if [ -z "$NAMESPACE" ]; then
-    printf "Target Kubernetes namespace [default: skyflo-ai]: "
+    printf "Target Kubernetes namespace [default: skyflo]: "
     read -r NAMESPACE </dev/tty 2>/dev/null || NAMESPACE=""
     if [ -z "$NAMESPACE" ]; then
-        NAMESPACE="skyflo-ai"
-        print_colored "yellow" "ℹ Using default namespace: skyflo-ai"
+        NAMESPACE="skyflo"
+        print_colored "yellow" "ℹ Using default namespace: skyflo"
     else
         print_colored "yellow" "ℹ Using namespace: $NAMESPACE"
     fi
@@ -74,7 +74,7 @@ export NAMESPACE
 
 REPO_BASE="https://raw.githubusercontent.com/skyflo-ai/skyflo/${VERSION}/deployment"
 
-print_colored "yellow" "Removing Skyflo.ai resources from the cluster..."
+print_colored "yellow" "Removing Skyflo resources from the cluster..."
 
 delete_manifest() {
     local url="$1"
@@ -88,7 +88,7 @@ delete_manifest "${REPO_BASE}/config/mcp-configmap.yaml"
 delete_manifest "${REPO_BASE}/config/ui-configmap.yaml"
 delete_manifest "${REPO_BASE}/install.yaml"
 
-print_colored "green" "✓ Core Skyflo.ai resources removed"
+print_colored "green" "✓ Core Skyflo resources removed"
 
 print_colored "yellow" "
 Data cleanup (optional)
@@ -102,13 +102,13 @@ read -r DELETE_PVCS </dev/tty 2>/dev/null || DELETE_PVCS="n"
 
 if [[ "$DELETE_PVCS" =~ ^[Yy]$ ]]; then
     print_colored "yellow" "Deleting persistent volumes..."
-    kubectl delete pvc -l app=skyflo-ai-postgres -n "$NAMESPACE"
-    kubectl delete pvc -l app=skyflo-ai-redis -n "$NAMESPACE"
+    kubectl delete pvc -l app=skyflo-postgres -n "$NAMESPACE"
+    kubectl delete pvc -l app=skyflo-redis -n "$NAMESPACE"
     print_colored "green" "✓ Persistent volumes deleted"
 else
     print_colored "yellow" "ℹ Persistent volumes retained. Data remains intact."
 fi
 
 print_colored "green" "
-Skyflo.ai uninstallation complete
+Skyflo uninstallation complete
 "

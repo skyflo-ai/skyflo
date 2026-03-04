@@ -1,0 +1,21 @@
+Skyflo {{ .Chart.AppVersion }} has been installed in namespace {{ .Release.Namespace }}.
+
+Check rollout status:
+
+  kubectl get pods -n {{ .Release.Namespace }}
+
+Access the UI locally:
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "skyflo.ui.fullname" . }} 3000:80
+
+Upgrade to a newer version:
+
+  helm repo update skyflo
+  helm upgrade skyflo skyflo/skyflo -n {{ .Release.Namespace }}
+  helm upgrade skyflo skyflo/skyflo -n {{ .Release.Namespace }} -f values.yaml
+
+Before install or upgrade, set `engine.secrets.llmModel` to your provider/model identifier
+(for example `gemini/gemini-2.5-pro`).
+
+For production access, configure an Ingress controller.
+Documentation: https://skyflo.ai/docs/production-deployment

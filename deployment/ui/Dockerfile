@@ -2,7 +2,7 @@
 FROM node:20-slim AS builder
 
 ARG NEXT_PUBLIC_APP_VERSION=dev
-ARG NEXT_PUBLIC_APP_NAME=Skyflo.ai
+ARG NEXT_PUBLIC_APP_NAME=Skyflo
 ARG NEXT_PUBLIC_API_URL=/api/v1
 ARG NEXT_PUBLIC_ENABLE_ANALYTICS=false
 ARG NEXT_PUBLIC_ENABLE_FEEDBACK=false
@@ -60,7 +60,7 @@ COPY --from=builder --chown=skyflo:skyflogroup /app/public ./public
 EXPOSE 3000
 
 LABEL org.opencontainers.image.source=https://github.com/skyflo-ai/skyflo
-LABEL org.opencontainers.image.description="UI for Skyflo.ai - Open Source AI Agent for Cloud & DevOps"
+LABEL org.opencontainers.image.description="UI for Skyflo - Self-hosted AI Agent for Kubernetes and DevOps"
 
 # Switch to non-root user
 USER skyflo

@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "skyflo.mcp.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "skyflo.labels" . | nindent 4 }}
+    app: {{ include "skyflo.mcp.fullname" . }}
+spec:
+  replicas: {{ .Values.mcp.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "skyflo.mcp.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "skyflo.mcp.fullname" . }}
+    spec:
+      serviceAccountName: {{ include "skyflo.mcp.fullname" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: mcp
+          image: "{{ .Values.mcp.image.repository }}:{{ .Values.mcp.image.tag | default (include "skyflo.defaultTag" .) }}"
+          imagePullPolicy: {{ .Values.mcp.image.pullPolicy }}
+          ports:
+            - containerPort: 8888
+              name: http
+          envFrom:
+            - configMapRef:
+                name: {{ include "skyflo.mcp.configMapName" . }}
+          env:
+            - name: APP_VERSION
+              value: {{ .Chart.AppVersion | quote }}
+          readinessProbe:
+            httpGet:
+              path: /mcp/v1/health
+              port: http
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /mcp/v1/health
+              port: http
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.mcp.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsUser: 1002
+            runAsGroup: 1002
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 10
+      {{- with .Values.mcp.nodeSelector | default .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mcp.affinity | default .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mcp.tolerations | default .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

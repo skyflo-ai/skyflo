@@ -4,8 +4,8 @@ metadata:
   name: skyflo-engine-config
   namespace: ${NAMESPACE}
 data:
-  APP_NAME: "Skyflo.ai - Engine"
-  APP_DESCRIPTION: "Core engine for Skyflo.ai"
+  APP_NAME: "Skyflo Engine"
+  APP_DESCRIPTION: "Core engine for Skyflo"
   DEBUG: "false"
   API_V1_STR: "/api/v1"
   LOG_LEVEL: "INFO"

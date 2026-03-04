@@ -4,9 +4,9 @@ metadata:
   name: skyflo-ui-config
   namespace: ${NAMESPACE}
 data:
-  NEXT_PUBLIC_APP_NAME: "Skyflo.ai"
+  NEXT_PUBLIC_APP_NAME: "Skyflo"
   NODE_ENV: "production"
   NEXT_PUBLIC_ENABLE_ANALYTICS: "false"
   NEXT_PUBLIC_ENABLE_FEEDBACK: "false"
-  API_URL: "http://skyflo-ai-engine:8080/api/v1"
+  API_URL: "http://skyflo-engine:8080/api/v1"
   NEXT_PUBLIC_API_URL: "/api/v1"

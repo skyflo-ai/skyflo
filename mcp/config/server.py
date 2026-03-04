@@ -2,9 +2,9 @@ from fastmcp import FastMCP
 from starlette.responses import JSONResponse
 
 mcp = FastMCP(
-    "Skyflo.ai MCP Server",
+    "Skyflo MCP Server",
     instructions="""
-    # Kubernetes DevOps MCP
+    # Skyflo MCP
 
     This MCP allows you to:
     1. Manage Kubernetes clusters, resources, and deployments using kubectl operations

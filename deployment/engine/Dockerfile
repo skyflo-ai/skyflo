@@ -62,7 +62,7 @@ ENV APP_VERSION=$APP_VERSION \
 EXPOSE 8080
 
 LABEL org.opencontainers.image.source=https://github.com/skyflo-ai/skyflo
-LABEL org.opencontainers.image.description="Skyflo.ai Engine Service - Open Source AI Agent for Cloud & DevOps"
+LABEL org.opencontainers.image.description="Skyflo Engine Service - Self-hosted AI Agent for Kubernetes and DevOps"
 
 # Switch to non-root user
 USER skyflo

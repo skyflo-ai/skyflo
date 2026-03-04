@@ -64,8 +64,8 @@ metadata:
   name: skyflo-engine-config
   namespace: ${NAMESPACE}
 data:
-  APP_NAME: "Skyflo.ai - Engine"
-  APP_DESCRIPTION: "Core engine for Skyflo.ai"
+  APP_NAME: "Skyflo Engine"
+  APP_DESCRIPTION: "Core engine for Skyflo"
   DEBUG: "false"
   API_V1_STR: "/api/v1"
   LOG_LEVEL: "INFO"
@@ -82,8 +82,8 @@ metadata:
   name: skyflo-mcp-config
   namespace: ${NAMESPACE}
 data:
-  APP_NAME: "Skyflo.ai - MCP Server"
-  APP_DESCRIPTION: "MCP Server for Skyflo.ai"
+  APP_NAME: "Skyflo MCP Server"
+  APP_DESCRIPTION: "MCP Server for Skyflo"
   DEBUG: "false"
   LOG_LEVEL: "INFO"
   MAX_RETRY_ATTEMPTS: "3"
@@ -97,11 +97,11 @@ metadata:
   name: skyflo-ui-config
   namespace: ${NAMESPACE}
 data:
-  NEXT_PUBLIC_APP_NAME: "Skyflo.ai"
+  NEXT_PUBLIC_APP_NAME: "Skyflo"
   NODE_ENV: "production"
   NEXT_PUBLIC_ENABLE_ANALYTICS: "false"
   NEXT_PUBLIC_ENABLE_FEEDBACK: "false"
-  API_URL: "http://skyflo-ai-engine:8080/api/v1"
+  API_URL: "http://skyflo-engine:8080/api/v1"
   NEXT_PUBLIC_API_URL: "/api/v1"
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -151,11 +151,15 @@ spec:
                       type: object
                       required:
                       - name
+                      x-kubernetes-preserve-unknown-fields: true
                       properties:
                         name:
                           type: string
                         value:
                           type: string
+                        valueFrom:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
               engine:
                 type: object
                 required:
@@ -194,11 +198,15 @@ spec:
                       type: object
                       required:
                       - name
+                      x-kubernetes-preserve-unknown-fields: true
                       properties:
                         name:
                           type: string
                         value:
                           type: string
+                        valueFrom:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
               mcp:
                 type: object
                 required:
@@ -219,11 +227,15 @@ spec:
                       type: object
                       required:
                       - name
+                      x-kubernetes-preserve-unknown-fields: true
                       properties:
                         name:
                           type: string
                         value:
                           type: string
+                        valueFrom:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
               imagePullSecrets:
                 type: array
                 items:
@@ -266,6 +278,17 @@ spec:
                     type: integer
                   desiredReplicas:
                     type: integer
+              mcpStatus:
+                type: object
+                properties:
+                  phase:
+                    type: string
+                  message:
+                    type: string
+                  readyReplicas:
+                    type: integer
+                  desiredReplicas:
+                    type: integer
               conditions:
                 type: array
                 items:
@@ -292,6 +315,9 @@ spec:
     - name: Engine Ready
       type: string
       jsonPath: .status.engineStatus.phase
+    - name: MCP Ready
+      type: string
+      jsonPath: .status.mcpStatus.phase
     - name: Age
       type: date
       jsonPath: .metadata.creationTimestamp
@@ -301,7 +327,7 @@ spec:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: skyflo-ai-controller-role
+  name: skyflo-controller-role
 rules:
 - apiGroups:
   - skyflo.ai
@@ -358,57 +384,57 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: skyflo-ai-controller-rolebinding
+  name: skyflo-controller-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: skyflo-ai-controller-role
+  name: skyflo-controller-role
 subjects:
 - kind: ServiceAccount
-  name: skyflo-ai-controller
+  name: skyflo-controller
   namespace: ${NAMESPACE}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: skyflo-ai-mcp
+  name: skyflo-mcp
   namespace: ${NAMESPACE}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: skyflo-ai-mcp-admin-binding
+  name: skyflo-mcp-admin-binding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: cluster-admin
 subjects:
 - kind: ServiceAccount
-  name: skyflo-ai-mcp
+  name: skyflo-mcp
   namespace: ${NAMESPACE}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: skyflo-ai-controller
+  name: skyflo-controller
   namespace: ${NAMESPACE}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: skyflo-ai-controller
+  name: skyflo-controller
   namespace: ${NAMESPACE}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: skyflo-ai-controller
+      app: skyflo-controller
   template:
     metadata:
       labels:
-        app: skyflo-ai-controller
+        app: skyflo-controller
     spec:
-      serviceAccountName: skyflo-ai-controller
+      serviceAccountName: skyflo-controller
       containers:
       - name: manager
         image: skyfloaiagent/k8s-controller:${VERSION}
@@ -458,7 +484,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: skyflo-ai-redis-headless
+  name: skyflo-redis-headless
   namespace: ${NAMESPACE}
 spec:
   clusterIP: None
@@ -468,23 +494,23 @@ spec:
     protocol: TCP
     name: redis
   selector:
-    app: skyflo-ai-redis
+    app: skyflo-redis
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: skyflo-ai-redis
+  name: skyflo-redis
   namespace: ${NAMESPACE}
 spec:
-  serviceName: skyflo-ai-redis-headless
+  serviceName: skyflo-redis-headless
   replicas: 1
   selector:
     matchLabels:
-      app: skyflo-ai-redis
+      app: skyflo-redis
   template:
     metadata:
       labels:
-        app: skyflo-ai-redis
+        app: skyflo-redis
     spec:
       containers:
       - name: redis
@@ -523,6 +549,8 @@ spec:
   volumeClaimTemplates:
   - metadata:
       name: redis-data
+      labels:
+        app: skyflo-redis
     spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
@@ -532,7 +560,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: skyflo-ai-redis
+  name: skyflo-redis
   namespace: ${NAMESPACE}
 spec:
   ports:
@@ -541,12 +569,12 @@ spec:
     protocol: TCP
     name: redis
   selector:
-    app: skyflo-ai-redis
+    app: skyflo-redis
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: skyflo-ai-postgres-headless
+  name: skyflo-postgres-headless
   namespace: ${NAMESPACE}
 spec:
   clusterIP: None
@@ -556,23 +584,23 @@ spec:
     protocol: TCP
     name: postgres
   selector:
-    app: skyflo-ai-postgres
+    app: skyflo-postgres
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: skyflo-ai-postgres
+  name: skyflo-postgres
   namespace: ${NAMESPACE}
 spec:
-  serviceName: skyflo-ai-postgres-headless
+  serviceName: skyflo-postgres-headless
   replicas: 1
   selector:
     matchLabels:
-      app: skyflo-ai-postgres
+      app: skyflo-postgres
   template:
     metadata:
       labels:
-        app: skyflo-ai-postgres
+        app: skyflo-postgres
     spec:
       containers:
       - name: postgres
@@ -627,6 +655,8 @@ spec:
   volumeClaimTemplates:
   - metadata:
       name: postgres-data
+      labels:
+        app: skyflo-postgres
     spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
@@ -636,7 +666,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: skyflo-ai-postgres
+  name: skyflo-postgres
   namespace: ${NAMESPACE}
 spec:
   ports:
@@ -645,22 +675,22 @@ spec:
     protocol: TCP
     name: postgres
   selector:
-    app: skyflo-ai-postgres
+    app: skyflo-postgres
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: skyflo-ai-ui
+  name: skyflo-ui
   namespace: ${NAMESPACE}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: skyflo-ai-ui
+      app: skyflo-ui
   template:
     metadata:
       labels:
-        app: skyflo-ai-ui
+        app: skyflo-ui
     spec:
       containers:
       - name: ui
@@ -709,11 +739,15 @@ spec:
         image: skyfloaiagent/proxy:${VERSION}
         imagePullPolicy: Never
         ports:
-        - containerPort: 80
+        - containerPort: 8080
           name: http-proxy
         env:
         - name: APP_VERSION
           value: "${VERSION}"
+        - name: ENGINE_UPSTREAM
+          value: "skyflo-engine:8080"
+        - name: UI_UPSTREAM
+          value: "skyflo-ui:3000"
         resources:
           limits:
             cpu: 200m
@@ -721,6 +755,16 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 101
+          runAsGroup: 101
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+          seccompProfile:
+            type: RuntimeDefault
         readinessProbe:
           httpGet:
             path: /health
@@ -738,13 +782,15 @@ spec:
           timeoutSeconds: 5
           failureThreshold: 3
       securityContext:
-        runAsNonRoot: false
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       terminationGracePeriodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: skyflo-ai-ui
+  name: skyflo-ui
   namespace: ${NAMESPACE}
 spec:
   ports:
@@ -759,27 +805,27 @@ spec:
     name: ui-http
   type: NodePort
   selector:
-    app: skyflo-ai-ui
+    app: skyflo-ui
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: skyflo-ai-engine
+  name: skyflo-engine
   namespace: ${NAMESPACE}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: skyflo-ai-engine
+      app: skyflo-engine
   template:
     metadata:
       labels:
-        app: skyflo-ai-engine
+        app: skyflo-engine
     spec:
       initContainers:
       - name: wait-for-postgres
         image: busybox:1.36
-        command: ['sh', '-c', 'timeout=300; elapsed=0; until nc -z skyflo-ai-postgres 5432; do echo "Waiting for Postgres..."; sleep 2; elapsed=$((elapsed+2)); if [ $elapsed -ge $timeout ]; then echo "Timed out waiting for Postgres"; exit 1; fi; done']
+        command: ['sh', '-c', 'timeout=300; elapsed=0; until nc -z skyflo-postgres 5432; do echo "Waiting for Postgres..."; sleep 2; elapsed=$((elapsed+2)); if [ $elapsed -ge $timeout ]; then echo "Timed out waiting for Postgres"; exit 1; fi; done']
         securityContext:
           allowPrivilegeEscalation: false
           runAsUser: 1002
@@ -796,7 +842,7 @@ spec:
             memory: 32Mi
       - name: wait-for-redis
         image: busybox:1.36
-        command: ['sh', '-c', 'timeout=300; elapsed=0; until nc -z skyflo-ai-redis 6379; do echo "Waiting for Redis..."; sleep 2; elapsed=$((elapsed+2)); if [ $elapsed -ge $timeout ]; then echo "Timed out waiting for Redis"; exit 1; fi; done']
+        command: ['sh', '-c', 'timeout=300; elapsed=0; until nc -z skyflo-redis 6379; do echo "Waiting for Redis..."; sleep 2; elapsed=$((elapsed+2)); if [ $elapsed -ge $timeout ]; then echo "Timed out waiting for Redis"; exit 1; fi; done']
         securityContext:
           allowPrivilegeEscalation: false
           runAsUser: 1002
@@ -867,7 +913,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: skyflo-ai-engine
+  name: skyflo-engine
   namespace: ${NAMESPACE}
 spec:
   ports:
@@ -878,24 +924,24 @@ spec:
     nodePort: 30081
   type: NodePort
   selector:
-    app: skyflo-ai-engine
+    app: skyflo-engine
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: skyflo-ai-mcp
+  name: skyflo-mcp
   namespace: ${NAMESPACE}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: skyflo-ai-mcp
+      app: skyflo-mcp
   template:
     metadata:
       labels:
-        app: skyflo-ai-mcp
+        app: skyflo-mcp
     spec:
-      serviceAccountName: skyflo-ai-mcp
+      serviceAccountName: skyflo-mcp
       containers:
       - name: mcp
         image: skyfloaiagent/mcp:${VERSION}
@@ -946,7 +992,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: skyflo-ai-mcp
+  name: skyflo-mcp
   namespace: ${NAMESPACE}
 spec:
   ports:
@@ -955,17 +1001,17 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: skyflo-ai-mcp
+    app: skyflo-mcp
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: skyflo-ai-mcp-policy
+  name: skyflo-mcp-policy
   namespace: ${NAMESPACE}
 spec:
   podSelector:
     matchLabels:
-      app: skyflo-ai-mcp
+      app: skyflo-mcp
   policyTypes:
   - Ingress
   - Egress
@@ -973,6 +1019,6 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: skyflo-ai-engine
+          app: skyflo-engine
   egress:
   - {}

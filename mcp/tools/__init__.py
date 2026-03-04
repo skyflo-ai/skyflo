@@ -1,1 +1,1 @@
-"""Tools package for Skyflo.ai MCP Server."""
+"""Tools package for Skyflo MCP Server."""

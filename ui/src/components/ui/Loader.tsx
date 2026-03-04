@@ -4,13 +4,11 @@ import React from "react";
 type Props = {
   size?: number;
   logoSrc?: string;
-  alt?: string;
 };
 
 export default function SphereLogoLoader({
   size = 150,
   logoSrc = "/logo_vector_transparent.png",
-  alt = "Skyflo.ai",
 }: Props) {
   const px = `${size}px`;
   const logo = Math.round(size * 0.45); // 45% of sphere
@@ -32,7 +30,7 @@ export default function SphereLogoLoader({
         <div className="logo">
           <Image
             src={logoSrc}
-            alt={alt}
+            alt=""
             width={logo}
             height={logo}
             className="logo-img opacity-60"

@@ -2,9 +2,9 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.24.1-blue)](https://golang.org/dl/)
 
-Kubernetes operator that manages the Skyflo platform lifecycle through a single Custom Resource Definition (CRD). It handles deployment, configuration, and scaling of all Skyflo components (Engine, MCP, Command Center) within a Kubernetes cluster.
+Kubernetes operator that manages Skyflo component lifecycle through a single Custom Resource Definition (CRD). It handles deployment, configuration, and scaling of Engine, MCP, and Command Center within a Kubernetes cluster.
 
-See [docs/architecture.md](../docs/architecture.md) for full system context.
+See the [architecture overview](https://skyflo.ai/docs/architecture) for full system context.
 
 ## Architecture
 
@@ -58,7 +58,7 @@ Built in Go using Kubebuilder and controller-runtime. The controller introduces 
 
 ### Deployment Model
 
-- **Namespace Isolation**: all Skyflo components deployed within the `skyflo-ai` namespace with network policies controlling inter-component communication
+- **Namespace Isolation**: chart-managed resources render into `.Release.Namespace`, so the release namespace is configurable, and the included network policies provide MCP-specific restrictions rather than full cluster-wide inter-component isolation
 - **Standard Kubernetes Resources**:
   - UI Deployment with NodePort service (30080)
   - API Service Deployment with associated service
@@ -88,7 +88,7 @@ Refer to the [deployment guide](../deployment/README.md) for local development s
 
 ## Community
 
-- [Website](https://skyflo.ai)
+- [Docs](https://skyflo.ai/docs)
 - [Discord](https://discord.gg/kCFNavMund)
 - [X](https://x.com/skyflo_ai)
 - [LinkedIn](https://www.linkedin.com/company/skyflo)

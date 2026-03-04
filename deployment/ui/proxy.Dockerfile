@@ -1,8 +1,8 @@
-FROM nginx:1.25-alpine
+FROM nginxinc/nginx-unprivileged:1.25-alpine
 
-# Copy nginx configuration
-COPY deployment/ui/nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx template rendered by the nginx entrypoint
+COPY deployment/ui/nginx.conf /etc/nginx/templates/default.conf.template
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"] 

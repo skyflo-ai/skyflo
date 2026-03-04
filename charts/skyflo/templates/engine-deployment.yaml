@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "skyflo.engine.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "skyflo.labels" . | nindent 4 }}
+    app: {{ include "skyflo.engine.fullname" . }}
+spec:
+  replicas: {{ .Values.engine.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "skyflo.engine.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "skyflo.engine.fullname" . }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- if .Values.postgresql.enabled }}
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ['sh', '-c', 'timeout=300; elapsed=0; until nc -z {{ include "skyflo.postgres.fullname" . }} 5432; do echo "Waiting for Postgres..."; sleep 2; elapsed=$((elapsed+2)); if [ $elapsed -ge $timeout ]; then echo "Timed out waiting for Postgres"; exit 1; fi; done']
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsUser: 1002
+            runAsGroup: 1002
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+        {{- end }}
+        {{- if .Values.redis.enabled }}
+        - name: wait-for-redis
+          image: busybox:1.36
+          command: ['sh', '-c', 'timeout=300; elapsed=0; until nc -z {{ include "skyflo.redis.fullname" . }} 6379; do echo "Waiting for Redis..."; sleep 2; elapsed=$((elapsed+2)); if [ $elapsed -ge $timeout ]; then echo "Timed out waiting for Redis"; exit 1; fi; done']
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsUser: 1002
+            runAsGroup: 1002
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+        {{- end }}
+      containers:
+        - name: engine
+          image: "{{ .Values.engine.image.repository }}:{{ .Values.engine.image.tag | default (include "skyflo.defaultTag" .) }}"
+          imagePullPolicy: {{ .Values.engine.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: {{ include "skyflo.engine.configMapName" . }}
+            - secretRef:
+                name: {{ include "skyflo.engine.secretName" . }}
+          env:
+            - name: APP_VERSION
+              value: {{ .Chart.AppVersion | quote }}
+            - name: MCP_SERVER_URL
+              value: {{ include "skyflo.mcp.url" . | quote }}
+            - name: INTEGRATIONS_SECRET_NAMESPACE
+              value: {{ include "skyflo.integrationsSecretNamespace" . | quote }}
+            {{- if .Values.postgresql.enabled }}
+            - name: _PG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "skyflo.postgres.secretName" . }}
+                  key: POSTGRES_USER
+            - name: _PG_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "skyflo.postgres.secretName" . }}
+                  key: POSTGRES_PASSWORD
+            - name: _PG_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "skyflo.postgres.secretName" . }}
+                  key: POSTGRES_DB
+            - name: POSTGRES_DATABASE_URL
+              value: "postgres://$(_PG_USER):$(_PG_PASS)@{{ include "skyflo.postgres.host" . }}:{{ include "skyflo.postgres.port" . }}/$(_PG_DB)"
+            {{- end }}
+          resources:
+            {{- toYaml .Values.engine.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsUser: 1002
+            runAsGroup: 1002
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 10
+      {{- with .Values.engine.nodeSelector | default .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.engine.affinity | default .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.engine.tolerations | default .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
