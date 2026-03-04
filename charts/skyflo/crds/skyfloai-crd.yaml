@@ -1,0 +1,226 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: skyfloais.skyflo.ai
+spec:
+  group: skyflo.ai
+  names:
+    kind: SkyfloAI
+    listKind: SkyfloAIList
+    plural: skyfloais
+    singular: skyfloai
+    shortNames:
+      - sky
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - ui
+                - engine
+                - mcp
+              properties:
+                ui:
+                  type: object
+                  required:
+                    - image
+                  properties:
+                    image:
+                      type: string
+                    replicas:
+                      type: integer
+                      minimum: 1
+                    resources:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    env:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - name
+                        x-kubernetes-preserve-unknown-fields: true
+                        properties:
+                          name:
+                            type: string
+                          value:
+                            type: string
+                          valueFrom:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                engine:
+                  type: object
+                  required:
+                    - image
+                  properties:
+                    image:
+                      type: string
+                    replicas:
+                      type: integer
+                      minimum: 1
+                    resources:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    databaseConfig:
+                      type: object
+                      properties:
+                        host:
+                          type: string
+                        port:
+                          type: integer
+                        database:
+                          type: string
+                        secretName:
+                          type: string
+                    redisConfig:
+                      type: object
+                      properties:
+                        host:
+                          type: string
+                        port:
+                          type: integer
+                        secretName:
+                          type: string
+                    env:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - name
+                        x-kubernetes-preserve-unknown-fields: true
+                        properties:
+                          name:
+                            type: string
+                          value:
+                            type: string
+                          valueFrom:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                mcp:
+                  type: object
+                  required:
+                    - image
+                  properties:
+                    image:
+                      type: string
+                    replicas:
+                      type: integer
+                      minimum: 1
+                    resources:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    kubeconfigSecret:
+                      type: string
+                    env:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - name
+                        x-kubernetes-preserve-unknown-fields: true
+                        properties:
+                          name:
+                            type: string
+                          value:
+                            type: string
+                          valueFrom:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                imagePullSecrets:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                nodeSelector:
+                  type: object
+                  additionalProperties:
+                    type: string
+                tolerations:
+                  type: array
+                  items:
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                affinity:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+            status:
+              type: object
+              properties:
+                uiStatus:
+                  type: object
+                  properties:
+                    phase:
+                      type: string
+                    message:
+                      type: string
+                    readyReplicas:
+                      type: integer
+                    desiredReplicas:
+                      type: integer
+                engineStatus:
+                  type: object
+                  properties:
+                    phase:
+                      type: string
+                    message:
+                      type: string
+                    readyReplicas:
+                      type: integer
+                    desiredReplicas:
+                      type: integer
+                mcpStatus:
+                  type: object
+                  properties:
+                    phase:
+                      type: string
+                    message:
+                      type: string
+                    readyReplicas:
+                      type: integer
+                    desiredReplicas:
+                      type: integer
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      additionalPrinterColumns:
+        - name: UI Ready
+          type: string
+          jsonPath: .status.uiStatus.phase
+        - name: Engine Ready
+          type: string
+          jsonPath: .status.engineStatus.phase
+        - name: MCP Ready
+          type: string
+          jsonPath: .status.mcpStatus.phase
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}

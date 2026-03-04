@@ -1,8 +1,8 @@
 # Skyflo MCP Server
 
-MCP server exposing schema-validated infrastructure tools for Kubernetes, Helm, Argo Rollouts, and Jenkins to the [Engine](../engine) over Streamable HTTP transport. Tool annotations drive the approval gate for every mutating operation.
+MCP server exposing schema-validated infrastructure tools for Kubernetes, Helm, Argo Rollouts, and Jenkins to the [Engine](../engine) over Streamable HTTP transport. Tool annotations drive the approval gate for every mutating tool call.
 
-See [docs/architecture.md](../docs/architecture.md) for full system context.
+See the [architecture overview](https://skyflo.ai/docs/architecture) for full system context.
 
 ## Architecture
 
@@ -183,7 +183,7 @@ mcp/
 
 ## Community
 
-- [Website](https://skyflo.ai)
+- [Docs](https://skyflo.ai/docs)
 - [Discord](https://discord.gg/kCFNavMund)
 - [X](https://x.com/skyflo_ai)
 - [LinkedIn](https://www.linkedin.com/company/skyflo)

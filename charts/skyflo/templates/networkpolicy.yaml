@@ -1,0 +1,63 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $dnsService := lookup "v1" "Service" "kube-system" "kube-dns" }}
+{{- $apiService := lookup "v1" "Service" "default" "kubernetes" }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "skyflo.mcp.fullname" . }}-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "skyflo.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ include "skyflo.mcp.fullname" . }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: {{ include "skyflo.engine.fullname" . }}
+  egress:
+    {{- if .Values.networkPolicy.allowAllEgress }}
+    - {}
+    {{- else }}
+    - to:
+        {{- if and $dnsService $dnsService.spec $dnsService.spec.clusterIP }}
+        - ipBlock:
+            cidr: {{ printf "%s/32" $dnsService.spec.clusterIP | quote }}
+        {{- else }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+        {{- end }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        {{- if and $apiService $apiService.spec $apiService.spec.clusterIP }}
+        - ipBlock:
+            cidr: {{ printf "%s/32" $apiService.spec.clusterIP | quote }}
+        {{- else if .Values.networkPolicy.kubernetesApiServerCIDR }}
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.kubernetesApiServerCIDR | quote }}
+        {{- else }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              component: kube-apiserver
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: 443
+    {{- end }}
+{{- end }}

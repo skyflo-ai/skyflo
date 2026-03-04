@@ -1,8 +1,8 @@
 # Skyflo Engine
 
-The Engine is Skyflo's backend orchestration layer for DevOps and SRE teams. It connects the [Command Center](../ui) and the [MCP server](../mcp), turning natural language into typed, auditable Kubernetes and CI/CD operations with an approval gate for every mutating tool call.
+The Engine is Skyflo's orchestration backend. It connects the [Command Center](../ui) and the [MCP server](../mcp), turning natural language into typed, auditable Kubernetes and CI/CD operations. Every mutating tool call requires explicit approval, enforced by the engine, not a UI toggle.
 
-See [docs/architecture.md](../docs/architecture.md) for full system context.
+See the [architecture overview](https://skyflo.ai/docs/architecture) for full system context.
 
 ## Architecture
 
@@ -47,7 +47,7 @@ All workflow events stream over SSE from `/api/v1/agent/chat` and `/api/v1/agent
 - SSE streaming for tokens, thinking/reasoning content, tool progress, and results
 - Thinking/reasoning model support with configurable effort and budget (Anthropic, OpenAI, DeepSeek, etc.)
 - Multi-provider LLM support (OpenAI, Groq, Ollama, Gemini, etc.) via LiteLLM
-- Approval gate derived from MCP annotations (`readOnlyHint`, `destructiveHint`)
+- Approval gate for every mutating tool call, derived from MCP annotations (`readOnlyHint`, `destructiveHint`)
 - Auth with fastapi-users (JWT), first user becomes admin
 - Refresh token rotation with cookie-based session management
 - Team admin endpoints (list/add/update/remove members)
@@ -80,7 +80,7 @@ Minimum to set for local dev:
 - `POSTGRES_DATABASE_URL` (e.g. `postgres://postgres:postgres@localhost:5432/skyflo`)
 - `REDIS_URL` (e.g. `redis://localhost:6379/0`)
 - `JWT_SECRET`
-- LLM provider key, e.g. `MOONSHOT_API_KEY` when `LLM_MODEL=moonshot/kimi-k2.5`
+- LLM provider key, e.g. `GEMINI_API_KEY` when `LLM_MODEL=gemini/gemini-2.5-pro`
 
 2) Install dependencies and the package in editable mode.
 
@@ -181,7 +181,7 @@ Defined in `src/api/config/settings.py` (Pydantic Settings, `.env` loaded). Key 
 - MCP: `MCP_SERVER_URL`
 - Integrations: `INTEGRATIONS_SECRET_NAMESPACE` (default `default`)
 - Workflow: `MAX_AUTO_CONTINUE_TURNS`, `LLM_MAX_ITERATIONS`
-- LLM: `LLM_MODEL` (e.g. `moonshot/kimi-k2.5`), `LLM_HOST` (optional), provider API key envs like `MOONSHOT_API_KEY`
+- LLM: `LLM_MODEL` (e.g. `gemini/gemini-2.5-pro`), `LLM_HOST` (optional), provider API key envs like `GEMINI_API_KEY`
 - Thinking/Reasoning: `LLM_REASONING_EFFORT` (`low`, `medium`, `high`), `LLM_THINKING_BUDGET_TOKENS` (Anthropic-specific), `LLM_MAX_TOKENS` (optional override when thinking is enabled)
 
 ## Component Structure
@@ -220,7 +220,7 @@ engine/
 
 ## Community
 
-- [Website](https://skyflo.ai)
+- [Docs](https://skyflo.ai/docs)
 - [Discord](https://discord.gg/kCFNavMund)
 - [X](https://x.com/skyflo_ai)
 - [LinkedIn](https://www.linkedin.com/company/skyflo)

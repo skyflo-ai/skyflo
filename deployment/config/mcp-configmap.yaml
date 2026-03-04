@@ -4,8 +4,8 @@ metadata:
   name: skyflo-mcp-config
   namespace: ${NAMESPACE}
 data:
-  APP_NAME: "Skyflo.ai - MCP Server"
-  APP_DESCRIPTION: "MCP Server for Skyflo.ai"
+  APP_NAME: "Skyflo MCP Server"
+  APP_DESCRIPTION: "MCP Server for Skyflo"
   DEBUG: "false"
   LOG_LEVEL: "INFO"
   MAX_RETRY_ATTEMPTS: "3"

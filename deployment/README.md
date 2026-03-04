@@ -41,7 +41,7 @@ deployment/
 
 ### Install
 
-The installer fetches the latest release from GitHub, prompts for LLM provider and API keys, generates secrets (JWT, database passwords), and applies the manifests:
+The installer fetches the latest release from GitHub. It prompts for LLM provider and API keys, generates secrets (JWT, database passwords), and applies the manifests:
 
 ```bash
 curl -sL https://skyflo.ai/install.sh | bash
@@ -82,7 +82,7 @@ Both services include health checks and persistent volumes.
 #### 1. Create the KinD cluster
 
 ```bash
-kind create cluster --name skyflo-ai --config deployment/local.kind.yaml
+kind create cluster --name skyflo --config deployment/local.kind.yaml
 ```
 
 #### 2. Build all Docker images
@@ -98,7 +98,7 @@ docker buildx build -f deployment/ui/proxy.Dockerfile -t skyfloaiagent/proxy:lat
 #### 3. Load images into the KinD cluster
 
 ```bash
-kind load docker-image --name skyflo-ai \
+kind load docker-image --name skyflo \
   skyfloaiagent/engine:latest \
   skyfloaiagent/mcp:latest \
   skyfloaiagent/ui:latest \
@@ -111,13 +111,13 @@ kind load docker-image --name skyflo-ai \
 Set all variables used by `deployment/local.install.yaml`:
 
 ```bash
-export NAMESPACE=skyflo-ai
+export NAMESPACE=skyflo
 export LLM_MODEL=gemini/gemini-2.5-pro
 export GEMINI_API_KEY=AI...
 export JWT_SECRET=$(openssl rand -base64 32)
-export POSTGRES_DATABASE_URL=postgres://skyflo:skyflo@skyflo-ai-postgres:5432/skyflo
-export REDIS_URL=redis://skyflo-ai-redis:6379/0
-export MCP_SERVER_URL=http://skyflo-ai-mcp:8888/mcp
+export POSTGRES_DATABASE_URL=postgres://skyflo:skyflo@skyflo-postgres:5432/skyflo
+export REDIS_URL=redis://skyflo-redis:6379/0
+export MCP_SERVER_URL=http://skyflo-mcp:8888/mcp
 export INTEGRATIONS_SECRET_NAMESPACE=$NAMESPACE
 ```
 
@@ -132,7 +132,7 @@ envsubst < deployment/local.install.yaml | kubectl apply -f -
 #### 6. Access the UI
 
 ```bash
-kubectl port-forward svc/skyflo-ai-ui -n $NAMESPACE 3000:80
+kubectl port-forward svc/skyflo-ui -n $NAMESPACE 3000:80
 ```
 
 Then open `http://localhost:3000`.
@@ -167,8 +167,8 @@ kubectl delete -f deployment/local.test-deploy.yaml
 The proxy sidecar runs alongside the UI deployment and routes traffic:
 
 - `GET /health` - proxy health check
-- `/api/v1/*` - forwarded to the Engine service (`skyflo-ai-engine:8080`)
-- `/*` - forwarded to the UI service (`skyflo-ai-ui:3000`)
+- `/api/v1/*` - forwarded to the Engine service (`skyflo-engine:8080`)
+- `/*` - forwarded to the UI service (`skyflo-ui:3000`)
 
 SSE streaming is supported with buffering disabled and 3600s timeouts.
 

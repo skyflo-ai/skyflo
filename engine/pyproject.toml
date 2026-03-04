@@ -5,11 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "skyflo-engine"
 dynamic = ["version"]
-description = "Skyflo.ai Engine Service - Middleware for Cloud Native AI Agent"
+description = "Skyflo Engine Service - Self-hosted AI Agent for Kubernetes and DevOps"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
-keywords = ["ai", "agent", "cloud native", "engine", "open source"]
+keywords = ["ai", "agent", "cloud native", "kubernetes", "devops", "self-hosted"]
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn>=0.27.1",
@@ -51,7 +51,7 @@ default = ["pytest>=8.0.2", "pytest-cov>=4.1.0", "pytest-asyncio>=0.23.5", "pyte
 skyflo-engine = "engine.main:run"
 
 [project.urls]
-Documentation = "https://github.com/skyflo-ai/skyflo#readme"
+Documentation = "https://skyflo.ai/docs/architecture"
 Issues = "https://github.com/skyflo-ai/skyflo/issues"
 Source = "https://github.com/skyflo-ai/skyflo"
 

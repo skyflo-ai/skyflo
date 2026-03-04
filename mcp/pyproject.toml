@@ -5,11 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "skyflo-mcp"
 dynamic = ["version"]
-description = 'Skyflo.ai MCP Server - Cloud Native Tools for AI Agents'
+description = 'Skyflo MCP Server - Self-hosted AI Agent for Kubernetes and DevOps'
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
-keywords = ["mcp", "ai", "cloud native", "kubernetes", "helm", "argo", "kubectl"]
+keywords = ["mcp", "ai", "agent", "cloud native", "kubernetes", "devops", "self-hosted"]
 authors = [
     { name = "Karan Jagtiani", email = "karan@skyflo.ai" },
 ]
@@ -35,7 +35,7 @@ dev = [
 skyflo-mcp = "main:main"
 
 [project.urls]
-Documentation = "https://github.com/skyflo-ai/skyflo#readme"
+Documentation = "https://skyflo.ai/docs/architecture"
 Issues = "https://github.com/skyflo-ai/skyflo/issues"
 Source = "https://github.com/skyflo-ai/skyflo"
 

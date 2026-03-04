@@ -3,7 +3,7 @@
 if [ -z "$VERSION" ]; then
     VERSION=$(curl -sL --connect-timeout 10 --max-time 30 https://api.github.com/repos/skyflo-ai/skyflo/releases/latest \
         | grep -m 1 '"tag_name":' \
-        | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+        | sed 's/.*"tag_name": *"//;s/".*//')
     if [ -z "$VERSION" ]; then
         echo "Error: unable to determine latest release tag."
         echo "Set VERSION manually, e.g.: VERSION=v0.5.0 ./install.sh"
@@ -143,12 +143,12 @@ set_runtime_defaults() {
     fi
 
     if [ -z "$REDIS_URL" ]; then
-        REDIS_URL="redis://skyflo-ai-redis:6379/0"
+        REDIS_URL="redis://skyflo-redis:6379/0"
         print_colored "yellow" "ℹ Redis: using in-cluster default"
     fi
 
     if [ -z "$MCP_SERVER_URL" ]; then
-        MCP_SERVER_URL="http://skyflo-ai-mcp:8888/mcp"
+        MCP_SERVER_URL="http://skyflo-mcp:8888/mcp"
         print_colored "yellow" "ℹ MCP server: using in-cluster default"
     fi
 
@@ -174,7 +174,7 @@ set_runtime_defaults() {
     fi
 
     if [ -z "$POSTGRES_DATABASE_URL" ]; then
-        POSTGRES_DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@skyflo-ai-postgres:${POSTGRES_PORT}/${POSTGRES_DB}"
+        POSTGRES_DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@skyflo-postgres:${POSTGRES_PORT}/${POSTGRES_DB}"
         print_colored "yellow" "ℹ Postgres: using in-cluster default"
     fi
 
@@ -196,16 +196,16 @@ apply_k8s_from_file() {
 }
 
 print_colored "green" "
-Skyflo.ai Kubernetes Installer
+Skyflo Kubernetes Installer
 Version: ${VERSION}
 ========================================
 "
 
 if [ -z "$NAMESPACE" ]; then
-    read -r -p "Target Kubernetes namespace [default: skyflo-ai]: " NAMESPACE </dev/tty
+    read -r -p "Target Kubernetes namespace [default: skyflo]: " NAMESPACE </dev/tty
     if [ -z "$NAMESPACE" ]; then
-        NAMESPACE="skyflo-ai"
-        print_colored "yellow" "ℹ No namespace provided. Using 'skyflo-ai'."
+        NAMESPACE="skyflo"
+        print_colored "yellow" "ℹ No namespace provided. Using 'skyflo'."
     fi
 else
     print_colored "green" "✓ Using namespace from environment: $NAMESPACE"
@@ -269,15 +269,15 @@ rm -rf "$TMP_DIR"
 print_colored "green" "
 Installation successful
 =======================
-Skyflo.ai has been successfully installed.
+Skyflo has been successfully installed.
 
 Check rollout status:
   kubectl get pods -n $NAMESPACE
 
-Access the UI locally:
-  kubectl port-forward -n $NAMESPACE svc/skyflo-ai-ui 3000:80
+Access the Command Center locally:
+  kubectl port-forward -n $NAMESPACE svc/skyflo-ui 3000:80
 
 Production access:
   Configure an Ingress controller.
-  Docs: https://github.com/skyflo-ai/skyflo/blob/main/docs/install.md
+  Docs: https://skyflo.ai/docs/production-deployment
 "

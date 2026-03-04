@@ -1,8 +1,8 @@
 # Skyflo Command Center
 
-The Command Center is Skyflo's operator interface. It provides real-time visibility into agent execution, inline approval controls for mutating operations, and team administration, backed by SSE streaming from the [Engine](../engine). It surfaces tool-level audit history, live streaming output, and approval controls.
+The Command Center is Skyflo's operator interface. It renders agent execution in real time: tool calls, approval gates, audit history, and streaming output. All events stream from the [Engine](../engine) over SSE.
 
-See [docs/architecture.md](../docs/architecture.md) for full system context.
+See the [architecture overview](https://skyflo.ai/docs/architecture) for full system context.
 
 ## How It Connects to the Backend
 
@@ -51,12 +51,15 @@ Defined in `.env.example`:
 # Server-side BFF -> Engine (used by src/app/api/* routes)
 API_URL=http://localhost:8080/api/v1
 
-# Client-side SSE -> Engine (used by ChatService in the browser)
-NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+# Client-side SSE -> browser-routable Engine URL (used by ChatService in the browser)
+NEXT_PUBLIC_API_URL=/api/v1
 ```
 
 Notes:
-- Ensure Engine CORS allows the UI origin (or place UI behind the provided Nginx proxy, see deployment assets).
+- `NEXT_PUBLIC_API_URL` must be reachable from the browser. Use `/api/v1` behind the provided Nginx proxy, or a public URL such as `http://localhost:8080/api/v1` for local development without the proxy.
+- Ensure Engine CORS allows the UI origin when `NEXT_PUBLIC_API_URL` points to a different origin.
+- For SSE chat and approval streams, `ChatService` resolves auth headers server-side via `getAuthHeaders()`: the server reads the user's auth cookie, then returns a `Bearer` token in the `Authorization` header used for the browser `fetch` to `/agent/chat` and `/agent/approvals/*`.
+- HttpOnly cookies alone are not enough for cross-origin SSE auth in this setup. If the UI talks to Engine across origins, make sure your proxy or auth middleware converts the session cookie into the `Authorization: Bearer ...` header for SSE requests, otherwise streaming requests will fail even if normal cookie-based login works.
 - Default Engine port is 8080; MCP typically runs on 8888 (not used directly by the UI).
 
 ## Getting Started
@@ -129,7 +132,7 @@ yarn start
 
 ## Community
 
-- [Website](https://skyflo.ai)
+- [Docs](https://skyflo.ai/docs)
 - [Discord](https://discord.gg/kCFNavMund)
 - [X](https://x.com/skyflo_ai)
 - [LinkedIn](https://www.linkedin.com/company/skyflo)

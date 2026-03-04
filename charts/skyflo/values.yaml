@@ -1,0 +1,250 @@
+global:
+  # Override image tag for all components (default: vX.Y.Z from Chart appVersion)
+  imageTag: ""
+
+  # Placement defaults applied to all components.
+  # Per-component overrides (e.g. engine.nodeSelector) take precedence when set.
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+nameOverride: ""
+fullnameOverride: ""
+imagePullSecrets: []
+
+# -- Skyflo Engine (FastAPI backend, LangGraph multi-agent orchestrator)
+engine:
+  image:
+    repository: skyfloaiagent/engine
+    tag: ""
+    pullPolicy: Always
+  replicas: 1
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  config:
+    appName: "Skyflo - Engine"
+    appDescription: "Core engine for Skyflo"
+    debug: "false"
+    apiV1Str: "/api/v1"
+    logLevel: "INFO"
+    rateLimitingEnabled: "true"
+    rateLimitPerMinute: "100"
+    jwtAlgorithm: "HS256"
+    jwtAccessTokenExpireMinutes: "15"
+    jwtRefreshTokenExpireDays: "7"
+    llmMaxIterations: "25"
+
+  secrets:
+    # Use an existing Secret instead of creating one. The Secret must contain
+    # all keys the engine expects (LLM_MODEL, JWT_SECRET, POSTGRES_DATABASE_URL, etc.)
+    existingSecret: ""
+
+    # Auto-generated if left empty. Preserved across upgrades.
+    jwtSecret: ""
+
+    # REQUIRED: set the LLM provider and model identifier (for example "gemini/gemini-2.5-pro")
+    llmModel: ""
+
+    # Optional: self-hosted LLM endpoint
+    llmHost: ""
+
+    # Override auto-computed internal URLs if needed
+    mcpServerUrl: ""
+    integrationsSecretNamespace: ""
+
+    # LLM provider API keys -- set only the key for your chosen provider
+    openaiApiKey: ""
+    anthropicApiKey: ""
+    azureApiKey: ""
+    geminiApiKey: ""
+    cohereApiKey: ""
+    mistralApiKey: ""
+    groqApiKey: ""
+    anyscaleApiKey: ""
+    openrouterApiKey: ""
+    perplexityaiApiKey: ""
+    fireworksAiApiKey: ""
+    togetheraiApiKey: ""
+    deepinfraApiKey: ""
+    ai21ApiKey: ""
+    nlpCloudApiKey: ""
+    replicateApiKey: ""
+    hfToken: ""
+    databricksToken: ""
+    clarifaiPat: ""
+    voyageApiKey: ""
+    jinaaiApiKey: ""
+    alephalphaApiKey: ""
+    basetenApiKey: ""
+    sambanovaApiKey: ""
+    featherlessAiApiKey: ""
+    ollamaApiKey: ""
+    ibmApiKey: ""
+    predibaseApiKey: ""
+    nvidiaNgcApiKey: ""
+    xaiApiKey: ""
+    volcengineApiKey: ""
+    moonshotApiKey: ""
+    deepseekApiKey: ""
+
+    # LLM reasoning/thinking settings (for Anthropic Claude, OpenAI o-series, etc.)
+    llmReasoningEffort: ""
+    llmThinkingBudgetTokens: ""
+    llmMaxTokens: ""
+
+    # AWS credentials (for Bedrock)
+    awsAccessKeyId: ""
+    awsSecretAccessKey: ""
+    awsRegionName: ""
+
+# -- MCP Server (Model Context Protocol -- typed infrastructure tools)
+mcp:
+  image:
+    repository: skyfloaiagent/mcp
+    tag: ""
+    pullPolicy: Always
+  replicas: 1
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  config:
+    appName: "Skyflo MCP Server"
+    appDescription: "MCP Server for Skyflo"
+    debug: "false"
+    logLevel: "INFO"
+    maxRetryAttempts: "3"
+    retryBaseDelay: "60"
+    retryMaxDelay: "300"
+    retryExponentialBase: "2.0"
+
+# -- UI (Next.js command interface)
+ui:
+  image:
+    repository: skyfloaiagent/ui
+    tag: ""
+    pullPolicy: Always
+  proxy:
+    image:
+      repository: skyfloaiagent/proxy
+      tag: ""
+      pullPolicy: Always
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+  replicas: 1
+  service:
+    type: NodePort
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  config:
+    appName: "Skyflo"
+    nodeEnv: "production"
+    enableAnalytics: "false"
+    enableFeedback: "false"
+    # Override auto-computed engine URL if needed
+    apiUrl: ""
+    publicApiUrl: "/api/v1"
+
+# -- Kubernetes Controller (Go operator for SkyfloAI CRD)
+controller:
+  image:
+    repository: skyfloaiagent/k8s-controller
+    tag: ""
+    pullPolicy: Always
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
+
+# -- Built-in PostgreSQL (disable to use an external instance)
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15.15-alpine"
+  auth:
+    username: skyflo
+    # Auto-generated if empty. Preserved across upgrades.
+    password: ""
+    database: skyflo
+    port: 5432
+    # Use an existing Secret containing POSTGRES_USER, POSTGRES_PASSWORD,
+    # POSTGRES_DB, and POSTGRES_PORT keys
+    existingSecret: ""
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  # External PostgreSQL (used when postgresql.enabled=false)
+  external:
+    host: ""
+    port: 5432
+    database: skyflo
+    username: skyflo
+    password: ""
+    # Full connection URL (overrides individual fields above)
+    url: ""
+
+# -- Built-in Redis (disable to use an external instance)
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7.4.7-alpine"
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # External Redis (used when redis.enabled=false)
+  external:
+    # Full Redis URL, e.g. redis://host:6379/0
+    url: ""
+
+# -- Network policy restricting MCP ingress to engine pods only
+networkPolicy:
+  enabled: true
+  # Set to true only when MCP needs unrestricted outbound access.
+  allowAllEgress: false
+  # Optional override when the chart cannot resolve the Kubernetes API service cluster IP.
+  kubernetesApiServerCIDR: ""

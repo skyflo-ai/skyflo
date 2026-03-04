@@ -1,10 +1,10 @@
-# Contributing to Skyflo.ai
+# Contributing to Skyflo
 
-Thank you for considering contributing to Skyflo.ai. This document outlines how to contribute effectively and what standards are expected.
+Thank you for considering contributing to Skyflo. This document outlines how to contribute effectively and what standards are expected.
 
 We are committed to providing a friendly, safe, and welcoming environment for all contributors. Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Before making changes, read the [Architecture Guide](docs/architecture.md). It explains the system layout and will save you time.
+Before making changes, read the [Architecture Guide](https://skyflo.ai/docs/architecture). It explains the system layout and will save you time.
 
 ## Quick Start
 
@@ -165,14 +165,13 @@ These timelines can be extended if the contributor communicates delays proactive
 
 ## License
 
-Skyflo.ai is licensed under the Apache License 2.0.
+Skyflo is licensed under the Apache License 2.0.
 
 By contributing, you agree that your contributions are licensed under Apache License 2.0.
 
 ## Trademarks
 
-The Skyflo name and logos are trademarks and are **not** covered by the Apache License.
-See [TRADEMARKS.md](TRADEMARKS.md) for usage rules.
+The Skyflo name and logos are trademarks and are **not** covered by the Apache License. See [TRADEMARKS.md](TRADEMARKS.md) for usage rules.
 
 ## Community
 

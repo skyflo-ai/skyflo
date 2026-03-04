@@ -6,7 +6,7 @@ on:
       - "v*"
 
 jobs:
-  publish:
+  build-and-push-images:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -78,3 +78,79 @@ jobs:
           build-args: |
             APP_VERSION=${{ steps.meta.outputs.version }}
             NEXT_PUBLIC_APP_VERSION=${{ steps.meta.outputs.version }}
+
+  publish-helm-chart:
+    runs-on: ubuntu-latest
+    needs: build-and-push-images
+    if: needs.build-and-push-images.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: meta
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          IS_TEST="false"
+          if [[ "$TAG" == *"test"* ]]; then
+            IS_TEST="true"
+          fi
+          {
+            echo "version=${VERSION}"
+            echo "is_test=${IS_TEST}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Set chart version
+        run: |
+          sed -i "s/^version:.*/version: ${{ steps.meta.outputs.version }}/" charts/skyflo/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${{ steps.meta.outputs.version }}\"/" charts/skyflo/Chart.yaml
+
+      - name: Package Helm chart
+        run: helm package charts/skyflo
+
+      - name: Publish to charts.skyflo.ai (GitHub Pages)
+        if: steps.meta.outputs.is_test != 'true'
+        env:
+          CHART_PKG: skyflo-${{ steps.meta.outputs.version }}.tgz
+        run: |
+          PAGES_DIR=$(mktemp -d)
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git clone --single-branch --branch gh-pages \
+              "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+              "$PAGES_DIR"
+          else
+            git init "$PAGES_DIR"
+            git -C "$PAGES_DIR" checkout --orphan gh-pages
+            git -C "$PAGES_DIR" remote add origin \
+              "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          fi
+
+          cp "$CHART_PKG" "$PAGES_DIR/"
+          echo "charts.skyflo.ai" > "$PAGES_DIR/CNAME"
+
+          if [ -f "$PAGES_DIR/index.yaml" ]; then
+            helm repo index "$PAGES_DIR" --url https://charts.skyflo.ai --merge "$PAGES_DIR/index.yaml"
+          else
+            helm repo index "$PAGES_DIR" --url https://charts.skyflo.ai
+          fi
+
+          cd "$PAGES_DIR"
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "Release skyflo-${{ steps.meta.outputs.version }}"
+            git push origin gh-pages
+          else
+            echo "No changes to commit"
+          fi

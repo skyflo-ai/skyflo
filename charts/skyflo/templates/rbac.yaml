@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "skyflo.controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "skyflo.labels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "skyflo.mcp.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "skyflo.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "skyflo.controller.fullname" . }}-role
+  labels:
+    {{- include "skyflo.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - skyflo.ai
+    resources:
+      - skyfloais
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - skyflo.ai
+    resources:
+      - skyfloais/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - skyflo.ai
+    resources:
+      - skyfloais/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "skyflo.controller.fullname" . }}-rolebinding
+  labels:
+    {{- include "skyflo.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "skyflo.controller.fullname" . }}-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "skyflo.controller.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "skyflo.mcp.fullname" . }}-admin-binding
+  labels:
+    {{- include "skyflo.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "skyflo.mcp.fullname" . }}
+    namespace: {{ .Release.Namespace }}
