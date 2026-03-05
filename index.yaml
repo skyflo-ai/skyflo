@@ -1,0 +1,26 @@
+apiVersion: v1
+entries:
+  skyflo:
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-03-05T10:15:39.749612278Z"
+    description: Self-hosted AI control layer for Kubernetes and CI/CD systems
+    digest: 99c555e355b3a5e6bc4fad078bad9921ebddf515d58f6b4af9a81e6dfd095a36
+    home: https://skyflo.ai
+    keywords:
+    - kubernetes
+    - ai
+    - infrastructure
+    - cicd
+    - mcp
+    maintainers:
+    - name: skyflo-ai
+      url: https://github.com/skyflo-ai
+    name: skyflo
+    sources:
+    - https://github.com/skyflo-ai/skyflo
+    type: application
+    urls:
+    - https://charts.skyflo.ai/skyflo-0.1.0.tgz
+    version: 0.1.0
+generated: "2026-03-05T10:15:39.747896335Z"
