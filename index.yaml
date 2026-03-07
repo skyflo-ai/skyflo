@@ -3,9 +3,9 @@ entries:
   skyflo:
   - apiVersion: v2
     appVersion: 0.6.1
-    created: "2026-03-06T17:28:02.783583693Z"
+    created: "2026-03-07T15:05:25.334415878Z"
     description: Self-hosted AI control layer for Kubernetes and CI/CD systems
-    digest: 04050b739b415339cbd887ee54df29ab3b57a2d20192def9f85813b3e87436b4
+    digest: 94396b883e0e12529d5c75f9a430326903b775a75fe2d962c1d06847d56984da
     home: https://skyflo.ai
     keywords:
     - kubernetes
@@ -25,7 +25,7 @@ entries:
     version: 0.6.1
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-03-06T17:28:02.78272914Z"
+    created: "2026-03-07T15:05:25.333527132Z"
     description: Self-hosted AI control layer for Kubernetes and CI/CD systems
     digest: 3eca44b149fb916739f91323c7624c97eb861e12a7e037506646a294f1b488aa
     home: https://skyflo.ai
@@ -45,4 +45,4 @@ entries:
     urls:
     - https://charts.skyflo.ai/skyflo-0.1.0.tgz
     version: 0.1.0
-generated: "2026-03-06T17:28:02.781754994Z"
+generated: "2026-03-07T15:05:25.332530105Z"
