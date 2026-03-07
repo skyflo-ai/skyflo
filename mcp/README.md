@@ -16,7 +16,7 @@ The FastMCP server is the core tool execution layer:
 - Jenkins tools use an async HTTP client (`httpx`) with credentials resolved from Kubernetes Secrets
 - MCP tool annotations (`readOnlyHint`, `destructiveHint`) drive the Engine's approval policy
 - Built-in Streamable HTTP transport support
-- Custom health check endpoint at `GET /mcp/v1/health`
+- Custom health check endpoint at `GET /health`
 
 ## Tools
 
