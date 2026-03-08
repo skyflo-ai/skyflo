@@ -957,7 +957,7 @@ spec:
           value: "${VERSION}"
         readinessProbe:
           httpGet:
-            path: /mcp/v1/health
+            path: /health/ready
             port: http
           initialDelaySeconds: 60
           timeoutSeconds: 5
@@ -965,7 +965,7 @@ spec:
           failureThreshold: 3
         livenessProbe:
           httpGet:
-            path: /mcp/v1/health
+            path: /health
             port: http
           initialDelaySeconds: 60
           timeoutSeconds: 5

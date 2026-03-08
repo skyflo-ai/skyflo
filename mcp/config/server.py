@@ -1,3 +1,5 @@
+import shutil
+
 from fastmcp import FastMCP
 from starlette.responses import JSONResponse
 
@@ -15,9 +17,23 @@ mcp = FastMCP(
 )
 
 
-@mcp.custom_route("/mcp/v1/health", methods=["GET"])
+@mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     return JSONResponse({"status": "ok"})
+
+
+@mcp.custom_route("/health/startup", methods=["GET"])
+async def health_startup(request):
+    return JSONResponse({"status": "ok"})
+
+
+@mcp.custom_route("/health/ready", methods=["GET"])
+async def health_ready(request):
+    required_tools = ["kubectl", "helm", "kubectl-argo-rollouts"]
+    missing_tools = [tool for tool in required_tools if shutil.which(tool) is None]
+    if missing_tools:
+        return JSONResponse({"status": "error", "missing_tools": missing_tools}, status_code=503)
+    return JSONResponse({"status": "ready"})
 
 
 # Import tool modules to register them with the MCP server
