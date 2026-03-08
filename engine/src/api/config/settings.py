@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     APP_NAME: str
     APP_VERSION: str
     APP_DESCRIPTION: str
+
+    ENV: str = "development"
+
     DEBUG: bool = False
     API_V1_STR: str = "/api/v1"
 
@@ -56,6 +59,20 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        DEFAULT_SECRET = "CHANGE_ME_IN_PRODUCTION"
+
+        if self.JWT_SECRET == DEFAULT_SECRET:
+            if self.ENV == "production":
+                raise ValueError(
+                    "Cannot start application in production with default JWT_SECRET. "
+                    "Set a secure JWT_SECRET environment variable."
+                )
+            else:
+                print(
+                    "⚠️ WARNING: Using insecure default JWT_SECRET. "
+                    "This is allowed in development but must be changed before production."
+                )
 
         if self.POSTGRES_DATABASE_URL and "postgresql+" in self.POSTGRES_DATABASE_URL:
             self.POSTGRES_DATABASE_URL = self.POSTGRES_DATABASE_URL.replace(
