@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from ..config.settings import get_settings
 from .logging_middleware import LoggingMiddleware
 
