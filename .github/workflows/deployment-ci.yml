@@ -1,0 +1,83 @@
+name: Deployment
+on:
+  pull_request:
+    paths:
+      - 'deployment/**'
+      - '.github/workflows/deployment-ci.yml'
+
+concurrency:
+  group: deployment-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  KUBECONFORM_VERSION: v0.7.0
+  KUBESCORE_VERSION: v1.20.0
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Kubeconform
+        run: |
+          ARCHIVE="kubeconform-linux-amd64.tar.gz"
+          BASE="https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}"
+          curl -sSL -o "$ARCHIVE" "$BASE/$ARCHIVE"
+          curl -sSL -o CHECKSUMS "$BASE/CHECKSUMS"
+          grep -F "$ARCHIVE" CHECKSUMS | sha256sum -c -
+          tar -xzf "$ARCHIVE"
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Setup Kube-score
+        run: |
+          ARCHIVE="kube-score_${KUBESCORE_VERSION#v}_linux_amd64.tar.gz"
+          BASE="https://github.com/zegl/kube-score/releases/download/${KUBESCORE_VERSION}"
+          curl -sSL -o "$ARCHIVE" "$BASE/$ARCHIVE"
+          curl -sSL -o checksums.txt "$BASE/checksums.txt"
+          grep -F "$ARCHIVE" checksums.txt | sha256sum -c -
+          tar -xzf "$ARCHIVE"
+          (test -f kube-score && sudo mv kube-score /usr/local/bin/) || sudo mv kube-score_*_linux_amd64 /usr/local/bin/kube-score
+
+      - name: Validate manifests
+        run: |
+          set -e
+
+          mkdir -p rendered
+
+          # 1. Set dummy env vars so ${VAR} in manifests can be replaced
+          export NAMESPACE="ci-namespace" VERSION="v0.0.0-ci"
+          export MCP_SERVER_URL="http://ci-mcp:8080" INTEGRATIONS_SECRET_NAMESPACE="ci-namespace"
+          
+          while read -r v; do
+            export "${v}=${!v:-ci-placeholder}"
+          done < <(find deployment -type f \( -name '*.yaml' -o -name '*.yml' \) \
+            ! -name 'local.*' \
+            -exec grep -ohP '\$\{\K[A-Za-z0-9_]+' {} + 2>/dev/null | sort -u)
+
+          # 2. Render: replace ${VAR} and write to rendered/ (skip local.* files)
+          find deployment -type f \( -name '*.yaml' -o -name '*.yml' \) \
+            ! -name 'local.*' \
+            -print0 | sort -z | while IFS= read -r -d '' f; do
+            base=$(basename "$f")
+            ext="${base##*.}"
+            name="${base%.*}"
+            hash=$(printf '%s' "$f" | sha256sum | cut -c1-8)
+            out="rendered/${name}_${hash}.${ext}"
+            if grep -q '\${' "$f"; then
+              envsubst < "$f" > "$out"
+            else
+              cp "$f" "$out"
+            fi
+          done
+
+          # 3. Run schema validation; step fails on invalid manifests (set -e)
+          kubeconform -summary -output text -skip CustomResourceDefinition rendered/
+
+      - name: Kube-score
+        run: |
+          find rendered -type f \( -name '*.yaml' -o -name '*.yml' \) -print0 | xargs -0 kube-score score --output-format human --color never --ignore-container-cpu-limit --ignore-container-memory-limit || true
