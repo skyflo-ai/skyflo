@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     APP_NAME: str
     APP_VERSION: str
     APP_DESCRIPTION: str
-    ENV: str = os.getenv("ENV", "production")
+    ENV: str = os.getenv("ENV", "development")
 
     DEBUG: bool = False
     API_V1_STR: str = "/api/v1"
