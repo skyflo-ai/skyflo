@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import Literal, Optional
 
 from pydantic import Field, conint
@@ -12,7 +11,9 @@ class Settings(BaseSettings):
     APP_NAME: str
     APP_VERSION: str
     APP_DESCRIPTION: str
-    ENV: str = os.getenv("ENV", "development")
+
+    # FIX 1: Proper ENV field for Pydantic
+    ENV: Optional[str] = Field(default="development")
 
     DEBUG: bool = False
     API_V1_STR: str = "/api/v1"
@@ -43,15 +44,18 @@ class Settings(BaseSettings):
     LLM_MODEL: Optional[str] = Field(default="openai/gpt-4o", env="LLM_MODEL")
     LLM_HOST: Optional[str] = Field(default=None, env="LLM_HOST")
     OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
+
     LLM_MAX_ITERATIONS: int = 25
     LLM_MAX_TOKENS: Optional[conint(ge=1)] = Field(default=None, env="LLM_MAX_TOKENS")
 
     LLM_REASONING_EFFORT: Optional[Literal["low", "medium", "high", "default"]] = Field(
         default=None, env="LLM_REASONING_EFFORT"
     )
+
     LLM_THINKING_BUDGET_TOKENS: Optional[conint(ge=0)] = Field(
         default=None, env="LLM_THINKING_BUDGET_TOKENS"
     )
+
     AGENT_TYPE: str = "assistant"
 
     class Config:
@@ -67,7 +71,10 @@ class Settings(BaseSettings):
 
         env = (self.ENV or "").strip().lower()
 
-        if env not in {"development", "production"}:
+        # FIX 2: ENV whitelist validation
+        allowed_envs = {"development", "staging", "test", "production"}
+
+        if env not in allowed_envs:
             raise ValueError("ENV must be one of 'development', 'staging', 'test', or 'production'")
 
         if self.JWT_SECRET == DEFAULT_SECRET:
