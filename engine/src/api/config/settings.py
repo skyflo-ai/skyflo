@@ -65,7 +65,10 @@ class Settings(BaseSettings):
 
         DEFAULT_SECRET = "CHANGE_ME_IN_PRODUCTION"
 
-        env = self.ENV.strip().lower()
+        env = (self.ENV or "").strip().lower()
+
+        if env not in {"development", "production"}:
+            raise ValueError("ENV must be one of 'development', 'staging', 'test', or 'production'")
 
         if self.JWT_SECRET == DEFAULT_SECRET:
             if env == "production":
