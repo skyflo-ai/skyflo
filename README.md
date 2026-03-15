@@ -124,7 +124,7 @@ All mutating tool calls require explicit approval.
 ### Demo
 
 <p align="center">
-  <img src="https://skyflo.ai/assets/demo.gif" alt="Skyflo Demo" width="100%"/>
+  <img src="assets/demo.gif" alt="Skyflo Demo" width="100%"/>
 </p>
 
 Deterministic plans. Explicit approval. Verified execution.
