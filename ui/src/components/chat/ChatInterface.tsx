@@ -24,7 +24,7 @@ const createEmptyUsage = (): TokenUsage => ({
   total_generation_ms: 0,
 });
 
-const mapTokenUsage = (raw: any): TokenUsage | undefined => {
+const mapTokenUsage = (raw: Record<string, unknown>): TokenUsage | undefined => {
   if (!raw || typeof raw !== "object") {
     return undefined;
   }
@@ -33,8 +33,8 @@ const mapTokenUsage = (raw: any): TokenUsage | undefined => {
     completion_tokens: Number(raw.completion_tokens) || 0,
     total_tokens: Number(raw.total_tokens) || 0,
     cached_tokens: Number(raw.cached_tokens) || 0,
-    ttft: raw.ttft_ms ?? raw.ttft ?? undefined,
-    ttr: raw.ttr_ms ?? raw.ttr ?? undefined,
+    ttft: (raw.ttft_ms ?? raw.ttft) as number | undefined,
+    ttr: (raw.ttr_ms ?? raw.ttr) as number | undefined,
   };
 };
 
@@ -131,9 +131,9 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       const lastMessage = messages[messages.length - 1];
       if (
         lastMessage?.type === "assistant" &&
-        (lastMessage as any).segments?.length
+        lastMessage.segments?.length
       ) {
-        return (lastMessage as any).segments;
+        return lastMessage.segments;
       }
 
       return [];
@@ -142,7 +142,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     const segments = getSegments();
     const lastSegment = segments.length > 0 ? segments[segments.length - 1] : null;
     const hasExecutingTool = segments.some(
-      (seg: any) =>
+      (seg: MessageSegment) =>
         seg.kind === "tool" && seg.toolExecution?.status === "executing"
     );
 
@@ -223,7 +223,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     result: execution.result,
     timestamp: execution.timestamp,
     error: execution.error,
-    requires_approval: (execution as any).requires_approval,
+    requires_approval: execution.requires_approval,
   });
 
   const updateMessageWithTool = useCallback(
@@ -240,13 +240,13 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           segIndex >= 0
             ? prevSegments.map((s, i) => {
                 if (s.kind === "tool" && i === segIndex) {
-                  const merged = {
-                    ...(s as any).toolExecution,
+                  const merged: ToolExecutionType = {
+                    ...s.toolExecution,
                     ...toolExecution,
                   };
-                  return { ...s, toolExecution: merged } as any;
+                  return { ...s, toolExecution: merged };
                 }
-                return s as any;
+                return s;
               })
             : [
                 ...prevSegments,
@@ -273,17 +273,17 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               (s) => s.kind === "tool" && s.id === execution.call_id
             );
             if (segIndex >= 0) {
-              const newSegments = msg.segments.map((s, i) => {
+              const newSegments: MessageSegment[] = msg.segments.map((s, i) => {
                 if (s.kind === "tool" && i === segIndex) {
-                  const merged = {
-                    ...(s as any).toolExecution,
+                  const merged: ToolExecutionType = {
+                    ...s.toolExecution,
                     ...toolExecution,
                   };
-                  return { ...s, toolExecution: merged } as any;
+                  return { ...s, toolExecution: merged };
                 }
                 return s;
               });
-              updated[idx] = { ...msg, segments: newSegments } as any;
+              updated[idx] = { ...msg, segments: newSegments };
               break;
             }
           }
@@ -306,10 +306,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               ? ({
                   ...s,
                   toolExecution: {
-                    ...(s as any).toolExecution,
+                    ...s.toolExecution,
                     ...toolExecution,
                   },
-                } as any)
+                } satisfies MessageSegment)
               : s
         );
 
@@ -324,25 +324,25 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           const msg = updated[idx];
           if (
             msg.type === "assistant" &&
-            Array.isArray((msg as any).segments)
+            Array.isArray(msg.segments)
           ) {
-            const segIndex = (msg as any).segments.findIndex(
-              (s: any) => s.kind === "tool" && s.id === execution.call_id
+            const segIndex = msg.segments.findIndex(
+              (s: MessageSegment) => s.kind === "tool" && s.id === execution.call_id
             );
             if (segIndex >= 0) {
-              const newSegments = (msg as any).segments.map(
-                (s: any, i: number) => {
+              const newSegments: MessageSegment[] = msg.segments.map(
+                (s: MessageSegment, i: number) => {
                   if (s.kind === "tool" && i === segIndex) {
-                    const merged = {
-                      ...(s as any).toolExecution,
+                    const merged: ToolExecutionType = {
+                      ...s.toolExecution,
                       ...toolExecution,
                     };
-                    return { ...s, toolExecution: merged } as any;
+                    return { ...s, toolExecution: merged };
                   }
                   return s;
                 }
               );
-              updated[idx] = { ...(msg as any), segments: newSegments } as any;
+              updated[idx] = { ...msg, segments: newSegments };
               break;
             }
           }
@@ -381,19 +381,19 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           : [];
         const existingToolIds = new Set(
           priorSegments
-            .filter((s: any) => s.kind === "tool")
-            .map((s: any) => s.id)
+            .filter((s: MessageSegment) => s.kind === "tool")
+            .map((s: MessageSegment) => s.id)
         );
         const updatedSegments: MessageSegment[] = priorSegments.map(
-          (s: any) => {
+          (s: MessageSegment) => {
             if (s.kind !== "tool") return s;
             const match = executions.find((e) => e.call_id === s.id);
             if (match) {
               const newExec = convertToolExecution(match);
               return {
                 ...s,
-                toolExecution: { ...(s as any).toolExecution, ...newExec },
-              } as any;
+                toolExecution: { ...s.toolExecution, ...newExec },
+              };
             }
             return s;
           }
@@ -406,12 +406,12 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               id: e.call_id,
               toolExecution: convertToolExecution(e),
               timestamp: Date.now(),
-            } as any);
+            });
             existingToolIds.add(e.call_id);
           }
         }
 
-        return { ...prev, segments: updatedSegments } as any;
+        return { ...prev, segments: updatedSegments };
       });
     },
     [updateCurrentMessage]
@@ -784,14 +784,14 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         const msgs = Array.isArray(data?.messages) ? data.messages : [];
         if (!isMounted) return;
 
-        const hydrated: ChatMessageType[] = msgs.map((m: any) => {
+        const hydrated: ChatMessageType[] = msgs.map((m: Record<string, unknown>) => {
           const baseMessage: ChatMessageType = {
-            id: m.id || crypto.randomUUID(),
-            type: m.type,
-            content: m.content || "",
-            timestamp: m.timestamp || Date.now(),
+            id: (m.id as string) || crypto.randomUUID(),
+            type: (m.type as "user" | "assistant"),
+            content: (m.content as string) || "",
+            timestamp: (m.timestamp as number) || Date.now(),
             isStreaming: !!m.isStreaming,
-            tokenUsage: mapTokenUsage(m.token_usage),
+            tokenUsage: mapTokenUsage(m.token_usage as Record<string, unknown>),
           };
 
           if (
@@ -1110,28 +1110,28 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       }
     };
 
-    addSegments(currentMessage?.segments as any);
+    addSegments(currentMessage?.segments);
 
     for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i] as any;
+      const msg = messages[i];
       if (
         msg?.type === "assistant" &&
         Array.isArray(msg.segments) &&
         msg.segments.length > 0
       ) {
-        addSegments(msg.segments as any);
+        addSegments(msg.segments);
         break;
       }
     }
 
     const segments = Array.from(byId.values());
     return segments
-      .filter((s: any) => s.kind === "tool")
-      .map((s: any) => s.toolExecution as ToolExecutionType)
+      .filter((s: MessageSegment) => s.kind === "tool")
+      .map((s: MessageSegment) => (s as Extract<MessageSegment, { kind: "tool" }>).toolExecution)
       .filter(
-        (t) =>
+        (t: ToolExecutionType) =>
           (t.status === "pending" || t.status === "awaiting_approval") &&
-          (t as any).requires_approval
+          t.requires_approval
       );
   }, [currentMessage?.segments, messages]);
 
