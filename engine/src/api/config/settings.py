@@ -12,7 +12,6 @@ class Settings(BaseSettings):
     APP_VERSION: str
     APP_DESCRIPTION: str
 
-    # FIX 1: Proper ENV field for Pydantic
     ENV: Optional[str] = Field(default="development")
 
     DEBUG: bool = False
@@ -71,7 +70,6 @@ class Settings(BaseSettings):
 
         env = (self.ENV or "").strip().lower()
 
-        # FIX 2: ENV whitelist validation
         allowed_envs = {"development", "staging", "test", "production"}
 
         if env not in allowed_envs:
