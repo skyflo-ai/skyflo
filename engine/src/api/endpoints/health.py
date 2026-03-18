@@ -1,9 +1,9 @@
 import asyncio
 import logging
 from typing import Any, Dict
-
+from fastapi import Response
 from fastapi import APIRouter
-from fastapi.responses import JSONResponse
+from fastapi import HTTPException
 from tortoise import Tortoise
 
 from ..services.mcp_client import MCPClient
@@ -41,10 +41,13 @@ async def database_health_check() -> Dict[str, Any]:
 
 
 @router.get("/mcp", tags=["health"])
-async def mcp_health_check() -> Dict[str, Any]:
+async def mcp_health_check() -> Response:
     try:
-        async with MCPClient() as client:
-            tools = await asyncio.wait_for(client.list_tools_raw(), timeout=5)
+        async def _check():
+            async with MCPClient() as client:
+                 return await client.list_tools_raw()
+        
+        tools = await asyncio.wait_for(_check(), timeout=5)
 
         return {
             "status":"ok",
@@ -54,9 +57,9 @@ async def mcp_health_check() -> Dict[str, Any]:
     
     except Exception as e:
         logger.exception("MCP health check failed")
-        return JSONResponse(
+        raise HTTPException(
             status_code=503,
-            content={
+            detail={
                 "status":"degraded",
                 "mcp":"disconnected",
                 "error": str(e),
