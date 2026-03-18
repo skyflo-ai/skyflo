@@ -1,7 +1,12 @@
-from typing import Literal, Optional
+import logging
+from typing import Any, Literal, Optional
 
+from litellm import get_model_info
 from pydantic import Field, conint
 from pydantic_settings import BaseSettings
+
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -73,6 +78,39 @@ class Settings(BaseSettings):
             url = f"{url}{separator}sslmode=disable"
 
         return url
+
+    def validate_llm_model(self) -> Optional[dict[str, Any]]:
+        model_name = self.LLM_MODEL
+        if not model_name:
+            return None
+
+        try:
+            model_info = get_model_info(model=model_name)
+        except Exception as e:
+            logger.warning(
+                "Could not validate LLM_MODEL '%s' against LiteLLM registry: %s. "
+                "Startup will continue for possible self-hosted/custom models. "
+                "See https://models.litellm.ai/ for registry-backed models.",
+                model_name,
+                e,
+            )
+            return None
+
+        missing_capabilities: list[str] = []
+        if not model_info.get("supports_function_calling", False):
+            missing_capabilities.append("supports_function_calling")
+        if not model_info.get("supports_response_schema", False):
+            missing_capabilities.append("supports_response_schema")
+
+        if missing_capabilities:
+            missing_str = ", ".join(missing_capabilities)
+            raise ValueError(
+                f"Incompatible LLM_MODEL '{model_name}': missing required capability/capabilities: "
+                f"{missing_str}. Skyflo Engine requires tool/function calling and structured "
+                f"outputs support. Choose a compatible model at https://models.litellm.ai/."
+            )
+
+        return model_info
 
 
 settings = Settings()

@@ -24,6 +24,11 @@ async def lifespan(app: FastAPI):
     await init_limiter()
     await init_graph_checkpointer()
 
+    model_info = settings.validate_llm_model()
+    if model_info is not None:
+        provider = model_info.get("litellm_provider") or model_info.get("provider") or "unknown"
+        logger.info("Validated LLM model '%s' (provider: %s)", settings.LLM_MODEL, provider)
+
     yield
 
     logger.info(f"Shutting down {settings.APP_NAME}")
