@@ -839,7 +839,7 @@ spec:
             memory: 512Mi
         readinessProbe:
           httpGet:
-            path: /api/v1/health
+            path: /api/v1/health/mcp
             port: http
           initialDelaySeconds: 10
           timeoutSeconds: 5
