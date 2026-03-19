@@ -36,17 +36,17 @@ spec:
               value: {{ .Chart.AppVersion | quote }}
           readinessProbe:
             httpGet:
-              path: /mcp/v1/health
+              path: /health/ready
               port: http
-            initialDelaySeconds: 60
+            initialDelaySeconds: 10
             timeoutSeconds: 5
             periodSeconds: 10
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /mcp/v1/health
+              path: /health
               port: http
-            initialDelaySeconds: 60
+            initialDelaySeconds: 10
             timeoutSeconds: 5
             periodSeconds: 10
             failureThreshold: 3

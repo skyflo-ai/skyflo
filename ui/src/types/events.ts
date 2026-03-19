@@ -151,6 +151,13 @@ export interface WorkflowErrorEvent {
   error: string;
 }
 
+export interface ConversationTitleGeneratedEvent {
+  type: "conversation.title.generated";
+  conversation_id: string;
+  title: string;
+  timestamp: number;
+}
+
 export type Event =
   | ToolExecutingEvent
   | ToolResultEvent
@@ -169,4 +176,5 @@ export type Event =
   | ErrorEvent
   | CompletedEvent
   | WorkflowCompleteEvent
-  | WorkflowErrorEvent;
+  | WorkflowErrorEvent
+  | ConversationTitleGeneratedEvent;

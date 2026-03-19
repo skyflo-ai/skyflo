@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from tortoise.expressions import Q
 
 from ..config import rate_limit_dependency
 from ..models.conversation import Conversation, ConversationUpdate, Message
@@ -114,38 +115,60 @@ async def get_conversations(
             limit = 20
         limit = min(limit, 50)
 
-        query_filter = Conversation.filter(user=user).order_by("-created_at")
+        query_filter = Conversation.filter(user=user).order_by("-updated_at", "-id")
 
         if query and len(query.strip()) >= 2:
             query_filter = query_filter.filter(title__icontains=query.strip())
 
         if cursor:
             cursor_dt: Optional[datetime] = None
-            # Try ISO datetime first
-            try:
-                cursor_dt = datetime.fromisoformat(cursor)
-            except Exception:
-                cursor_dt = None
+            cursor_id: Optional[uuid.UUID] = None
 
-            # If not a datetime, try UUID to look up the conversation's created_at
-            if cursor_dt is None:
+            if "|" in cursor:
+                parts = cursor.split("|", 1)
                 try:
-                    cursor_uuid = uuid.UUID(cursor)
-                    conv = await Conversation.get(id=cursor_uuid)
-                    cursor_dt = conv.created_at if conv else None
+                    cursor_dt = datetime.fromisoformat(parts[0])
+                    cursor_id = uuid.UUID(parts[1])
                 except Exception:
                     cursor_dt = None
+                    cursor_id = None
+            else:
+                try:
+                    cursor_dt = datetime.fromisoformat(cursor)
+                except Exception:
+                    cursor_dt = None
+
+                if cursor_dt is None:
+                    try:
+                        cursor_uuid = uuid.UUID(cursor)
+                        conv = await Conversation.filter(user=user, id=cursor_uuid).first()
+                        if conv:
+                            cursor_dt = conv.updated_at
+                            cursor_id = conv.id
+                    except Exception:
+                        cursor_dt = None
 
             if cursor_dt is None:
                 raise HTTPException(status_code=400, detail="Invalid cursor")
 
-            query_filter = query_filter.filter(created_at__lt=cursor_dt)
+            if cursor_id is not None:
+                query_filter = query_filter.filter(
+                    Q(updated_at__lt=cursor_dt) | Q(updated_at=cursor_dt, id__lt=cursor_id)
+                )
+            else:
+                query_filter = query_filter.filter(updated_at__lt=cursor_dt)
 
-        conversations = await query_filter.limit(limit)
+        conversations = await query_filter.limit(limit + 1)
 
-        next_cursor = (
-            conversations[-1].created_at.isoformat() if len(conversations) == limit else None
-        )
+        has_more = len(conversations) == (limit + 1)
+        if has_more:
+            conversations = conversations[:limit]
+
+        if has_more and conversations:
+            last = conversations[-1]
+            next_cursor = f"{last.updated_at.isoformat()}|{last.id}"
+        else:
+            next_cursor = None
 
         return {
             "status": "success",
@@ -161,7 +184,7 @@ async def get_conversations(
             "pagination": {
                 "limit": limit,
                 "next_cursor": next_cursor,
-                "has_more": next_cursor is not None,
+                "has_more": has_more,
             },
         }
 

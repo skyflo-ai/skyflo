@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 class ConversationPersistenceService:
     def __init__(self):
         self._usage_buffers: Dict[str, Dict[str, Any]] = {}
+        self._message: Message | None = None
+
+    def _clear_message(self) -> None:
+        self._message = None
 
     def _usage_key(self, conversation_id: Optional[str], run_id: Optional[str]) -> Optional[str]:
         if not conversation_id or not run_id:
@@ -28,6 +32,7 @@ class ConversationPersistenceService:
             return None
         if key not in self._usage_buffers:
             self._usage_buffers[key] = {
+                "model": None,
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "total_tokens": 0,
@@ -38,6 +43,13 @@ class ConversationPersistenceService:
             }
         return self._usage_buffers.get(key)
 
+    async def _get_next_sequence(self, conversation) -> int:
+        latest_message = (
+            await Message.filter(conversation_id=conversation.id).order_by("-sequence").first()
+        )
+        sequence: int = latest_message.sequence + 1 if latest_message else 1
+        return sequence
+
     def record_token_usage(
         self,
         conversation_id: Optional[str],
@@ -47,10 +59,13 @@ class ConversationPersistenceService:
         total_tokens: int = 0,
         cached_tokens: Optional[int] = None,
         cost: float = 0.0,
+        model: Optional[str] = None,
     ) -> None:
         buffer = self._get_usage_buffer(conversation_id, run_id)
         if not buffer:
             return
+        if model:
+            buffer["model"] = model
         buffer["prompt_tokens"] += max(prompt_tokens or 0, 0)
         buffer["completion_tokens"] += max(completion_tokens or 0, 0)
         buffer["total_tokens"] += max(total_tokens or 0, 0)
@@ -88,6 +103,7 @@ class ConversationPersistenceService:
             return None
 
         return {
+            "model": buffer.get("model"),
             "prompt_tokens": buffer.get("prompt_tokens", 0),
             "completion_tokens": buffer.get("completion_tokens", 0),
             "total_tokens": buffer.get("total_tokens", 0),
@@ -131,8 +147,42 @@ class ConversationPersistenceService:
             return
 
         metrics = TokenUsageMetrics(**usage_snapshot)
-        last_message["token_usage"] = metrics.model_dump()
+        usage_dict = metrics.model_dump()
+        last_message["token_usage"] = usage_dict
         await conversation.update_from_dict({"messages_json": messages}).save()
+
+        msg_id = last_message.get("id")
+        msg_row: Message | None = None
+        if msg_id:
+            try:
+                msg_row = await Message.get(id=uuid.UUID(str(msg_id)))
+            except Exception as exc:
+                logger.debug(
+                    "Could not update token_usage on Message row %s for conversation %s: %s",
+                    msg_id,
+                    conversation_id,
+                    exc,
+                    exc_info=True,
+                )
+
+        if not msg_row:
+            msg_row = (
+                await Message.filter(conversation_id=conversation_id, role="assistant")
+                .order_by("-sequence")
+                .first()
+            )
+            if msg_row:
+                logger.debug(
+                    "Falling back to latest assistant message for token_usage "
+                    "update; msg_id=%s conversation_id=%s resolved_message_id=%s",
+                    msg_id,
+                    conversation_id,
+                    msg_row.id,
+                )
+
+        if msg_row:
+            msg_row.token_usage = usage_dict
+            await msg_row.save()
 
         if finalize:
             self._clear_usage_buffer(conversation_id, run_id)
@@ -142,6 +192,7 @@ class ConversationPersistenceService:
 
     async def finalize_usage_snapshot(self, conversation_id: str, run_id: Optional[str]) -> None:
         await self._apply_usage_to_latest_assistant(conversation_id, run_id, finalize=True)
+        self._clear_message()
 
     async def append_user_message(self, conversation_id: str, content: str, timestamp: int) -> None:
         conversation = await Conversation.get(id=conversation_id)
@@ -163,6 +214,15 @@ class ConversationPersistenceService:
 
         messages.append(user_message)
         await conversation.update_from_dict({"messages_json": messages}).save()
+        created_at = datetime.fromtimestamp(timestamp / 1000.0, tz=timezone.utc)
+        sequence: int = await self._get_next_sequence(conversation=conversation)
+        await Message.create(
+            conversation_id=conversation.id,
+            role="user",
+            content=content,
+            sequence=sequence,
+            created_at=created_at,
+        )
 
     async def append_text_segment(
         self, conversation_id: str, text: str, timestamp: int, run_id: Optional[str] = None
@@ -171,8 +231,9 @@ class ConversationPersistenceService:
         messages: List[Dict[str, Any]] = conversation.messages_json or []
 
         if not messages or messages[-1].get("type") != "assistant":
+            assistant_message_id = str(uuid.uuid4())
             assistant_message = {
-                "id": str(uuid.uuid4()),
+                "id": assistant_message_id,
                 "type": "assistant",
                 "content": text,
                 "timestamp": timestamp,
@@ -186,6 +247,26 @@ class ConversationPersistenceService:
                 ],
             }
             messages.append(assistant_message)
+
+            created_at = datetime.fromtimestamp(timestamp / 1000.0, tz=timezone.utc)
+            sequence = await self._get_next_sequence(conversation=conversation)
+            token_usage = None
+            if run_id:
+                usage_snapshot = self._snapshot_usage(conversation_id, run_id)
+                if usage_snapshot:
+                    token_usage = TokenUsageMetrics(**usage_snapshot).model_dump()
+
+            self._message = await Message.create(
+                id=uuid.UUID(assistant_message_id),
+                conversation=conversation,
+                role="assistant",
+                content=text,
+                sequence=sequence,
+                message_metadata={"segments": assistant_message["segments"]},
+                token_usage=token_usage,
+                created_at=created_at,
+            )
+
         else:
             assistant = messages[-1]
             segments: List[Dict[str, Any]] = assistant.get("segments", [])
@@ -202,16 +283,29 @@ class ConversationPersistenceService:
             assistant["content"] = assistant.get("content", "") + text
             assistant["segments"] = segments
 
+            if self._message:
+                self._message.content = self._message.content + text
+                self._message.message_metadata = {"segments": segments}
+                await self._message.save()
+
         if run_id:
             usage_snapshot = self._snapshot_usage(conversation_id, run_id)
             if usage_snapshot:
                 assistant = messages[-1]
                 assistant["token_usage"] = TokenUsageMetrics(**usage_snapshot).model_dump()
+                if self._message:
+                    self._message.token_usage = assistant["token_usage"]
+                    await self._message.save()
 
         await conversation.update_from_dict({"messages_json": messages}).save()
 
     async def append_thinking_segment(
-        self, conversation_id: str, text: str, timestamp: int, duration_ms: int = 0
+        self,
+        conversation_id: str,
+        text: str,
+        timestamp: int,
+        duration_ms: int = 0,
+        run_id: Optional[str] = None,
     ) -> None:
         conversation = await Conversation.get(id=conversation_id)
         messages: List[Dict[str, Any]] = conversation.messages_json or []
@@ -237,8 +331,8 @@ class ConversationPersistenceService:
             }
             messages.append(assistant_message)
 
-            seq = await Message.filter(conversation_id=conversation_id).count() + 1
-            await Message.create(
+            seq = await self._get_next_sequence(conversation)
+            self._message = await Message.create(
                 id=uuid.UUID(msg_id),
                 conversation=conversation,
                 role="assistant",
@@ -270,9 +364,10 @@ class ConversationPersistenceService:
                     msg_row = await Message.get(id=uuid.UUID(assistant_id))
                     msg_row.message_metadata = {"segments": segments}
                     await msg_row.save()
+                    self._message = msg_row
                 except DoesNotExist:
-                    seq = await Message.filter(conversation_id=conversation_id).count() + 1
-                    await Message.create(
+                    seq = await self._get_next_sequence(conversation)
+                    self._message = await Message.create(
                         id=uuid.UUID(assistant_id),
                         conversation=conversation,
                         role="assistant",
@@ -288,23 +383,49 @@ class ConversationPersistenceService:
                         conversation_id,
                     )
 
+        if run_id:
+            usage_snapshot = self._snapshot_usage(conversation_id, run_id)
+            if usage_snapshot:
+                assistant = messages[-1]
+                assistant["token_usage"] = TokenUsageMetrics(**usage_snapshot).model_dump()
+                if self._message:
+                    self._message.token_usage = assistant["token_usage"]
+                    await self._message.save()
+
         await conversation.update_from_dict({"messages_json": messages}).save()
 
     async def append_tool_segment(
-        self, conversation_id: str, tool_execution: Dict[str, Any], timestamp: int
+        self,
+        conversation_id: str,
+        tool_execution: Dict[str, Any],
+        timestamp: int,
+        run_id: Optional[str] = None,
     ) -> None:
         conversation = await Conversation.get(id=conversation_id)
         messages: List[Dict[str, Any]] = conversation.messages_json or []
+        created_at = datetime.fromtimestamp(timestamp / 1000.0, tz=timezone.utc)
 
         if not messages or messages[-1].get("type") != "assistant":
+            assistant_id = str(uuid.uuid4())
             assistant_message = {
-                "id": str(uuid.uuid4()),
+                "id": assistant_id,
                 "type": "assistant",
                 "content": "",
                 "timestamp": timestamp,
                 "segments": [],
             }
             messages.append(assistant_message)
+
+            seq = await self._get_next_sequence(conversation)
+            self._message = await Message.create(
+                id=uuid.UUID(assistant_id),
+                conversation=conversation,
+                role="assistant",
+                content="",
+                sequence=seq,
+                message_metadata={"segments": []},
+                created_at=created_at,
+            )
 
         assistant = messages[-1]
         segments: List[Dict[str, Any]] = assistant.get("segments", [])
@@ -331,6 +452,39 @@ class ConversationPersistenceService:
 
         segments.append(segment)
         assistant["segments"] = segments
+
+        assistant_id = assistant.get("id")
+        if assistant_id:
+            try:
+                msg_row = await Message.get(id=uuid.UUID(str(assistant_id)))
+                msg_row.message_metadata = {"segments": segments}
+                await msg_row.save()
+                self._message = msg_row
+            except DoesNotExist:
+                seq = await self._get_next_sequence(conversation)
+                self._message = await Message.create(
+                    id=uuid.UUID(str(assistant_id)),
+                    conversation=conversation,
+                    role="assistant",
+                    content=str(assistant.get("content", "")),
+                    sequence=seq,
+                    message_metadata={"segments": segments},
+                    created_at=created_at,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to persist tool segment for message %s in conversation %s",
+                    assistant_id,
+                    conversation_id,
+                )
+
+        if run_id:
+            usage_snapshot = self._snapshot_usage(conversation_id, run_id)
+            if usage_snapshot:
+                assistant["token_usage"] = TokenUsageMetrics(**usage_snapshot).model_dump()
+                if self._message:
+                    self._message.token_usage = assistant["token_usage"]
+                    await self._message.save()
 
         await conversation.update_from_dict({"messages_json": messages}).save()
 
@@ -362,6 +516,17 @@ class ConversationPersistenceService:
                 segments[i] = seg
                 assistant["segments"] = segments
                 await conversation.update_from_dict({"messages_json": messages}).save()
+                assistant_id = assistant.get("id")
+                if assistant_id:
+                    try:
+                        msg_row = await Message.get(id=uuid.UUID(str(assistant_id)))
+                        msg_row.message_metadata = {"segments": segments}
+                        await msg_row.save()
+                        self._message = msg_row
+                    except Exception:
+                        logger.debug(
+                            "Could not update tool status metadata on Message row %s", assistant_id
+                        )
                 return
 
     async def build_llm_messages(self, conversation: Conversation) -> List[Dict[str, Any]]:
@@ -509,12 +674,13 @@ class ConversationPersistenceService:
 
         return simplified
 
-    async def set_title(self, conversation_id: str, title: str) -> None:
+    async def set_title(self, conversation_id: str, title: str) -> bool:
         conversation = await Conversation.get(id=conversation_id)
         current = (conversation.title or "").strip() if conversation.title is not None else ""
         if current:
-            return
+            return False
         normalized = (title or "").strip()
         if not normalized:
-            return
+            return False
         await conversation.update_from_dict({"title": normalized}).save()
+        return True

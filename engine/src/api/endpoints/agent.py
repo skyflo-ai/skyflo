@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, List, Optional
 
 import redis.asyncio as redis
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -82,6 +82,7 @@ async def create_sse_event_generator(
     run_id: str,
     workflow_kwargs: Dict[str, Any],
     endpoint_name: str,
+    on_subscribed: Optional[Callable[[], Awaitable[None]]] = None,
 ) -> AsyncGenerator[bytes, None]:
     """Create a reusable SSE event generator for workflow execution."""
     r = await get_redis_client()
@@ -91,6 +92,15 @@ async def create_sse_event_generator(
     try:
         # Subscribe only to the unique run_id channel
         await pubsub.subscribe(channel)
+
+        if on_subscribed:
+            try:
+                await on_subscribed()
+            except Exception as e:
+                logger.error(
+                    f"Error in on_subscribed callback for run {run_id}: {str(e)}",
+                    exc_info=True,
+                )
 
         workflow_task = asyncio.create_task(run_agent_workflow(**workflow_kwargs))
 
@@ -210,6 +220,7 @@ def create_event_callback(
                     total_tokens=int(event.get("total_tokens") or 0),
                     cached_tokens=event.get("cached_tokens"),
                     cost=float(event.get("cost") or 0.0),
+                    model=event.get("model"),
                 )
                 await persistence.apply_usage_snapshot(conversation_id, event_run_id)
             elif event_type == "ttft":
@@ -229,6 +240,7 @@ def create_event_callback(
                             text=thinking_content,
                             timestamp=int(event.get("timestamp", now_ms())),
                             duration_ms=int(event.get("duration_ms") or 0),
+                            run_id=event_run_id,
                         )
             elif event_type == "generation.complete":
                 content = str(event.get("content", ""))
@@ -264,6 +276,7 @@ def create_event_callback(
                         "timestamp": event.get("timestamp"),
                     },
                     timestamp=int(event.get("timestamp", now_ms())),
+                    run_id=event_run_id,
                 )
             elif event_type == "tools.pending":
                 tools_list = event.get("tools") or []
@@ -281,6 +294,7 @@ def create_event_callback(
                                 "timestamp": int(tool.get("timestamp", event.get("timestamp"))),
                             },
                             timestamp=int(tool.get("timestamp", event.get("timestamp"))),
+                            run_id=event_run_id,
                         )
                     except Exception as e:
                         logger.warning(
@@ -431,6 +445,7 @@ async def chat_stream(request: Request, user=Depends(fastapi_users.current_user(
 
         conversation: Optional[Conversation] = None
         persistence: Optional[ConversationPersistenceService] = None
+        should_generate_title = False
         if conversation_id:
             try:
                 conversation = await Conversation.get(id=conversation_id)
@@ -456,13 +471,34 @@ async def chat_stream(request: Request, user=Depends(fastapi_users.current_user(
                 except Exception as e:
                     logger.error(f"Error appending initial user message: {e}")
 
-                try:
-                    if not conversation.title:
-                        asyncio.create_task(
-                            generate_and_store_title(str(conversation.id), persistence)
-                        )
-                except Exception as e:
-                    logger.error(f"Failed to schedule title generation: {e}")
+                should_generate_title = not conversation.title
+
+        async def on_stream_subscribed() -> None:
+            if not (should_generate_title and conversation and persistence):
+                return
+            try:
+
+                async def on_title_generated(conv_id: str, generated_title: str) -> None:
+                    await publish_event(
+                        channel,
+                        "conversation.title.generated",
+                        {
+                            "type": "conversation.title.generated",
+                            "conversation_id": conv_id,
+                            "title": generated_title,
+                            "timestamp": now_ms(),
+                        },
+                    )
+
+                asyncio.create_task(
+                    generate_and_store_title(
+                        str(conversation.id),
+                        persistence,
+                        on_title_generated=on_title_generated,
+                    )
+                )
+            except Exception as e:
+                logger.error(f"Failed to schedule title generation: {e}")
 
         async def event_generator() -> AsyncGenerator[bytes, None]:
             async for event in create_sse_event_generator(
@@ -478,6 +514,7 @@ async def chat_stream(request: Request, user=Depends(fastapi_users.current_user(
                     "conversation": conversation,
                 },
                 endpoint_name="chat",
+                on_subscribed=on_stream_subscribed,
             ):
                 yield event
 

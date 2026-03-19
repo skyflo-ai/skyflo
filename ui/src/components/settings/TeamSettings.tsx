@@ -7,15 +7,12 @@ import {
   MdPersonAdd,
 } from "react-icons/md";
 import { IoTrash } from "react-icons/io5";
-import {
-  HiOutlineMail,
-  HiOutlineUserGroup,
-  HiOutlineLockClosed,
-} from "react-icons/hi";
+import { HiOutlineMail, HiOutlineLockClosed } from "react-icons/hi";
 import { TeamMember } from "@/types/auth";
 import { useAuthStore } from "@/store/useAuthStore";
 import { showSuccess, showError } from "@/components/ui/toast";
 import { ConfirmModal } from "@/components/ui/modal";
+import { actionBtnClass, inputClass } from "./constants";
 
 interface TeamSettingsProps {}
 
@@ -45,15 +42,10 @@ export default function TeamSettings({}: TeamSettingsProps) {
   }, [isAdmin]);
 
   useEffect(() => {
-    const handleClickOutside = () => {
-      setIsRoleDropdownOpen(false);
-    };
-
+    const handleClickOutside = () => setIsRoleDropdownOpen(false);
     if (isRoleDropdownOpen) {
       document.addEventListener("click", handleClickOutside);
-      return () => {
-        document.removeEventListener("click", handleClickOutside);
-      };
+      return () => document.removeEventListener("click", handleClickOutside);
     }
   }, [isRoleDropdownOpen]);
 
@@ -65,12 +57,11 @@ export default function TeamSettings({}: TeamSettingsProps) {
       if (response.ok) {
         const data = await response.json();
         const currentUser = data.find(
-          (member: TeamMember) => member.id === user?.id
+          (member: TeamMember) => member.id === user?.id,
         );
         const otherMembers = data.filter(
-          (member: TeamMember) => member.id !== user?.id
+          (member: TeamMember) => member.id !== user?.id,
         );
-
         setTeamMembers([currentUser, ...otherMembers]);
       } else {
         const error = await response.json();
@@ -78,7 +69,7 @@ export default function TeamSettings({}: TeamSettingsProps) {
           showError(
             typeof error.error === "string"
               ? error.error
-              : "Failed to fetch team members"
+              : "Failed to fetch team members",
           );
         } else {
           showError("Failed to fetch team members");
@@ -101,9 +92,7 @@ export default function TeamSettings({}: TeamSettingsProps) {
     try {
       const response = await fetch("/api/team", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: newMemberEmail,
           role: newMemberRole,
@@ -168,15 +157,16 @@ export default function TeamSettings({}: TeamSettingsProps) {
 
   if (!isAdmin) {
     return (
-      <div className="bg-gradient-to-br from-[#0A1020] to-[#0A1525] rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden">
-        <div className="bg-gradient-to-r from-[#1A2C48]/90 to-[#0F182A]/90 p-5 border-b border-[#243147] backdrop-blur-sm">
-          <h2 className="text-xl font-semibold text-slate-100">
-            Team Management
-          </h2>
+      <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-400/[0.08] text-blue-400 text-sm">
+            <MdGroup />
+          </div>
+          <h2 className="text-sm font-medium text-zinc-300">Team Management</h2>
         </div>
-        <div className="p-6 text-center">
-          <div className="flex items-center justify-center gap-2 bg-amber-600/10 border border-amber-500/20 rounded-lg p-4 text-amber-400">
-            <MdOutlineLock className="w-5 h-5 text-amber-400" />
+        <div className="p-5">
+          <div className="flex items-center gap-2 bg-amber-500/5 border border-amber-500/10 rounded-lg p-4 text-amber-400 text-sm">
+            <MdOutlineLock className="w-4 h-4 shrink-0" />
             <p>Only admins can access team management features.</p>
           </div>
         </div>
@@ -186,91 +176,87 @@ export default function TeamSettings({}: TeamSettingsProps) {
 
   return (
     <>
-      <div className="bg-dark rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden flex-1">
-        <div className="bg-gradient-to-r from-[#1A2C48]/90 to-[#0F182A]/90 p-5 border-b border-[#243147] backdrop-blur-sm flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-500/15 p-2.5 rounded-full">
-              <MdGroup className="w-5 h-5 text-slate-300" />
-            </div>
-            <h2 className="text-xl font-semibold text-slate-100">
-              Team Management
-            </h2>
+      <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden flex-1">
+        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-400/[0.08] text-blue-400 text-sm">
+            <MdGroup />
           </div>
+          <h2 className="text-sm font-medium text-zinc-300">Team Management</h2>
         </div>
-        <div className="p-6">
+        <div className="p-5">
           <div className="w-full">
-            <div className="overflow-hidden rounded-lg border border-slate-700/60 bg-[#0F1D2F]">
+            <div className="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
               {isTeamLoading && teamMembers.length === 0 ? (
-                <div className="py-8 text-center text-slate-400">
+                <div className="py-8 text-center text-zinc-500 text-sm">
                   <div className="flex justify-center mb-3">
-                    <div className="h-5 w-5 rounded-full border-2 border-blue-400 border-r-transparent animate-spin" />
+                    <div className="h-4 w-4 rounded-full border-2 border-sky-400 border-r-transparent animate-spin" />
                   </div>
                   <p>Loading team members...</p>
                 </div>
               ) : teamMembers.length === 0 ? (
-                <div className="py-8 text-center text-slate-400">
+                <div className="py-8 text-center text-zinc-500 text-sm">
                   <p>No team members found. Invite someone to get started.</p>
                 </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-700/60 bg-[#121E30] text-left">
-                      <th className="py-3 px-4 text-slate-300 font-medium">
+                    <tr className="border-b border-white/[0.06] text-left">
+                      <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">
                         Name
                       </th>
-                      <th className="py-3 px-4 text-slate-300 font-medium">
+                      <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">
                         Email
                       </th>
-                      <th className="py-3 px-4 text-slate-300 font-medium">
+                      <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">
                         Role
                       </th>
-                      <th className="py-3 px-4 text-slate-300 font-medium">
+                      <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="py-3 px-4 text-slate-300 font-medium">
+                      <th className="py-2.5 px-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-700/40">
+                  <tbody className="divide-y divide-white/[0.04]">
                     {teamMembers.map((member) => (
                       <tr
                         key={member.id}
-                        className="hover:bg-slate-800/30 transition-colors"
+                        className="hover:bg-white/[0.02] transition-colors"
                       >
-                        <td className="py-3 px-4 text-slate-300">
+                        <td className="py-2.5 px-4 text-zinc-300 text-xs">
                           {member.name}
                         </td>
-                        <td className="py-3 px-4 text-slate-300">
+                        <td className="py-2.5 px-4 text-zinc-300 text-xs">
                           {member.email}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-2.5 px-4">
                           <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                               member.role === "Admin"
-                                ? "bg-emerald-500/20 text-emerald-400"
-                                : "bg-slate-500/20 text-slate-300"
+                                ? "bg-blue-500/10 text-blue-400"
+                                : "bg-zinc-500/10 text-zinc-400"
                             }`}
                           >
                             {member.role}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-2.5 px-4">
                           <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                               member.status === "active"
-                                ? "bg-green-500/20 text-green-400"
-                                : "bg-amber-500/20 text-amber-400"
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-amber-500/10 text-amber-400"
                             }`}
                           >
                             {member.status === "active" ? "Active" : "Pending"}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-2.5 px-4">
                           {member.id !== user?.id && (
                             <button
                               type="button"
-                              className="text-slate-400 hover:text-rose-400 outline-none focus:outline-none focus-visible:outline-none transition-colors flex items-center gap-1"
+                              className="text-zinc-500 hover:text-rose-400 transition-colors flex items-center gap-1 text-xs cursor-pointer"
                               aria-label="Remove member"
                               onClick={() => handleRemoveMember(member.id)}
                               disabled={removingMemberIds.includes(member.id)}
@@ -296,41 +282,38 @@ export default function TeamSettings({}: TeamSettingsProps) {
         </div>
       </div>
 
-      <div className="bg-dark rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden">
-        <div className="bg-gradient-to-r from-[#1A2C48]/90 to-[#0F182A]/90 p-5 border-b border-[#243147] backdrop-blur-sm flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-500/15 p-2.5 rounded-full">
-              <MdPersonAdd className="w-5 h-5 text-slate-300" />
-            </div>
-            <h2 className="text-xl font-semibold text-slate-100">
-              Invite Team Member
-            </h2>
+      <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-400/[0.08] text-blue-400 text-sm">
+            <MdPersonAdd />
           </div>
+          <h2 className="text-sm font-medium text-zinc-300">
+            Invite Team Member
+          </h2>
         </div>
-        <div className="p-6">
+        <div className="p-5">
           <form onSubmit={handleInviteMember}>
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
                 <label
                   htmlFor="memberEmail"
-                  className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
+                  className="block text-sm font-medium mb-2 text-zinc-400"
                 >
-                  <HiOutlineMail className="text-slate-400" />
                   Email Address
                 </label>
                 <div className="relative">
                   <input
                     type="email"
                     id="memberEmail"
-                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
+                    className={inputClass}
                     value={newMemberEmail}
                     onChange={(e) => setNewMemberEmail(e.target.value)}
                     placeholder="colleague@company.com"
                     required
                     disabled={isInviting}
                   />
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <HiOutlineMail className="text-slate-500" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                    <HiOutlineMail className="text-zinc-600" />
                   </div>
                 </div>
               </div>
@@ -338,24 +321,23 @@ export default function TeamSettings({}: TeamSettingsProps) {
               <div>
                 <label
                   htmlFor="memberPassword"
-                  className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
+                  className="block text-sm font-medium mb-2 text-zinc-400"
                 >
-                  <HiOutlineLockClosed className="text-slate-400" />
                   Password
                 </label>
                 <div className="relative">
                   <input
                     type="password"
                     id="memberPassword"
-                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
+                    className={inputClass}
                     value={newMemberPassword}
                     onChange={(e) => setNewMemberPassword(e.target.value)}
                     placeholder="Set initial password"
                     required
                     disabled={isInviting}
                   />
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <HiOutlineLockClosed className="text-slate-500" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                    <HiOutlineLockClosed className="text-zinc-600" />
                   </div>
                 </div>
               </div>
@@ -363,9 +345,8 @@ export default function TeamSettings({}: TeamSettingsProps) {
               <div>
                 <label
                   htmlFor="memberRole"
-                  className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
+                  className="block text-sm font-medium mb-2 text-zinc-400"
                 >
-                  <HiOutlineUserGroup className="text-slate-400" />
                   Role
                 </label>
                 <div className="relative">
@@ -376,12 +357,12 @@ export default function TeamSettings({}: TeamSettingsProps) {
                       e.stopPropagation();
                       setIsRoleDropdownOpen(!isRoleDropdownOpen);
                     }}
-                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200 text-left flex items-center justify-between"
+                    className="w-full p-3 pl-10 rounded-lg bg-white/[0.04] border border-white/[0.08] text-zinc-200 outline-none focus:border-white/[0.15] transition-colors duration-200 text-left flex items-center justify-between"
                     disabled={isInviting}
                   >
                     <span>{newMemberRole}</span>
                     <svg
-                      className={`h-5 w-5 text-slate-500 transition-transform duration-200 ${
+                      className={`h-4 w-4 text-zinc-500 transition-transform duration-200 ${
                         isRoleDropdownOpen ? "rotate-180" : ""
                       }`}
                       xmlns="http://www.w3.org/2000/svg"
@@ -395,12 +376,12 @@ export default function TeamSettings({}: TeamSettingsProps) {
                       />
                     </svg>
                   </button>
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <MdGroup className="text-slate-500" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                    <MdGroup className="text-zinc-600" />
                   </div>
 
                   {isRoleDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mb-1 bg-[#1A2332] border border-slate-600/60 rounded-lg shadow-[0px_-3px_2px_0px_rgba(0,_0,_0,_0.1)] z-[100]">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-950/90 backdrop-blur-sm border border-white/[0.08] rounded-lg shadow-2xl z-[100]">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -409,7 +390,7 @@ export default function TeamSettings({}: TeamSettingsProps) {
                           setNewMemberRole("Member");
                           setIsRoleDropdownOpen(false);
                         }}
-                        className="w-full px-4 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 rounded-t-lg transition-colors flex items-center gap-2"
+                        className="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-white/[0.04] rounded-t-lg transition-colors flex items-center gap-2"
                         disabled={isInviting}
                       >
                         <MdPerson className="w-4 h-4" />
@@ -423,7 +404,7 @@ export default function TeamSettings({}: TeamSettingsProps) {
                           setNewMemberRole("Admin");
                           setIsRoleDropdownOpen(false);
                         }}
-                        className="w-full px-4 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-colors flex items-center gap-2"
+                        className="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-white/[0.04] rounded-b-lg transition-colors flex items-center gap-2"
                         disabled={isInviting}
                       >
                         <MdAdminPanelSettings className="w-4 h-4" />
@@ -436,28 +417,16 @@ export default function TeamSettings({}: TeamSettingsProps) {
 
               <button
                 type="submit"
-                className="group inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg w-full
-                           bg-[#0A1525]/50 border border-blue-500/30 
-                   hover:border-blue-500/40 hover:bg-[#0A1525]/80
-                           outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0
-                           transition-all duration-100 cursor-pointer text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className={actionBtnClass}
                 disabled={isInviting}
               >
                 {isInviting ? (
                   <>
-                    <div className="h-4 w-4 rounded-full border-2 border-white/80 border-r-transparent animate-spin" />
-                    <span className="text-sm font-medium">
-                      Sending Invitation...
-                    </span>
+                    <div className="h-3.5 w-3.5 rounded-full border-2 border-blue-400 border-r-transparent animate-spin" />
+                    <span>Adding Member...</span>
                   </>
                 ) : (
-                  <>
-                    <MdPersonAdd
-                      className="h-4 w-4 text-blue-400/70 group-hover:text-blue-400"
-                      aria-hidden="true"
-                    />
-                    <span className="text-sm font-medium">Add Member</span>
-                  </>
+                  <span>Add Member</span>
                 )}
               </button>
             </div>

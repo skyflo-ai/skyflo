@@ -1,12 +1,22 @@
 import { User } from "@/types/auth";
 import { useState } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
-import { HiOutlineMail, HiOutlineKey, HiOutlineRefresh } from "react-icons/hi";
+import { HiOutlineMail, HiOutlineKey } from "react-icons/hi";
 import { MdLock, MdPerson } from "react-icons/md";
 import { showSuccess, showError } from "@/components/ui/toast";
+import { actionBtnClass, inputClass } from "./constants";
 
 interface ProfileSettingsProps {
   user: User | null;
+}
+
+function SpinnerLabel({ text }: { text: string }) {
+  return (
+    <>
+      <div className="h-3.5 w-3.5 rounded-full border-2 border-blue-400 border-r-transparent animate-spin" />
+      <span>{text}</span>
+    </>
+  );
 }
 
 export default function ProfileSettings({ user }: ProfileSettingsProps) {
@@ -32,12 +42,8 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
     try {
       const response = await fetch("/api/profile", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          full_name: fullName,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ full_name: fullName }),
       });
 
       const data = await response.json();
@@ -81,9 +87,7 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
     try {
       const response = await fetch("/api/profile", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           current_password: currentPassword,
           new_password: newPassword,
@@ -97,7 +101,6 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
-
         showSuccess("Password changed");
       } else {
         showError(data.error || "Failed to change password");
@@ -111,41 +114,38 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
 
   return (
     <>
-      <div className="bg-dark rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden flex-1">
-        <div className="bg-gradient-to-r from-[#1A2C48]/90 to-[#0F182A]/90 p-5 border-b border-[#243147] backdrop-blur-sm flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-500/15 p-2.5 rounded-full">
-              <HiOutlineMail className="w-5 h-5 text-slate-300" />
-            </div>
-            <h2 className="text-xl font-semibold text-slate-100">
-              Profile Information
-            </h2>
+      <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden flex-1">
+        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-400/[0.08] text-blue-400 text-sm">
+            <HiOutlineMail />
           </div>
+          <h2 className="text-sm font-medium text-zinc-300">
+            Profile Information
+          </h2>
         </div>
-        <div className="p-6">
+        <div className="p-5">
           <form onSubmit={handleProfileUpdate}>
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
                 <label
                   htmlFor="email"
-                  className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
+                  className="block text-sm font-medium mb-2 text-zinc-400"
                 >
-                  <HiOutlineMail className="text-slate-400" />
                   Email Address
                 </label>
                 <div className="relative">
                   <input
                     type="email"
                     id="email"
-                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner opacity-70 outline-none focus:outline-none focus-visible:outline-none"
+                    className="w-full p-3 pl-10 rounded-lg bg-white/[0.02] border border-white/[0.04] text-zinc-500 cursor-not-allowed"
                     value={user?.email}
                     disabled
                   />
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <MdLock className="text-slate-500" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                    <MdLock className="text-zinc-600" />
                   </div>
                 </div>
-                <p className="text-xs text-slate-500 mt-2 ml-1">
+                <p className="text-[11px] text-zinc-600 mt-1.5 ml-0.5">
                   Email cannot be changed after account creation
                 </p>
               </div>
@@ -153,49 +153,33 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
               <div>
                 <label
                   htmlFor="fullName"
-                  className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
+                  className="block text-sm font-medium mb-2 text-zinc-400"
                 >
-                  <MdPerson className="text-slate-400" />
                   Full Name
                 </label>
                 <div className="relative">
                   <input
                     type="text"
                     id="fullName"
-                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
+                    className={inputClass}
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                   />
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <MdPerson className="text-slate-500" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                    <MdPerson className="text-zinc-600" />
                   </div>
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="group inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg w-full
-                           bg-[#0A1525]/50 border border-blue-500/30 
-                   hover:border-blue-500/40 hover:bg-[#0A1525]/80
-                           outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0
-                           transition-all duration-100 cursor-pointer text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className={actionBtnClass}
                 disabled={isProfileUpdating || !isFullNameDirty}
               >
                 {isProfileUpdating ? (
-                  <>
-                    <div className="h-4 w-4 rounded-full border-2 border-white/80 border-r-transparent animate-spin" />
-                    <span className="text-sm font-medium">
-                      Updating Profile...
-                    </span>
-                  </>
+                  <SpinnerLabel text="Updating..." />
                 ) : (
-                  <>
-                    <HiOutlineRefresh
-                      className="h-4 w-4 text-blue-400/70 group-hover:text-blue-400"
-                      aria-hidden="true"
-                    />
-                    <span className="text-sm font-medium">Update Profile</span>
-                  </>
+                  <span>Update Profile</span>
                 )}
               </button>
             </div>
@@ -203,39 +187,36 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
         </div>
       </div>
 
-      <div className="bg-dark rounded-xl border border-[#243147] shadow-xl shadow-blue-900/5 overflow-hidden">
-        <div className="bg-gradient-to-r from-[#1A2C48]/90 to-[#0F182A]/90 p-5 border-b border-[#243147] backdrop-blur-sm flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-500/15 p-2.5 rounded-full">
-              <HiOutlineKey className="w-5 h-5 text-slate-300" />
-            </div>
-            <h2 className="text-xl font-semibold text-slate-100">
-              Security Settings
-            </h2>
+      <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-400/[0.08] text-blue-400 text-sm">
+            <HiOutlineKey />
           </div>
+          <h2 className="text-sm font-medium text-zinc-300">
+            Security Settings
+          </h2>
         </div>
-        <div className="p-6">
+        <div className="p-5">
           <form onSubmit={handlePasswordChange}>
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
                 <label
                   htmlFor="currentPassword"
-                  className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
+                  className="block text-sm font-medium mb-2 text-zinc-400"
                 >
-                  <HiOutlineKey className="text-slate-400" />
                   Current Password
                 </label>
                 <div className="relative">
                   <input
                     type="password"
                     id="currentPassword"
-                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
+                    className={inputClass}
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     required
                   />
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <MdLock className="text-slate-500" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                    <MdLock className="text-zinc-600" />
                   </div>
                 </div>
               </div>
@@ -243,23 +224,22 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
               <div>
                 <label
                   htmlFor="newPassword"
-                  className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
+                  className="block text-sm font-medium mb-2 text-zinc-400"
                 >
-                  <HiOutlineKey className="text-slate-400" />
                   New Password
                 </label>
                 <div className="relative">
                   <input
                     type="password"
                     id="newPassword"
-                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
+                    className={inputClass}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     minLength={8}
                     required
                   />
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <MdLock className="text-slate-500" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                    <MdLock className="text-zinc-600" />
                   </div>
                 </div>
               </div>
@@ -267,51 +247,35 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
               <div>
                 <label
                   htmlFor="confirmPassword"
-                  className="block text-sm font-medium mb-2 text-slate-300 flex items-center gap-2"
+                  className="block text-sm font-medium mb-2 text-zinc-400"
                 >
-                  <HiOutlineKey className="text-slate-400" />
                   Confirm New Password
                 </label>
                 <div className="relative">
                   <input
                     type="password"
                     id="confirmPassword"
-                    className="w-full p-3 pl-10 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
+                    className={inputClass}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     minLength={8}
                     required
                   />
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <MdLock className="text-slate-500" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                    <MdLock className="text-zinc-600" />
                   </div>
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="group inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg w-full
-                           bg-[#0A1525]/50 border border-blue-500/30 
-                   hover:border-blue-500/40 hover:bg-[#0A1525]/80
-                           outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0
-                           transition-all duration-100 cursor-pointer text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className={actionBtnClass}
                 disabled={isPasswordChanging}
               >
                 {isPasswordChanging ? (
-                  <>
-                    <div className="h-4 w-4 rounded-full border-2 border-white/80 border-r-transparent animate-spin" />
-                    <span className="text-sm font-medium">
-                      Changing Password...
-                    </span>
-                  </>
+                  <SpinnerLabel text="Changing Password..." />
                 ) : (
-                  <>
-                    <HiOutlineKey
-                      className="h-4 w-4 text-blue-400/70 group-hover:text-blue-400"
-                      aria-hidden="true"
-                    />
-                    <span className="text-sm font-medium">Change Password</span>
-                  </>
+                  <span>Change Password</span>
                 )}
               </button>
             </div>

@@ -21,8 +21,14 @@ def build_jenkins_secret_yaml(name: str, namespace: str, creds: Dict[str, str]) 
     return resolved_yaml
 
 
+def _is_jenkins_tool_name(name: Any) -> bool:
+    return isinstance(name, str) and name.startswith("jenkins_")
+
+
 def _tool_has_jenkins_tag(tool: Dict[str, Any]) -> bool:
     try:
+        if _is_jenkins_tool_name(tool.get("name")):
+            return True
         tags = tool.get("tags") or []
         if isinstance(tags, list) and "jenkins" in tags:
             return True
@@ -40,6 +46,7 @@ def _strip_jenkins_input_params(tool: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(input_schema, dict):
         return updated
 
+    input_schema = deepcopy(input_schema)
     props = input_schema.get("properties", {}) or {}
     required = list(input_schema.get("required", []) or [])
     params_to_strip = ["api_url", "credentials_ref"]
@@ -55,7 +62,9 @@ def _strip_jenkins_input_params(tool: Dict[str, Any]) -> Dict[str, Any]:
         input_schema["required"] = required
     else:
         input_schema.pop("required", None)
+
     updated["inputSchema"] = input_schema
+    updated["input_schema"] = input_schema
     return updated
 
 

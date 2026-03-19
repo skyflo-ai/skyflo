@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from litellm import acompletion
 from pydantic import BaseModel, Field
@@ -64,6 +64,7 @@ async def generate_chat_title(
 async def generate_and_store_title(
     conversation_id: str,
     persistence: ConversationPersistenceService,
+    on_title_generated: Optional[Callable[[str, str], Awaitable[None]]] = None,
 ) -> None:
     try:
         model = settings.LLM_MODEL
@@ -109,6 +110,8 @@ async def generate_and_store_title(
         if not title:
             return
 
-        await persistence.set_title(conversation_id, title)
+        did_set_title = await persistence.set_title(conversation_id, title)
+        if did_set_title and on_title_generated:
+            await on_title_generated(conversation_id, title)
     except Exception as e:
         logger.error(f"Error in generate_and_store_title for {conversation_id}: {e}")

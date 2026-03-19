@@ -44,7 +44,6 @@ export default function LoginPage() {
           <div className="text-5xl font-bold text-white">
             <h1 className="text-4xl font-bold tracking-tight my-2 text-center">
               <span className="text-gray-200">skyflo</span>
-              <span className="text-[#06B6D4]">.ai</span>
             </h1>
           </div>
           <p className="text-slate-400 text-lg">Sign in to your account</p>

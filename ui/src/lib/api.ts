@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { MetricsAggregation } from "../types/analytics";
 
 export async function getAuthHeaders() {
   try {
@@ -77,4 +78,48 @@ export const createConversation = async (
   } catch (error) {
     throw error;
   }
+};
+
+export const getMetrics = async (
+  options:
+    | number
+    | {
+        lastNDays?: number;
+        startDate?: Date;
+        endDate?: Date;
+        startDateTime?: Date;
+        endDateTime?: Date;
+      } = 30
+): Promise<MetricsAggregation> => {
+  let queryParams = "";
+
+  if (typeof options === "number") {
+    queryParams = `last_n_days=${options}`;
+  } else {
+    const params = new URLSearchParams();
+    params.set("last_n_days", String(options.lastNDays ?? 30));
+    if (options.startDate)
+      params.set("start_date", options.startDate.toISOString().split("T")[0]);
+    if (options.endDate)
+      params.set("end_date", options.endDate.toISOString().split("T")[0]);
+    if (options.startDateTime)
+      params.set("start_datetime", options.startDateTime.toISOString());
+    if (options.endDateTime)
+      params.set("end_datetime", options.endDateTime.toISOString());
+    queryParams = params.toString();
+  }
+
+  const response = await fetch(
+    `${process.env.API_URL}/analytics/metrics?${queryParams}`,
+    {
+      headers: await getAuthHeaders(),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Error fetching metrics: ${response.statusText}`);
+  }
+
+  return await response.json();
 };

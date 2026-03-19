@@ -156,24 +156,29 @@ input:-webkit-autofill:active {
   animation: gradient-move 3s ease infinite;
 }
 
-.thinking-scroll::-webkit-scrollbar {
+.thinking-scroll::-webkit-scrollbar,
+.sidebar-scroll::-webkit-scrollbar {
   width: 4px;
 }
 
-.thinking-scroll::-webkit-scrollbar-track {
+.thinking-scroll::-webkit-scrollbar-track,
+.sidebar-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.thinking-scroll::-webkit-scrollbar-thumb {
+.thinking-scroll::-webkit-scrollbar-thumb,
+.sidebar-scroll::-webkit-scrollbar-thumb {
   background: #3f3f46;
   border-radius: 4px;
 }
 
-.thinking-scroll::-webkit-scrollbar-thumb:hover {
+.thinking-scroll::-webkit-scrollbar-thumb:hover,
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background: #52525b;
 }
 
-.thinking-scroll {
+.thinking-scroll,
+.sidebar-scroll {
   scrollbar-width: thin;
   scrollbar-color: #3f3f46 transparent;
 }

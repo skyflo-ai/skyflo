@@ -26,10 +26,23 @@ export function Welcome() {
 
       const data = await resp.json();
       if (resp.ok && data?.id) {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("conversation:created", {
+              detail: {
+                conversationId: data.id,
+                timestamp: Date.now(),
+              },
+            }),
+          );
+        }
         sessionStorage.setItem(`initialMessage:${data.id}`, message);
         router.push(`/chat/${data.id}`);
         return;
       }
+
+      setError("Failed to start conversation. Please try again.");
+      setIsInitializing(false);
     } catch (err) {
       setError("Failed to start conversation. Please try again.");
       setIsInitializing(false);

@@ -53,25 +53,25 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={handleBackdropClick}
       />
 
       <div
-        className={`relative w-full ${sizeClasses[size]} bg-[#171D2B] border border-slate-600/60 rounded-lg shadow-xl shadow-black/20 animate-in fade-in zoom-in duration-200`}
+        className={`relative w-full ${sizeClasses[size]} bg-zinc-950/95 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200`}
       >
-        <div className="flex items-center justify-between p-6 border-b border-slate-600/60">
-          <h2 className="text-lg font-semibold text-slate-200">{title}</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+          <h2 className="text-sm font-medium text-zinc-200">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-md hover:bg-slate-700/50 text-slate-400 hover:text-slate-200 transition-colors"
+            className="p-1 rounded-md hover:bg-white/[0.06] text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
             aria-label="Close modal"
           >
-            <MdClose className="w-5 h-5" />
+            <MdClose className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-6">{children}</div>
+        <div className="p-5">{children}</div>
       </div>
     </div>
   );
@@ -107,24 +107,24 @@ export function ConfirmModal({
 
   const confirmButtonClass =
     variant === "danger"
-      ? "bg-red-500/20 hover:bg-red-500/30 text-red-400" // HERE
-      : "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400";
+      ? "bg-rose-500/10 border border-rose-500/20 hover:border-rose-500/30 hover:bg-rose-500/15 text-rose-400"
+      : "bg-blue-500/10 border border-blue-500/20 hover:border-blue-500/30 hover:bg-blue-500/15 text-blue-400";
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size={size}>
-      <div className="space-y-6">
-        <p className="text-slate-300">{message}</p>
+      <div className="space-y-5">
+        <p className="text-sm text-zinc-400">{message}</p>
 
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-2.5">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-300/80 bg-slate-700/50 hover:bg-slate-700 rounded-md transition-colors"
+            className="px-3.5 py-2 text-xs font-medium text-zinc-400 bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.1] hover:text-zinc-300 rounded-lg transition-colors duration-200 cursor-pointer"
           >
             {cancelText}
           </button>
           <button
             onClick={handleConfirm}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${confirmButtonClass}`}
+            className={`px-3.5 py-2 text-xs font-medium rounded-lg transition-colors duration-200 cursor-pointer ${confirmButtonClass}`}
           >
             {confirmText}
           </button>
@@ -164,20 +164,20 @@ export function InputModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size={size}>
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {children}
 
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-300/80 bg-slate-700/50 hover:bg-slate-700 rounded-md transition-colors"
+            className="px-3.5 py-2 text-xs font-medium text-zinc-400 bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.1] hover:text-zinc-300 rounded-lg transition-colors duration-200 cursor-pointer"
           >
             {cancelText}
           </button>
           <button
             type="submit"
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-500/20 hover:bg-blue-500/30 rounded-md transition-colors"
+            className="px-3.5 py-2 text-xs font-medium text-blue-400 bg-blue-500/10 border border-blue-500/20 hover:border-blue-500/30 hover:bg-blue-500/15 rounded-lg transition-colors duration-200 cursor-pointer"
           >
             {submitText}
           </button>

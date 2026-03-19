@@ -12,6 +12,7 @@ import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import Loader from "@/components/ui/Loader";
 import { ACCESS_TOKEN_MAX_AGE_SECONDS } from "@/lib/auth/constants";
+import { resetSidebarConversationCache } from "@/components/navbar/SidebarHistory";
 
 interface AuthContextType {
   user: any | null;
@@ -36,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading,
   } = useAuthStore();
 
-  const protectedRoutes = ["/", "/history", "/settings", "/chat"];
+  const protectedRoutes = ["/", "/settings", "/chat", "/analytics", "/integrations"];
   const initialAuthCheckRef = useRef(false);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathnameRef = useRef(pathname);
@@ -64,6 +65,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       abortControllerRef.current = null;
     }
   }, []);
+
+  const logoutAndCleanup = useCallback(() => {
+    resetSidebarConversationCache();
+    storeLogout();
+  }, [storeLogout]);
 
   const refreshSession = useCallback(
     async (signal?: AbortSignal): Promise<boolean> => {
@@ -117,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      storeLogout();
+      logoutAndCleanup();
       if (isProtectedRoute(pathnameRef.current)) {
         router.push("/login");
       }
@@ -126,7 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     clearRefreshTimer,
     abortPendingRefresh,
     refreshSession,
-    storeLogout,
+    logoutAndCleanup,
     router,
   ]);
 
@@ -174,12 +180,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         }
 
-        storeLogout();
+        logoutAndCleanup();
         if (isProtectedRoute(pathname)) {
           router.push("/login");
         }
       } catch (error) {
-        storeLogout();
+        logoutAndCleanup();
         if (isProtectedRoute(pathname)) {
           router.push("/login");
         }
@@ -250,7 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error("Logout request error:", error);
     }
 
-    storeLogout();
+    logoutAndCleanup();
     router.push("/login");
   };
 

@@ -904,6 +904,17 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         timestamp: Date.now(),
       };
 
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("conversation:created", {
+            detail: {
+              conversationId,
+              timestamp: userMessage.timestamp,
+            },
+          }),
+        );
+      }
+
       setMessages((prev) => [...prev, userMessage]);
 
       const allMessages = [...messages, userMessage];

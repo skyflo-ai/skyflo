@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmModal, InputModal } from "@/components/ui/modal";
 import { showSuccess, showError } from "@/components/ui/toast";
 import {
@@ -11,9 +10,9 @@ import {
   MdEdit,
   MdDelete,
   MdAdd,
-  MdSettings,
   MdCheckCircle,
   MdCancel,
+  MdSettings,
 } from "react-icons/md";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -46,16 +45,17 @@ const PROVIDERS = {
   },
 };
 
+const inputClass =
+  "w-full p-3 rounded-lg bg-white/[0.04] border border-white/[0.08] text-zinc-200 placeholder-zinc-600 outline-none focus:border-white/[0.15] transition-colors duration-200";
+
 export default function Integrations() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === "admin";
 
-  // State
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  // Modal states
   const [createModal, setCreateModal] = useState({ isOpen: false });
   const [editModal, setEditModal] = useState<{
     isOpen: boolean;
@@ -66,20 +66,17 @@ export default function Integrations() {
     integration: Integration | null;
   }>({ isOpen: false, integration: null });
 
-  // Create modal form state
   const [createProvider, setCreateProvider] = useState("jenkins");
   const [createApiUrl, setCreateApiUrl] = useState("");
   const [createUsername, setCreateUsername] = useState("");
   const [createApiToken, setCreateApiToken] = useState("");
 
-  // Edit modal form state
   const [editStatus, setEditStatus] = useState("active");
   const [editApiUrl, setEditApiUrl] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [editApiToken, setEditApiToken] = useState("");
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
 
-  // API calls
   const fetchIntegrations = useCallback(async () => {
     setLoading(true);
     try {
@@ -102,9 +99,7 @@ export default function Integrations() {
     try {
       const response = await fetch("/api/integrations", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
@@ -134,9 +129,7 @@ export default function Integrations() {
     try {
       const response = await fetch(`/api/integrations/${id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
@@ -160,9 +153,7 @@ export default function Integrations() {
 
   const handleDeleteIntegration = async (id: string) => {
     try {
-      const url = `/api/integrations/${id}`;
-
-      const response = await fetch(url, {
+      const response = await fetch(`/api/integrations/${id}`, {
         method: "DELETE",
       });
 
@@ -181,9 +172,10 @@ export default function Integrations() {
     }
   };
 
-  // Event handlers
-
-  const handleMenuToggle = (integrationId: string, event: React.MouseEvent) => {
+  const handleMenuToggle = (
+    integrationId: string,
+    event: React.MouseEvent
+  ) => {
     event.preventDefault();
     event.stopPropagation();
     setOpenMenuId(openMenuId === integrationId ? null : integrationId);
@@ -203,17 +195,11 @@ export default function Integrations() {
     setDeleteModal({ isOpen: true, integration });
   };
 
-  // Effects
   useEffect(() => {
-    const handleClickOutside = () => {
-      setOpenMenuId(null);
-    };
-
+    const handleClickOutside = () => setOpenMenuId(null);
     if (openMenuId) {
       document.addEventListener("click", handleClickOutside);
-      return () => {
-        document.removeEventListener("click", handleClickOutside);
-      };
+      return () => document.removeEventListener("click", handleClickOutside);
     }
   }, [openMenuId]);
 
@@ -231,15 +217,10 @@ export default function Integrations() {
   }, [editModal.integration, editModal.isOpen]);
 
   useEffect(() => {
-    const handleClickOutside = () => {
-      setIsStatusDropdownOpen(false);
-    };
-
+    const handleClickOutside = () => setIsStatusDropdownOpen(false);
     if (isStatusDropdownOpen) {
       document.addEventListener("click", handleClickOutside);
-      return () => {
-        document.removeEventListener("click", handleClickOutside);
-      };
+      return () => document.removeEventListener("click", handleClickOutside);
     }
   }, [isStatusDropdownOpen]);
 
@@ -255,41 +236,42 @@ export default function Integrations() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "active":
-        return <MdCheckCircle className="w-4 h-4 text-green-400" />;
+        return <MdCheckCircle className="w-3.5 h-3.5 text-emerald-400" />;
       case "disabled":
-        return <MdCancel className="w-4 h-4 text-red-400" />;
+        return <MdCancel className="w-3.5 h-3.5 text-rose-400" />;
       default:
-        return <MdSettings className="w-4 h-4 text-gray-400" />;
+        return <MdSettings className="w-3.5 h-3.5 text-zinc-500" />;
     }
   };
 
   return (
-    <div className="flex flex-col h-full w-full overflow-auto px-2 py-2">
-      <div
-        className="relative bg-[#0A1525]/50 border border-[#1E2D45] 
-                  p-8 rounded-xl border border-[#243147]/60 backdrop-blur-md shadow-lg shadow-blue-900/10 overflow-hidden mb-8"
-      >
-        <div className="absolute inset-0 bg-blue-600/5 rounded-xl" />
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent rounded-xl" />
-
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center">
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-400 bg-clip-text text-transparent tracking-tight flex items-center">
-              Integrations
-            </h1>
-            {isAdmin ? (
-              <p className="text-slate-400 mt-2">
-                Configure third-party integrations for your workspace
+    <div className="flex flex-col gap-6 h-full w-full overflow-auto p-6">
+      <div className="flex max-sm:flex-col max-sm:gap-4 justify-between items-start">
+        <div>
+          <h1 className="text-lg font-semibold text-white tracking-tight">
+            Integrations
+          </h1>
+          {isAdmin ? (
+            <p className="text-sm text-zinc-500 mt-0.5">
+              Configure third-party integrations for your workspace
+            </p>
+          ) : (
+            integrations.length !== 0 && (
+              <p className="text-sm text-zinc-500 mt-0.5">
+                Ask an admin to configure integrations for your workspace
               </p>
-            ) : (
-              integrations.length !== 0 && (
-                <p className="text-slate-400 mt-2">
-                  Ask an admin to configure integrations for your workspace
-                </p>
-              )
-            )}
-          </div>
+            )
+          )}
         </div>
+        {isAdmin && (
+          <button
+            onClick={() => setCreateModal({ isOpen: true })}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-500/20 hover:border-sky-500/30 hover:bg-sky-500/15 text-sky-400 text-xs font-medium transition-colors duration-200 cursor-pointer"
+          >
+            <MdAdd className="w-4 h-4" />
+            Create
+          </button>
+        )}
       </div>
 
       <div className="h-full">
@@ -298,143 +280,132 @@ export default function Integrations() {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-6"
-              >
-                <Skeleton className="h-6 w-2/3 bg-slate-700/50 mb-3" />
-                <Skeleton className="h-4 w-1/3 bg-slate-700/30 mb-2" />
-                <Skeleton className="h-4 w-full bg-slate-700/30" />
-              </div>
+                className="h-28 bg-zinc-800/15 rounded-xl animate-pulse"
+              />
             ))}
           </div>
         ) : integrations.length === 0 ? (
           <div className="flex justify-center items-center h-full">
-            <div className="text-center py-12 px-4">
-              <div className="bg-blue-500/10 rounded-lg border border-slate-700/60 p-8 inline-block">
-                <MdIntegrationInstructions className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-300 mb-2">
-                  No integrations configured
-                </h3>
-                {isAdmin ? (
-                  <p className="text-slate-400 mb-4">
-                    Add your first integration to connect with external
-                    services.
-                  </p>
-                ) : (
-                  <p className="text-slate-400 mb-4">
-                    Ask an admin to configure integrations for your workspace
-                  </p>
-                )}
-                {isAdmin && (
-                  <button
-                    onClick={() => setCreateModal({ isOpen: true })}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 transition-colors"
-                  >
-                    <MdAdd className="w-5 h-5" />
-                    Add Integration
-                  </button>
-                )}
+            <div className="flex flex-col items-center py-16">
+              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/[0.03] border border-white/[0.06] mb-4">
+                <MdIntegrationInstructions className="w-5 h-5 text-zinc-500" />
               </div>
+              <h3 className="text-sm font-medium text-zinc-300 mb-1">
+                No integrations configured
+              </h3>
+              {isAdmin ? (
+                <p className="text-xs text-zinc-500 mb-5">
+                  Add your first integration to connect with external services.
+                </p>
+              ) : (
+                <p className="text-xs text-zinc-500 mb-5">
+                  Ask an admin to configure integrations for your workspace
+                </p>
+              )}
+              {isAdmin && (
+                <button
+                  onClick={() => setCreateModal({ isOpen: true })}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-500/20 hover:border-sky-500/30 hover:bg-sky-500/15 text-sky-400 text-xs font-medium transition-colors duration-200 cursor-pointer"
+                >
+                  <MdAdd className="w-4 h-4" />
+                  Create
+                </button>
+              )}
             </div>
           </div>
         ) : (
-          <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              {integrations.map((integration) => {
-                const providerInfo = getProviderInfo(integration.provider);
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {integrations.map((integration) => {
+              const providerInfo = getProviderInfo(integration.provider);
 
-                return (
+              return (
+                <div
+                  key={integration.id}
+                  className="relative group transition-all duration-200"
+                >
                   <div
-                    key={integration.id}
-                    className="relative group transition-all duration-300"
+                    className={`rounded-xl bg-white/[0.03] border border-white/[0.06] ${
+                      isAdmin ? "hover:border-white/[0.12]" : ""
+                    } p-4 h-full transition-colors duration-200`}
                   >
-                    <div
-                      className={`bg-blue-500/10 border border-[#1E2D45] 
-                    ${
-                      isAdmin
-                        ? "hover:bg-blue-500/15 hover:border-blue-500/30"
-                        : ""
-                    } rounded-lg p-4 h-full transition-all duration-200`}
-                    >
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
-                              {integration.name || providerInfo.name}
-                              {getStatusIcon(integration.status)}
-                            </h3>
-                            <p className="text-sm text-slate-400">
-                              {providerInfo.description}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="relative">
-                          {isAdmin && (
-                            <button
-                              onClick={(e) =>
-                                handleMenuToggle(integration.id, e)
-                              }
-                              className="p-1 rounded-md hover:bg-slate-700/50 text-slate-400 hover:text-slate-200 transition-colors opacity-0 group-hover:opacity-100"
-                              aria-label="More options"
-                              aria-expanded={openMenuId === integration.id}
-                            >
-                              <MdMoreVert className="w-5 h-5" />
-                            </button>
-                          )}
-                        </div>
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-sm font-medium text-zinc-200 flex items-center gap-2">
+                          {integration.name || providerInfo.name}
+                          {getStatusIcon(integration.status)}
+                        </h3>
+                        <p className="text-xs text-zinc-500 mt-0.5">
+                          {providerInfo.description}
+                        </p>
                       </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-400">Status:</span>
-                          <span
-                            className={`capitalize ${
-                              integration.status === "active"
-                                ? "text-green-400"
-                                : integration.status === "disabled"
-                                ? "text-red-400"
-                                : "text-gray-400"
-                            }`}
+                      <div className="relative">
+                        {isAdmin && (
+                          <button
+                            onClick={(e) =>
+                              handleMenuToggle(integration.id, e)
+                            }
+                            className="p-1 rounded-md text-zinc-500 opacity-100 hover:bg-white/[0.06] hover:text-zinc-300 focus:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/[0.2] transition-colors transition-opacity cursor-pointer"
+                            aria-label="More options"
+                            aria-expanded={openMenuId === integration.id}
                           >
-                            {integration.status}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-400">Created:</span>
-                          <span className="text-slate-300">
-                            {format(
-                              new Date(integration.created_at),
-                              "MMM d, yyyy"
-                            )}
-                          </span>
-                        </div>
+                            <MdMoreVert className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    {openMenuId === integration.id && (
-                      <div className="absolute right-6 top-16 bg-[#1A2332] border border-slate-600/60 rounded-lg shadow-lg shadow-black/20 z-[100] min-w-[150px]">
-                        <button
-                          onClick={(e) => handleEdit(integration, e)}
-                          className="w-full px-4 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 rounded-t-lg transition-colors flex items-center gap-2"
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-zinc-500">Status</span>
+                        <span
+                          className={`capitalize ${
+                            integration.status === "active"
+                              ? "text-emerald-400"
+                              : integration.status === "disabled"
+                                ? "text-rose-400"
+                                : "text-zinc-400"
+                          }`}
                         >
-                          <MdEdit className="w-4 h-4" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(integration, e)}
-                          className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 rounded-b-lg transition-colors flex items-center gap-2"
-                        >
-                          <MdDelete className="w-4 h-4" />
-                          Delete
-                        </button>
+                          {integration.status}
+                        </span>
                       </div>
-                    )}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-zinc-500">Created</span>
+                        <span className="text-zinc-300">
+                          {format(
+                            new Date(integration.created_at),
+                            "MMM d, yyyy"
+                          )}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                );
-              })}
+
+                  {openMenuId === integration.id && (
+                    <div className="absolute right-6 top-16 bg-zinc-950/90 backdrop-blur-sm border border-white/[0.08] rounded-lg shadow-2xl z-[100] min-w-[140px]">
+                      <button
+                        onClick={(e) => handleEdit(integration, e)}
+                        className="w-full px-3 py-2 text-left text-xs text-zinc-300 hover:bg-white/[0.04] rounded-t-lg transition-colors flex items-center gap-2"
+                      >
+                        <MdEdit className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={(e) => handleDelete(integration, e)}
+                        className="w-full px-3 py-2 text-left text-xs text-rose-400 hover:bg-rose-500/5 rounded-b-lg transition-colors flex items-center gap-2"
+                      >
+                        <MdDelete className="w-3.5 h-3.5" />
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Create Modal */}
       <InputModal
         isOpen={createModal.isOpen}
         onClose={() => setCreateModal({ isOpen: false })}
@@ -454,15 +425,19 @@ export default function Integrations() {
         submitText="Create Integration"
         size="lg"
       >
-        <div className="space-y-6">
+        <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor="create-provider"
+              className="block text-sm font-medium text-zinc-400 mb-2"
+            >
               Provider
             </label>
             <select
+              id="create-provider"
               value={createProvider}
               onChange={(e) => setCreateProvider(e.target.value)}
-              className="w-full p-3 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
+              className={inputClass}
             >
               {Object.entries(PROVIDERS).map(([key, info]) => (
                 <option key={key} value={key}>
@@ -473,76 +448,84 @@ export default function Integrations() {
           </div>
 
           {createProvider === "jenkins" ? (
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Jenkins API URL *
-                  </label>
-                  <input
-                    type="url"
-                    value={createApiUrl}
-                    onChange={(e) => setCreateApiUrl(e.target.value)}
-                    placeholder="https://jenkins.example.com"
-                    required
-                    className="w-full p-3 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 placeholder-slate-400 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    The base URL of your Jenkins server
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Username *
-                  </label>
-                  <input
-                    type="text"
-                    value={createUsername}
-                    onChange={(e) => setCreateUsername(e.target.value)}
-                    placeholder="jenkins-user"
-                    required
-                    className="w-full p-3 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 placeholder-slate-400 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    API Token *
-                  </label>
-                  <input
-                    type="password"
-                    value={createApiToken}
-                    onChange={(e) => setCreateApiToken(e.target.value)}
-                    placeholder="Your Jenkins API token"
-                    required
-                    className="w-full p-3 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 placeholder-slate-400 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Generate an API token in Jenkins under User → Configure →
-                    API Token
-                  </p>
-                </div>
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="create-api-url"
+                  className="block text-sm font-medium text-zinc-400 mb-2"
+                >
+                  Jenkins API URL *
+                </label>
+                <input
+                  id="create-api-url"
+                  type="url"
+                  value={createApiUrl}
+                  onChange={(e) => setCreateApiUrl(e.target.value)}
+                  placeholder="https://jenkins.example.com"
+                  required
+                  className={inputClass}
+                />
+                <p className="text-[11px] text-zinc-600 mt-1.5">
+                  The base URL of your Jenkins server
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="create-username"
+                  className="block text-sm font-medium text-zinc-400 mb-2"
+                >
+                  Username *
+                </label>
+                <input
+                  id="create-username"
+                  type="text"
+                  value={createUsername}
+                  onChange={(e) => setCreateUsername(e.target.value)}
+                  placeholder="jenkins-user"
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="create-api-token"
+                  className="block text-sm font-medium text-zinc-400 mb-2"
+                >
+                  API Token *
+                </label>
+                <input
+                  id="create-api-token"
+                  type="password"
+                  value={createApiToken}
+                  onChange={(e) => setCreateApiToken(e.target.value)}
+                  placeholder="Your Jenkins API token"
+                  required
+                  className={inputClass}
+                />
+                <p className="text-[11px] text-zinc-600 mt-1.5">
+                  Generate an API token in Jenkins under User &rarr; Configure
+                  &rarr; API Token
+                </p>
               </div>
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-slate-400">Provider form not implemented</p>
+              <p className="text-sm text-zinc-500">
+                Provider form not implemented
+              </p>
             </div>
           )}
         </div>
       </InputModal>
 
-      {/* Edit Modal */}
       <InputModal
         isOpen={editModal.isOpen}
         onClose={() => setEditModal({ isOpen: false, integration: null })}
         onSubmit={() => {
           if (!editModal.integration) return;
-          const updateData: UpdateIntegrationData = {
-            status: editStatus,
-          };
-          const { provider, metadata: existingMetadata } = editModal.integration;
+          const updateData: UpdateIntegrationData = { status: editStatus };
+          const { provider, metadata: existingMetadata } =
+            editModal.integration;
           const trimmedApiUrl = editApiUrl.trim();
           const providerSupportsApiUrl = provider in PROVIDERS;
           const shouldIncludeMetadata =
@@ -569,36 +552,44 @@ export default function Integrations() {
         size="lg"
       >
         {editModal.integration && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="edit-provider"
+                className="block text-sm font-medium text-zinc-400 mb-2"
+              >
                 Provider
               </label>
               <input
+                id="edit-provider"
                 type="text"
                 value={editModal.integration.provider}
                 disabled
-                className="w-full p-3 rounded-lg bg-gray-900 border border-slate-700/60 text-slate-500 shadow-inner cursor-not-allowed"
+                className="w-full p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] text-zinc-500 cursor-not-allowed"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="edit-status"
+                className="block text-sm font-medium text-zinc-400 mb-2"
+              >
                 Status
               </label>
               <div className="relative">
                 <button
+                  id="edit-status"
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setIsStatusDropdownOpen(!isStatusDropdownOpen);
                   }}
-                  className="w-full p-3 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200 text-left flex items-center justify-between"
+                  className="w-full p-3 rounded-lg bg-white/[0.04] border border-white/[0.08] text-zinc-200 outline-none focus:border-white/[0.15] transition-colors duration-200 text-left flex items-center justify-between"
                 >
                   <span className="capitalize">{editStatus}</span>
                   <svg
-                    className={`h-5 w-5 text-slate-500 transition-transform duration-200 ${
+                    className={`h-4 w-4 text-zinc-500 transition-transform duration-200 ${
                       isStatusDropdownOpen ? "rotate-180" : ""
                     }`}
                     xmlns="http://www.w3.org/2000/svg"
@@ -614,7 +605,7 @@ export default function Integrations() {
                 </button>
 
                 {isStatusDropdownOpen && (
-                  <div className="absolute top-full left-0 right-0 mb-1 bg-[#1A2332] border border-slate-600/60 rounded-lg shadow-2xl">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-950/90 backdrop-blur-sm border border-white/[0.08] rounded-lg shadow-2xl z-[100]">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -623,7 +614,7 @@ export default function Integrations() {
                         setEditStatus("active");
                         setIsStatusDropdownOpen(false);
                       }}
-                      className="w-full px-4 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 rounded-t-lg transition-colors flex items-center gap-2"
+                      className="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-white/[0.04] rounded-t-lg transition-colors"
                     >
                       Active
                     </button>
@@ -635,7 +626,7 @@ export default function Integrations() {
                         setEditStatus("disabled");
                         setIsStatusDropdownOpen(false);
                       }}
-                      className="w-full px-4 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 rounded-b-lg transition-colors flex items-center gap-2"
+                      className="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-white/[0.04] rounded-b-lg transition-colors"
                     >
                       Disabled
                     </button>
@@ -645,69 +636,78 @@ export default function Integrations() {
             </div>
 
             {editModal.integration.provider === "jenkins" ? (
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Jenkins API URL *
-                    </label>
-                    <input
-                      type="url"
-                      value={editApiUrl}
-                      onChange={(e) => setEditApiUrl(e.target.value)}
-                      placeholder="https://jenkins.example.com"
-                      required
-                      className="w-full p-3 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 placeholder-slate-400 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">
-                      The base URL of your Jenkins server
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      value={editUsername}
-                      onChange={(e) => setEditUsername(e.target.value)}
-                      placeholder="jenkins-user"
-                      className="w-full p-3 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 placeholder-slate-400 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      API Token
-                      <span className="text-xs text-slate-400 ml-2">
-                        (leave empty to keep current token)
-                      </span>
-                    </label>
-                    <input
-                      type="password"
-                      value={editApiToken}
-                      onChange={(e) => setEditApiToken(e.target.value)}
-                      placeholder="••••••••••••"
-                      className="w-full p-3 rounded-lg bg-gray-800 border border-slate-700/60 text-slate-300 placeholder-slate-400 shadow-inner outline-none focus:outline-none focus-visible:outline-none focus:border-slate-500/60 focus:ring-2 focus:ring-slate-500/20 transition-[border-color,box-shadow] duration-200"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">
-                      Generate an API token in Jenkins under User → Configure →
-                      API Token
-                    </p>
-                  </div>
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="edit-api-url"
+                    className="block text-sm font-medium text-zinc-400 mb-2"
+                  >
+                    Jenkins API URL *
+                  </label>
+                  <input
+                    id="edit-api-url"
+                    type="url"
+                    value={editApiUrl}
+                    onChange={(e) => setEditApiUrl(e.target.value)}
+                    placeholder="https://jenkins.example.com"
+                    required
+                    className={inputClass}
+                  />
+                  <p className="text-[11px] text-zinc-600 mt-1.5">
+                    The base URL of your Jenkins server
+                  </p>
+                </div>
+                <div>
+                  <label
+                    htmlFor="edit-username"
+                    className="block text-sm font-medium text-zinc-400 mb-2"
+                  >
+                    Username
+                  </label>
+                  <input
+                    id="edit-username"
+                    type="text"
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    placeholder="jenkins-user"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="edit-api-token"
+                    className="block text-sm font-medium text-zinc-400 mb-2"
+                  >
+                    API Token
+                    <span className="text-[11px] text-zinc-600 ml-2">
+                      (leave empty to keep current token)
+                    </span>
+                  </label>
+                  <input
+                    id="edit-api-token"
+                    type="password"
+                    value={editApiToken}
+                    onChange={(e) => setEditApiToken(e.target.value)}
+                    placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"
+                    className={inputClass}
+                  />
+                  <p className="text-[11px] text-zinc-600 mt-1.5">
+                    Generate an API token in Jenkins under User &rarr; Configure
+                    &rarr; API Token
+                  </p>
                 </div>
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-slate-400">Provider form not implemented</p>
+                <p className="text-sm text-zinc-500">
+                  Provider form not implemented
+                </p>
               </div>
             )}
           </div>
         )}
       </InputModal>
 
-      {/* Delete Modal */}
       <ConfirmModal
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal({ isOpen: false, integration: null })}

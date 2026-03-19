@@ -8,6 +8,7 @@ import {
   TTFTEvent,
   ThinkingEvent,
   ThinkingCompleteEvent,
+  ConversationTitleGeneratedEvent,
 } from "@/types/events";
 import { ChatMessage, ToolExecution, TokenUsage } from "@/types/chat";
 
@@ -33,6 +34,11 @@ export interface ChatServiceCallbacks {
   onError?: (error: string) => void;
   onComplete?: (duration_ms?: number) => void;
   onReady?: (runId: string) => void;
+  onConversationTitleGenerated?: (
+    conversationId: string,
+    title: string,
+    timestamp: number,
+  ) => void;
 }
 
 export class ChatService {
@@ -462,6 +468,27 @@ export class ChatService {
 
       case "heartbeat":
         break;
+
+      case "conversation.title.generated": {
+        const titleEvent = event as ConversationTitleGeneratedEvent;
+        this.callbacks.onConversationTitleGenerated?.(
+          titleEvent.conversation_id,
+          titleEvent.title,
+          titleEvent.timestamp,
+        );
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("conversation:title-generated", {
+              detail: {
+                conversationId: titleEvent.conversation_id,
+                title: titleEvent.title,
+                timestamp: titleEvent.timestamp,
+              },
+            }),
+          );
+        }
+        break;
+      }
 
       default:
         break;

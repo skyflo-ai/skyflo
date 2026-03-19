@@ -65,21 +65,14 @@ export default function NotFound() {
           <div className="flex flex-wrap justify-center gap-2">
             <Link
               href="/"
-              className="text-[#06B6D4] hover:text-[#00B7FF] text-sm  transition-colors"
+              className="text-[#06B6D4] hover:text-[#00B7FF] text-sm transition-colors"
             >
               Start a new chat
             </Link>
             <span className="text-slate-500 hover:cursor-default">•</span>
             <Link
-              href="/history"
-              className="text-[#06B6D4] hover:text-[#00B7FF] text-sm  transition-colors"
-            >
-              View history
-            </Link>
-            <span className="text-slate-500 hover:cursor-default">•</span>
-            <Link
               href="/settings"
-              className="text-[#06B6D4] hover:text-[#00B7FF] text-sm  transition-colors"
+              className="text-[#06B6D4] hover:text-[#00B7FF] text-sm transition-colors"
             >
               Settings
             </Link>
