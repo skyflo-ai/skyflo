@@ -947,20 +947,6 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   );
 
   useEffect(() => {
-    if (
-      !isStreaming &&
-      queuedMessages.length > 0 &&
-      !queueDrainingRef.current &&
-      !immediateSubmitRef.current
-    ) {
-      const [next, ...rest] = queuedMessages;
-      queueDrainingRef.current = true;
-      setQueuedMessages(rest);
-      void handleSendMessage(next.content);
-    }
-  }, [isStreaming, queuedMessages, handleSendMessage]);
-
-  useEffect(() => {
     if (isStreaming) {
       if (queueDrainingRef.current) queueDrainingRef.current = false;
       if (immediateSubmitRef.current) immediateSubmitRef.current = false;
@@ -1134,6 +1120,21 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           (t as any).requires_approval
       );
   }, [currentMessage?.segments, messages]);
+
+  useEffect(() => {
+    if (
+      !isStreaming &&
+      approvableTools.length === 0 &&
+      queuedMessages.length > 0 &&
+      !queueDrainingRef.current &&
+      !immediateSubmitRef.current
+    ) {
+      const [next, ...rest] = queuedMessages;
+      queueDrainingRef.current = true;
+      setQueuedMessages(rest);
+      void handleSendMessage(next.content);
+    }
+  }, [isStreaming, approvableTools.length, queuedMessages, handleSendMessage]);
 
   const handleBulkAction = useCallback(
     (decision: BulkDecision) => {
