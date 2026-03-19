@@ -20,14 +20,14 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} version {settings.APP_VERSION}")
-    await init_db()
-    await init_limiter()
-    await init_graph_checkpointer()
-
     model_info = settings.validate_llm_model()
     if model_info is not None:
         provider = model_info.get("litellm_provider") or model_info.get("provider") or "unknown"
         logger.info("Validated LLM model '%s' (provider: %s)", settings.LLM_MODEL, provider)
+
+    await init_db()
+    await init_limiter()
+    await init_graph_checkpointer()
 
     yield
 

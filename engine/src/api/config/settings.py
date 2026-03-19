@@ -81,12 +81,16 @@ class Settings(BaseSettings):
 
     def validate_llm_model(self) -> Optional[dict[str, Any]]:
         model_name = self.LLM_MODEL
-        if not model_name:
-            return None
+        if model_name is None or not model_name.strip():
+            raise ValueError("LLM_MODEL must be configured and non-empty.")
+        model_name = model_name.strip()
 
         try:
             model_info = get_model_info(model=model_name)
         except Exception as e:
+            error_message = str(e)
+            if "This model isn't mapped yet" not in error_message:
+                raise
             logger.warning(
                 "Could not validate LLM_MODEL '%s' against LiteLLM registry: %s. "
                 "Startup will continue for possible self-hosted/custom models. "
