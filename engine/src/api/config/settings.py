@@ -84,6 +84,7 @@ class Settings(BaseSettings):
         if model_name is None or not model_name.strip():
             raise ValueError("LLM_MODEL must be configured and non-empty.")
         model_name = model_name.strip()
+        self.LLM_MODEL = model_name
 
         try:
             model_info = get_model_info(model=model_name)
