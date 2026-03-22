@@ -81,6 +81,18 @@ curl -fsSL https://skyflo.ai/install.sh | bash
 
 Bring your own LLM (OpenAI, Anthropic, Gemini, Groq, self-hosted). See the [quick start](https://skyflo.ai/docs/quick-start) guide.
 
+#### Uninstallation
+
+To safely uninstall Skyflo and clean up its resources from your cluster, you can run the provided uninstall script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/skyflo-ai/skyflo/main/uninstall.sh | bash
+# Or locally:
+./uninstall.sh
+```
+
+You can use the `--dry-run` flag to see what actions will be performed before actually uninstalling.
+
 ---
 
 ### Execution Model
