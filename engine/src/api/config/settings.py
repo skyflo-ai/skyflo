@@ -1,7 +1,11 @@
+import logging
 from typing import Literal, Optional
 
 from pydantic import Field, conint
 from pydantic_settings import BaseSettings
+
+logger = logging.getLogger(__name__)
+DEFAULT_SECRET = "CHANGE_ME_IN_PRODUCTION"
 
 
 class Settings(BaseSettings):
@@ -9,6 +13,7 @@ class Settings(BaseSettings):
     APP_VERSION: str
     APP_DESCRIPTION: str
     DEBUG: bool = False
+    ENV: str = Field(default="development")
     API_V1_STR: str = "/api/v1"
 
     LOG_LEVEL: str = "INFO"
@@ -56,6 +61,22 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        object.__setattr__(self, "ENV", (self.ENV or "").strip().lower())
+        if self.ENV not in {"development", "staging", "test", "production"}:
+            raise ValueError("ENV must be one of 'development', 'staging', 'test', or 'production'")
+
+        if self.JWT_SECRET == DEFAULT_SECRET and self.ENV == "production":
+            raise ValueError(
+                "Cannot start application in production with default JWT_SECRET. "
+                "Set a secure JWT_SECRET environment variable."
+            )
+        elif self.JWT_SECRET == DEFAULT_SECRET:
+            logger.warning(
+                "Using insecure default JWT_SECRET. "
+                "This is allowed in non-production environments "
+                "but must be changed before production."
+            )
 
         if self.POSTGRES_DATABASE_URL and "postgresql+" in self.POSTGRES_DATABASE_URL:
             self.POSTGRES_DATABASE_URL = self.POSTGRES_DATABASE_URL.replace(

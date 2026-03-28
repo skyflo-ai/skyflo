@@ -826,10 +826,13 @@ spec:
         env:
         - name: APP_VERSION
           value: "${VERSION}"
+        - name: ENV
+          value: "production"
         - name: MCP_SERVER_URL
           value: "${MCP_SERVER_URL}"
         - name: INTEGRATIONS_SECRET_NAMESPACE
           value: "${INTEGRATIONS_SECRET_NAMESPACE}"
+        
         resources:
           limits:
             cpu: 1000m
