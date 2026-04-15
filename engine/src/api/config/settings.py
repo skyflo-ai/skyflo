@@ -1,7 +1,12 @@
+import logging
 from typing import Literal, Optional
 
-from pydantic import Field, conint
+from pydantic import Field, conint, field_validator
 from pydantic_settings import BaseSettings
+
+logger = logging.getLogger(__name__)
+DEFAULT_SECRET = "CHANGE_ME_IN_PRODUCTION"
+INSECURE_SECRET_VALUES = {DEFAULT_SECRET, "", "${JWT_SECRET}"}
 
 
 class Settings(BaseSettings):
@@ -9,6 +14,7 @@ class Settings(BaseSettings):
     APP_VERSION: str
     APP_DESCRIPTION: str
     DEBUG: bool = False
+    ENV: Literal["development", "staging", "test", "production"] = Field(default="development")
     API_V1_STR: str = "/api/v1"
 
     LOG_LEVEL: str = "INFO"
@@ -23,7 +29,7 @@ class Settings(BaseSettings):
     RATE_LIMITING_ENABLED: bool = True
     RATE_LIMIT_PER_MINUTE: int = 100
 
-    JWT_SECRET: str = "CHANGE_ME_IN_PRODUCTION"
+    JWT_SECRET: str = DEFAULT_SECRET
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -48,6 +54,13 @@ class Settings(BaseSettings):
     )
     AGENT_TYPE: str = "assistant"
 
+    @field_validator("ENV", mode="before")
+    @classmethod
+    def normalize_env(cls, v):
+        if v is None or str(v).strip() == "":
+            return "development"
+        return str(v).strip().lower()
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -56,6 +69,22 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        normalized_jwt_secret = (self.JWT_SECRET or "").strip()
+        self.JWT_SECRET = normalized_jwt_secret
+
+        if self.ENV == "production" and normalized_jwt_secret in INSECURE_SECRET_VALUES:
+            raise ValueError(
+                f"Cannot start application in production with "
+                f"insecure JWT_SECRET {normalized_jwt_secret!r}. "
+                "Set a secure JWT_SECRET environment variable."
+            )
+        elif normalized_jwt_secret in INSECURE_SECRET_VALUES:
+            logger.warning(
+                f"Using insecure JWT_SECRET {normalized_jwt_secret!r}. "
+                "This is allowed in non-production environments "
+                "but must be changed before production."
+            )
 
         if self.POSTGRES_DATABASE_URL and "postgresql+" in self.POSTGRES_DATABASE_URL:
             self.POSTGRES_DATABASE_URL = self.POSTGRES_DATABASE_URL.replace(
