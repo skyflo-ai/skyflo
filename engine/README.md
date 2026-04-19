@@ -23,7 +23,7 @@ The workflow is a compact graph compiled with an optional Postgres checkpointer:
 - Nodes: `entry` → `model` → `gate` → `final` with conditional routing
 - `model` runs an LLM turn (via LiteLLM) and may produce tool calls
 - `gate` executes MCP tools (with approval policy) and feeds results back to the model
-- Auto-continue is applied conservatively based on a "next speaker" decision
+- Continuation between `model` and `gate` is driven by conditional edges based on pending tool calls and approval state
 - Stop requests are honored mid-stream via Redis flags
 
 Checkpointer:
@@ -180,7 +180,7 @@ Defined in `src/api/config/settings.py` (Pydantic Settings, `.env` loaded). Key 
 - Auth: `JWT_SECRET`, `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`
 - MCP: `MCP_SERVER_URL`
 - Integrations: `INTEGRATIONS_SECRET_NAMESPACE` (default `default`)
-- Workflow: `MAX_AUTO_CONTINUE_TURNS`, `LLM_MAX_ITERATIONS`
+- Workflow: `LLM_MAX_ITERATIONS`, `LLM_CONTEXT_WINDOW_MESSAGES` (max messages kept in the LLM context window per turn; default 40, increase for long-running troubleshooting sessions where older tool results need to remain in context)
 - LLM: `LLM_MODEL` (e.g. `gemini/gemini-2.5-pro`), `LLM_HOST` (optional), provider API key envs like `GEMINI_API_KEY`
 - Thinking/Reasoning: `LLM_REASONING_EFFORT` (`low`, `medium`, `high`), `LLM_THINKING_BUDGET_TOKENS` (Anthropic-specific), `LLM_MAX_TOKENS` (optional override when thinking is enabled)
 

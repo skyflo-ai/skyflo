@@ -11,7 +11,7 @@ from ..services.approvals import ApprovalService
 from ..services.checkpointer import get_checkpointer
 from ..services.mcp_client import MCPClient
 from ..services.stop_service import clear_stop
-from ..services.tool_executor import ToolExecutor
+from ..services.tool_executor import AVAILABLE_TOOLSETS, ToolExecutor
 from ..utils.clock import now_ms
 from ..utils.helpers import get_state_value
 from .model_node import ModelNode
@@ -20,18 +20,16 @@ from .stop import StopRequested, check_stop
 
 logger = logging.getLogger(__name__)
 
+INTERNAL_META_TOOLS = frozenset({"load_toolset"})
+
 EventCallback = Callable[[Dict[str, Any]], Awaitable[None]]
 
 
-def route_after_model(state: Dict[str, Any]) -> Literal["gate", "model", "final"]:
+def route_after_model(state: Dict[str, Any]) -> Literal["gate", "final"]:
     pending_tools = get_state_value(state, "pending_tools", [])
 
     if pending_tools:
         return "gate"
-
-    auto_turns = get_state_value(state, "auto_continue_turns", 0)
-    if auto_turns > 0:
-        return "model"
 
     return "final"
 
@@ -45,6 +43,8 @@ def route_from_entry(state: Dict[str, Any]) -> Literal["gate", "model"]:
 
 def route_after_gate(state: Dict[str, Any]) -> Literal["model", "final"]:
     if get_state_value(state, "awaiting_approval", False):
+        return "final"
+    if get_state_value(state, "error"):
         return "final"
     return "model"
 
@@ -85,7 +85,7 @@ class WorkflowGraph:
             "entry", route_from_entry, {"gate": "gate", "model": "model"}
         )
         workflow.add_conditional_edges(
-            "model", route_after_model, {"gate": "gate", "model": "model", "final": "final"}
+            "model", route_after_model, {"gate": "gate", "final": "final"}
         )
         workflow.add_conditional_edges(
             "gate", route_after_gate, {"model": "model", "final": "final"}
@@ -170,6 +170,9 @@ class WorkflowGraph:
                                 tool_call.get("args", {}) if isinstance(tool_call, dict) else {}
                             )
 
+                            if tool_name in INTERNAL_META_TOOLS:
+                                continue
+
                             title_value = tool_name
                             try:
                                 metadata = await self.tool_executor._get_tool_metadata(tool_name)
@@ -199,18 +202,21 @@ class WorkflowGraph:
                         except Exception:
                             continue
 
-                    await self.event_callback(
-                        {
-                            "type": "tools.pending",
-                            "run_id": get_state_value(state, "run_id", "unknown"),
-                            "tools": pending_payload,
-                            "timestamp": now_ms(),
-                        }
-                    )
+                    if pending_payload:
+                        await self.event_callback(
+                            {
+                                "type": "tools.pending",
+                                "run_id": get_state_value(state, "run_id", "unknown"),
+                                "tools": pending_payload,
+                                "timestamp": now_ms(),
+                            }
+                        )
             except Exception:
                 pass
 
             tool_messages = []
+            loaded_toolsets = dict(get_state_value(state, "loaded_toolsets", {"k8s": False}))
+            toolsets_changed = False
 
             for idx, tool_call in enumerate(pending_tools):
                 try:
@@ -218,6 +224,19 @@ class WorkflowGraph:
                     original_id = tool_call.get("id")
                     display_id = tool_call.get("call_id") or original_id
                     tool_args = tool_call.get("args", {}) if isinstance(tool_call, dict) else {}
+
+                    if tool_name == "load_toolset":
+                        result_content = self._handle_load_toolset(tool_args, loaded_toolsets)
+                        toolsets_changed = True
+                        tool_messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": original_id,
+                                "name": tool_name,
+                                "content": result_content,
+                            }
+                        )
+                        continue
 
                     tool_results = await self.tool_executor.execute(
                         run_id=get_state_value(state, "run_id", "unknown"),
@@ -247,13 +266,15 @@ class WorkflowGraph:
 
                 except ToolExecutor.ApprovalPending:
                     remaining_tools = pending_tools[idx:]
-                    return {
+                    result = {
                         "messages": tool_messages,
                         "pending_tools": remaining_tools,
                         "awaiting_approval": True,
-                        "auto_continue_turns": 0,
                         "suppress_pending_event": False,
                     }
+                    if toolsets_changed:
+                        result["loaded_toolsets"] = loaded_toolsets
+                    return result
                 except Exception as tool_error:
                     err_tool = tool_call.get("name", "unknown")
                     logger.exception(f"Error executing tool {err_tool}: {tool_error}")
@@ -266,12 +287,15 @@ class WorkflowGraph:
                     }
                     tool_messages.append(error_message)
 
-            return {
+            result = {
                 "messages": tool_messages,
                 "pending_tools": [],
                 "awaiting_approval": False,
                 "suppress_pending_event": False,
             }
+            if toolsets_changed:
+                result["loaded_toolsets"] = loaded_toolsets
+            return result
 
         except Exception as e:
             logger.exception(f"Error in gate node: {str(e)}")
@@ -288,6 +312,42 @@ class WorkflowGraph:
                 "error": str(e),
                 "suppress_pending_event": False,
             }
+
+    def _handle_load_toolset(
+        self,
+        args: Dict[str, Any],
+        loaded_toolsets: Dict[str, bool],
+    ) -> str:
+        toolset = (args.get("toolset") or "").strip().lower()
+
+        if toolset not in AVAILABLE_TOOLSETS:
+            return f"Unknown toolset '{toolset}'. Available: {', '.join(AVAILABLE_TOOLSETS)}"
+
+        val = args.get("include_write_tools")
+        if isinstance(val, bool):
+            include_write = val
+        elif isinstance(val, str) and val.strip().lower() in ("true", "false"):
+            include_write = val.strip().lower() == "true"
+        elif val is None:
+            return (
+                "Missing required argument 'include_write_tools' (boolean). "
+                "Pass true to load write/mutation tools, false for read-only."
+            )
+        else:
+            return f"Invalid 'include_write_tools' value: {val!r}. Must be a boolean."
+
+        already_loaded = toolset in loaded_toolsets
+        had_write = loaded_toolsets.get(toolset, False)
+        upgraded = include_write and not had_write
+
+        loaded_toolsets[toolset] = had_write or include_write
+
+        mode = "read and write" if loaded_toolsets[toolset] else "read-only"
+
+        if already_loaded and not upgraded:
+            return f"Toolset '{toolset}' is already loaded ({mode})."
+
+        return f"Toolset '{toolset}' loaded ({mode}). You can now use {toolset} tools."
 
     async def _final_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
         end_time = time.time()

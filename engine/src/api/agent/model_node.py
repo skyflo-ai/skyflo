@@ -4,12 +4,11 @@ import logging
 import re
 import time
 import uuid
-from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 import litellm
-from litellm import acompletion, completion_cost, cost_per_token
+from litellm import acompletion, cost_per_token
 from litellm.exceptions import RateLimitError
-from pydantic import BaseModel, Field
 
 from ..config import settings
 from ..services.stop_service import should_stop
@@ -19,8 +18,8 @@ from ..utils.sanitization import (
     prepare_messages_with_system_prompt,
     sanitize_messages_for_gemini,
     sanitize_messages_for_openai,
+    window_messages,
 )
-from .prompts import NEXT_SPEAKER_CHECK_PROMPT
 from .stop import StopRequested
 
 # Required to transform params for reasoning and thinking features.
@@ -92,82 +91,26 @@ def _get_reasoning_config(model: str) -> Dict[str, Any]:
     return {"enabled": False}
 
 
-class NextSpeakerDecision(BaseModel):
-    reasoning: str = Field(..., description="Brief explanation of the decision")
-    next_speaker: Literal["user", "model"] = Field(..., description="Who should speak next")
+ToolsProvider = Callable[[Optional[Dict[str, bool]]], Awaitable[List[Dict[str, Any]]]]
 
 
-async def decide_next_speaker(
-    messages: List[Dict[str, Any]],
-    model: str,
-    api_key: Optional[str] = None,
-    event_callback: Optional[EventCallback] = None,
-    conversation_id: Optional[str] = None,
-) -> str:
-    curated = messages[-6:] if len(messages) > 6 else messages
-    curated = sanitize_messages_for_openai(curated)
-    curated = _strip_reasoning_content(curated)
-    judge_messages = curated + [{"role": "user", "content": NEXT_SPEAKER_CHECK_PROMPT}]
+_ANTHROPIC_CACHE_PROVIDERS = frozenset({"anthropic", "bedrock", "vertex_ai"})
 
-    completion_kwargs = {
-        "model": model,
-        "messages": judge_messages,
-        "response_format": NextSpeakerDecision,
-        "reasoning_effort": "low",
-        "drop_params": True,
-    }
 
-    if api_key:
-        completion_kwargs["api_key"] = api_key
+def _supports_prompt_caching(model: str, provider: str) -> bool:
+    """Detect whether the target model supports Anthropic-style prompt caching.
 
-    try:
-        resp = await acompletion(**completion_kwargs)
-
-        if event_callback and hasattr(resp, "usage") and resp.usage:
-            usage = resp.usage
-
-            def get_val(obj, key, default=None):
-                val = getattr(obj, key, None)
-                if val is None and hasattr(obj, "get"):
-                    val = obj.get(key)
-                return val if val is not None else default
-
-            prompt_tokens = get_val(usage, "prompt_tokens", 0)
-            completion_tokens = get_val(usage, "completion_tokens", 0)
-            total_tokens = get_val(usage, "total_tokens", 0)
-
-            cached_tokens = None
-            details = get_val(usage, "prompt_tokens_details")
-            if details:
-                cached_tokens = get_val(details, "cached_tokens")
-
-            cost = 0.0
-            try:
-                cost = completion_cost(completion_response=resp)
-            except Exception as e:
-                logger.debug(f"Error calculating cost: {e}")
-                pass
-
-            await event_callback(
-                {
-                    "type": "token.usage",
-                    "source": "turn_check",
-                    "model": model,
-                    "prompt_tokens": prompt_tokens or 0,
-                    "completion_tokens": completion_tokens or 0,
-                    "total_tokens": total_tokens or 0,
-                    "cached_tokens": cached_tokens,
-                    "cost": cost,
-                    "conversation_id": conversation_id,
-                    "timestamp": now_ms(),
-                }
-            )
-
-        parsed = NextSpeakerDecision.model_validate_json(resp.choices[0].message.content)
-        return parsed.next_speaker
-    except Exception as e:
-        logger.debug(f"Error in decide_next_speaker, defaulting to 'user': {e}")
-        return "user"
+    The ``cache_control_injection_points`` request parameter is the litellm
+    transform for Anthropic's prompt caching protocol. It applies to Claude
+    on the native Anthropic API as well as Claude on Bedrock and Vertex AI.
+    Other providers (OpenAI, Gemini, etc.) cache automatically and must not
+    receive this parameter.
+    """
+    if provider == "anthropic":
+        return True
+    if provider in _ANTHROPIC_CACHE_PROVIDERS and "claude" in model.lower():
+        return True
+    return False
 
 
 async def run_model_turn(
@@ -176,7 +119,8 @@ async def run_model_turn(
     conversation_id: Optional[str] = None,
     run_id: Optional[str] = None,
     max_retries: int = 3,
-    tools_provider: Optional[Callable[[], Awaitable[List[Dict[str, Any]]]]] = None,
+    tools_provider: Optional[ToolsProvider] = None,
+    loaded_toolsets: Optional[Dict[str, Any]] = None,
     start_time: Optional[float] = None,
     ttft_emitted: bool = False,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], bool]:
@@ -203,7 +147,7 @@ async def run_model_turn(
             tools: List[Dict[str, Any]] = []
             try:
                 if tools_provider:
-                    tools = await tools_provider()
+                    tools = await tools_provider(loaded_toolsets)
                 if tools and not _validate_tools_schema(tools):
                     tools = []
             except Exception as e:
@@ -218,7 +162,8 @@ async def run_model_turn(
             reasoning_cfg = _get_reasoning_config(model)
             reasoning_enabled = reasoning_cfg["enabled"]
 
-            prepared_messages = prepare_messages_with_system_prompt(messages)
+            windowed = window_messages(messages)
+            prepared_messages = prepare_messages_with_system_prompt(windowed)
             prepared_messages = sanitize_messages_for_openai(prepared_messages)
 
             model_parts = set(model.split("/"))
@@ -262,6 +207,12 @@ async def run_model_turn(
 
             if hasattr(settings, "LLM_HOST") and settings.LLM_HOST:
                 completion_kwargs["api_base"] = settings.LLM_HOST
+
+            if _supports_prompt_caching(model, provider):
+                completion_kwargs["cache_control_injection_points"] = [
+                    {"location": "message", "role": "system"},
+                    {"location": "tool_config"},
+                ]
 
             if event_callback:
                 await event_callback(
@@ -704,7 +655,7 @@ class ModelNode:
     def __init__(
         self,
         event_callback: Optional[EventCallback] = None,
-        tools_provider: Optional[Callable[[], Awaitable[List[Dict[str, Any]]]]] = None,
+        tools_provider: Optional[ToolsProvider] = None,
     ):
         self.event_callback = event_callback
         self.tools_provider = tools_provider
@@ -714,11 +665,6 @@ class ModelNode:
             run_id = get_state_value(state, "run_id")
             if await should_stop(run_id):
                 raise StopRequested()
-
-            auto_turns = get_state_value(state, "auto_continue_turns", 0)
-
-            if auto_turns > 0:
-                auto_decrement_delta = {"auto_continue_turns": max(0, auto_turns - 1)}
 
             messages = get_state_value(state, "messages", [])
             conversation_id = get_state_value(state, "conversation_id")
@@ -732,6 +678,7 @@ class ModelNode:
 
             start_time = get_state_value(state, "start_time")
             ttft_emitted = get_state_value(state, "ttft_emitted", False)
+            loaded_toolsets = get_state_value(state, "loaded_toolsets", {"k8s": False})
 
             assistant_msgs, tool_calls, new_ttft_emitted = await run_model_turn(
                 messages=messages,
@@ -740,49 +687,17 @@ class ModelNode:
                 run_id=run_id,
                 max_retries=3,
                 tools_provider=self.tools_provider,
+                loaded_toolsets=loaded_toolsets,
                 start_time=start_time,
                 ttft_emitted=ttft_emitted,
             )
 
-            updated_state = {"messages": assistant_msgs}
+            updated_state = {"messages": assistant_msgs, "pending_tools": []}
             if new_ttft_emitted:
                 updated_state["ttft_emitted"] = True
 
             if tool_calls:
                 updated_state["pending_tools"] = tool_calls
-            else:
-                model = settings.LLM_MODEL
-                provider = model.split("/")[0] if "/" in model else "openai"
-                api_key = get_api_key_for_provider(provider)
-
-                decision_context = get_state_value(state, "messages", []) + assistant_msgs
-                decision = await decide_next_speaker(
-                    decision_context,
-                    model,
-                    api_key,
-                    event_callback=self.event_callback,
-                    conversation_id=conversation_id,
-                )
-
-                if decision == "model":
-                    if get_state_value(state, "awaiting_approval", False):
-                        updated_state.setdefault("pending_tools", [])
-                        if auto_turns > 0:
-                            updated_state.update({"auto_continue_turns": max(0, auto_turns - 1)})
-                        return updated_state
-                    updated_state["messages"] = updated_state["messages"] + [
-                        {"role": "user", "content": "Please continue."}
-                    ]
-                    max_auto_turns = getattr(settings, "MAX_AUTO_CONTINUE_TURNS", 2)
-                    current_auto_turns = get_state_value(state, "auto_continue_turns", 0)
-                    updated_state["auto_continue_turns"] = min(
-                        current_auto_turns + 1, max_auto_turns
-                    )
-
-                updated_state.setdefault("pending_tools", [])
-
-            if auto_turns > 0 and "auto_continue_turns" not in updated_state:
-                updated_state.update(auto_decrement_delta)
 
             return updated_state
 

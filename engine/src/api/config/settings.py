@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     INTEGRATIONS_SECRET_NAMESPACE: Optional[str] = Field(default="default")
 
-    MAX_AUTO_CONTINUE_TURNS: int = 2
+    LLM_CONTEXT_WINDOW_MESSAGES: int = 40
 
     LLM_MODEL: Optional[str] = Field(default="openai/gpt-4o", env="LLM_MODEL")
     LLM_HOST: Optional[str] = Field(default=None, env="LLM_HOST")

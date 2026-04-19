@@ -152,12 +152,12 @@ async def _with_client(api_url: str, credentials_ref: str, verify: bool = True) 
 
 @mcp.tool(title="Jenkins: Get Job", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_get_job(
-    api_url: str = Field(description="Base Jenkins URL, e.g., https://jenkins.example.com"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
-    jobFullName: str = Field(description="Full job path, e.g., Folder/Sub/Job"),
-    tree: Optional[str] = Field(default="name,url,color", description="Optional tree filter"),
+    api_url: str,
+    jobFullName: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
+    tree: Optional[str] = Field(default="name,url,color"),
 ) -> ToolOutput:
-    """Get details of a specific Jenkins job."""
+    """Get specific Jenkins job details."""
     client = await _with_client(api_url, credentials_ref)
     try:
         path = f"{build_job_path(jobFullName)}/api/json"
@@ -174,22 +174,24 @@ async def jenkins_get_job(
     annotations={"readOnlyHint": True},
 )
 async def jenkins_get_jobs(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
+    api_url: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
     start: Optional[int] = Field(default=0, description="Pagination start index"),
     limit: Optional[int] = Field(default=50, description="Page size (max ~100)"),
 ) -> ToolOutput:
     """List Jenkins jobs with pagination."""
     client = await _with_client(api_url, credentials_ref)
     try:
-        tree = f"jobs[name,url]{{0,{max(0, limit or 50)}}}"
+        start_idx = max(0, start or 0)
+        limit_val = max(0, limit or 50)
+        end_idx = start_idx + limit_val
+        tree = f"jobs[name,url]{{{start_idx},{end_idx}}}"
         resp = await client.get("/api/json", params={"tree": tree})
         if not resp.is_success:
             return normalize_response(resp)
         body = resp.json()
         jobs = body.get("jobs", [])
-        sliced = jobs[start : (start or 0) + (limit or 50)]
-        data = {"status": resp.status_code, "body": {"jobs": sliced}}
+        data = {"status": resp.status_code, "body": {"jobs": jobs}}
         return {"output": json.dumps(data), "error": False}
     finally:
         await client.close()
@@ -201,15 +203,15 @@ async def jenkins_get_jobs(
     annotations={"readOnlyHint": False},
 )
 async def jenkins_trigger_build(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
-    jobFullName: str = Field(description="Full job path"),
+    api_url: str,
+    jobFullName: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
     parameters: Optional[Dict[str, Any]] = Field(
-        default=None, description="Optional parameters for parameterized jobs"
+        default=None, description="Parameters for parameterized jobs"
     ),
-    verify: Optional[bool] = Field(default=True, description="TLS verify"),
+    verify: Optional[bool] = Field(default=True, description="Verify TLS certificates"),
 ) -> ToolOutput:
-    """Trigger a Jenkins build, optionally with parameters."""
+    """Trigger Jenkins build, optionally with parameters."""
     client = await _with_client(
         api_url, credentials_ref, verify=verify if verify is not None else True
     )
@@ -265,15 +267,13 @@ async def jenkins_trigger_build(
 
 @mcp.tool(title="Jenkins: Get Build", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_get_build(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
-    jobFullName: str = Field(description="Full job path"),
-    build: Optional[str] = Field(default="lastBuild", description="Build number or 'lastBuild'"),
-    tree: Optional[str] = Field(
-        default="number,result,timestamp,url", description="Optional tree filter"
-    ),
+    api_url: str,
+    jobFullName: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
+    build: Optional[str] = Field(default="lastBuild", description="Number or 'lastBuild'"),
+    tree: Optional[str] = Field(default="number,result,timestamp,url"),
 ) -> ToolOutput:
-    """Get details of a specific Jenkins build."""
+    """Get specific Jenkins build details."""
     client = await _with_client(api_url, credentials_ref)
     try:
         path = f"{build_job_path(jobFullName)}/{build or 'lastBuild'}/api/json"
@@ -290,19 +290,13 @@ async def jenkins_get_build(
     annotations={"readOnlyHint": True},
 )
 async def jenkins_get_last_builds(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
-    jobFullName: str = Field(description="Full job path"),
-    count: Optional[int] = Field(
-        default=10,
-        description="Number of recent builds to retrieve (default: 10, max: 100)",
-    ),
-    tree: Optional[str] = Field(
-        default="number,result,timestamp,url,duration",
-        description="Optional tree filter for build fields",
-    ),
+    api_url: str,
+    jobFullName: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
+    count: Optional[int] = Field(default=10, description="Number of recent builds (max 100)"),
+    tree: Optional[str] = Field(default="number,result,timestamp,url,duration"),
 ) -> ToolOutput:
-    """Get the last N builds for a Jenkins job."""
+    """Get last N builds Jenkins job."""
     client = await _with_client(api_url, credentials_ref)
     try:
         build_count = max(1, min(count or 10, 100))
@@ -338,14 +332,14 @@ async def jenkins_get_last_builds(
 
 @mcp.tool(title="Jenkins: Update Build", tags=["jenkins"], annotations={"readOnlyHint": False})
 async def jenkins_update_build(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
-    jobFullName: str = Field(description="Full job path"),
-    build: Optional[int] = Field(default=None, description="Build number; defaults to lastBuild"),
+    api_url: str,
+    jobFullName: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
+    build: Optional[int] = Field(default=None, description="Defaults to lastBuild"),
     displayName: Optional[str] = Field(default=None, description="New display name"),
     description: Optional[str] = Field(default=None, description="New description"),
 ) -> ToolOutput:
-    """Update the display name or description of a Jenkins build."""
+    """Update display name or description Jenkins build."""
     client = await _with_client(api_url, credentials_ref)
     try:
         target = f"{build_job_path(jobFullName)}/{build if build is not None else 'lastBuild'}"
@@ -374,14 +368,12 @@ async def jenkins_update_build(
 
 @mcp.tool(title="Jenkins: Stop Build", tags=["jenkins"], annotations={"readOnlyHint": False})
 async def jenkins_stop_build(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
-    jobFullName: str = Field(description="Full job path"),
-    build: Optional[str] = Field(default="lastBuild", description="Build number or 'lastBuild'"),
+    api_url: str,
+    jobFullName: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
+    build: Optional[str] = Field(default="lastBuild", description="Number or 'lastBuild'"),
 ) -> ToolOutput:
-    """Stop/cancel a running Jenkins build.
-    This tool attempts to stop a running build. If the build is not currently running, it will return a clear message indicating the current state.
-    """
+    """Stop/cancel running Jenkins build."""
 
     client = await _with_client(api_url, credentials_ref)
     try:
@@ -478,13 +470,13 @@ async def jenkins_stop_build(
 
 @mcp.tool(title="Jenkins: Get Build Log", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_get_build_log(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
-    jobFullName: str = Field(description="Full job path"),
-    build: Optional[int] = Field(default=None, description="Build number; defaults to lastBuild"),
-    start: Optional[int] = Field(default=0, description="Log offset to start from"),
+    api_url: str,
+    jobFullName: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
+    build: Optional[int] = Field(default=None, description="Defaults to lastBuild"),
+    start: Optional[int] = Field(default=0, description="Log byte offset to start from"),
 ) -> ToolOutput:
-    """Get the console log output of a Jenkins build."""
+    """Get console log output Jenkins build."""
     client = await _with_client(api_url, credentials_ref)
     try:
         b = build if build is not None else "lastBuild"
@@ -508,11 +500,11 @@ async def jenkins_get_build_log(
 
 @mcp.tool(title="Jenkins: Get Job SCM", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_get_job_scm(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
-    jobFullName: str = Field(description="Full job path"),
+    api_url: str,
+    jobFullName: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
 ) -> ToolOutput:
-    """Get SCM configuration for a Jenkins job."""
+    """Get SCM config Jenkins job."""
     client = await _with_client(api_url, credentials_ref)
     try:
         # Try JSON first
@@ -530,12 +522,12 @@ async def jenkins_get_job_scm(
 
 @mcp.tool(title="Jenkins: Get Build SCM", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_get_build_scm(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
-    jobFullName: str = Field(description="Full job path"),
-    build: Optional[int] = Field(default=None, description="Build number; defaults to lastBuild"),
+    api_url: str,
+    jobFullName: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
+    build: Optional[int] = Field(default=None, description="Defaults to lastBuild"),
 ) -> ToolOutput:
-    """Get SCM details for a specific Jenkins build."""
+    """Get SCM details specific Jenkins build."""
     client = await _with_client(api_url, credentials_ref)
     try:
         b = build if build is not None else "lastBuild"
@@ -551,12 +543,12 @@ async def jenkins_get_build_scm(
     annotations={"readOnlyHint": True},
 )
 async def jenkins_get_build_changesets(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name)"),
-    jobFullName: str = Field(description="Full job path"),
-    build: Optional[int] = Field(default=None, description="Build number; defaults to lastBuild"),
+    api_url: str,
+    jobFullName: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
+    build: Optional[int] = Field(default=None, description="Defaults to lastBuild"),
 ) -> ToolOutput:
-    """Get change sets (commits) for a specific Jenkins build."""
+    """Get change sets (commits) specific Jenkins build."""
     client = await _with_client(api_url, credentials_ref)
     try:
         b = build if build is not None else "lastBuild"
@@ -576,10 +568,10 @@ async def jenkins_get_build_changesets(
 
 @mcp.tool(title="Jenkins: Who Am I", tags=["jenkins"], annotations={"readOnlyHint": True})
 async def jenkins_whoami(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
+    api_url: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
 ) -> ToolOutput:
-    """Get the authenticated Jenkins user identity."""
+    """Get authenticated Jenkins user identity."""
     client = await _with_client(api_url, credentials_ref)
     try:
         resp = await client.get("/me/api/json")
@@ -653,12 +645,12 @@ def _parse_config_xml(xml_text: str) -> List[dict]:
     annotations={"readOnlyHint": True},
 )
 async def jenkins_get_job_parameters(
-    api_url: str = Field(description="Base Jenkins URL"),
-    credentials_ref: str = Field(description="Kubernetes Secret ref: namespace/name"),
-    jobFullName: str = Field(description="Full job path"),
-    verify: Optional[bool] = Field(default=True, description="TLS verify"),
+    api_url: str,
+    jobFullName: str,
+    credentials_ref: str = Field(description="K8s Secret: namespace/name"),
+    verify: Optional[bool] = Field(default=True, description="Verify TLS certificates"),
 ) -> ToolOutput:
-    """Get the parameter definitions for a Jenkins job."""
+    """Get parameter definitions Jenkins job."""
     client = await _with_client(api_url, credentials_ref, verify=verify)
     try:
         # Try JSON first

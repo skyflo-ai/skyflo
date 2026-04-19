@@ -2,8 +2,11 @@ import logging
 from typing import Any, Dict, List
 
 from ..agent.prompts import SYSTEM_PROMPT
+from ..config import settings
 
 logger = logging.getLogger(__name__)
+
+CONTEXT_WINDOW_MESSAGES_DEFAULT = 40
 
 
 def prepare_messages_with_system_prompt(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -194,3 +197,71 @@ def sanitize_messages_for_gemini(tools: List[Dict[str, Any]]) -> List[Dict[str, 
             sanitized_tools.append(tool)
 
     return sanitized_tools
+
+
+def window_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    max_messages = getattr(settings, "LLM_CONTEXT_WINDOW_MESSAGES", CONTEXT_WINDOW_MESSAGES_DEFAULT)
+    if not messages or len(messages) <= max_messages:
+        return messages
+
+    system_msgs = []
+    non_system = []
+    for msg in messages:
+        if msg.get("role") == "system":
+            system_msgs.append(msg)
+        else:
+            non_system.append(msg)
+
+    first_user_msg = None
+    first_user_idx = None
+    for i, msg in enumerate(non_system):
+        if msg.get("role") == "user":
+            first_user_msg = msg
+            first_user_idx = i
+            break
+
+    reserved = len(system_msgs) + (1 if first_user_msg else 0)
+    tail_budget = max_messages - reserved
+
+    if tail_budget <= 0:
+        return (system_msgs + non_system)[-max_messages:]
+
+    tail = non_system[-tail_budget:]
+    tail_start_idx = len(non_system) - len(tail)
+    prepend_first_user = (
+        first_user_msg is not None
+        and first_user_idx is not None
+        and first_user_idx < tail_start_idx
+    )
+
+    if prepend_first_user:
+        tail = [first_user_msg] + tail[: tail_budget - 1]
+        tail = tail[-tail_budget:]
+        head, rest = tail[:1], tail[1:]
+        if _has_orphaned_tool_messages(rest):
+            rest = _drop_leading_orphan_tools(rest)
+        tail = head + rest
+    elif _has_orphaned_tool_messages(tail):
+        tail = _drop_leading_orphan_tools(tail)
+
+    result = (system_msgs + tail)[-max_messages:]
+
+    if len(result) < len(messages):
+        logger.debug(
+            f"Context windowed: {len(messages)} -> {len(result)} messages (limit {max_messages})"
+        )
+
+    return result
+
+
+def _has_orphaned_tool_messages(messages: List[Dict[str, Any]]) -> bool:
+    if not messages:
+        return False
+    return messages[0].get("role") == "tool"
+
+
+def _drop_leading_orphan_tools(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    idx = 0
+    while idx < len(messages) and messages[idx].get("role") == "tool":
+        idx += 1
+    return messages[idx:]

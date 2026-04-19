@@ -456,6 +456,12 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               ...last,
               text: last.text + token,
             };
+          } else if (last && last.kind === "thinking" && last.isComplete) {
+            segments[segments.length - 1] = {
+              ...last,
+              text: last.text + "\n\n" + token,
+              isComplete: false,
+            };
           } else {
             segments.push({
               kind: "thinking" as const,
@@ -487,11 +493,13 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           if (idx >= 0) {
             const seg = segments[idx];
             if (seg.kind === "thinking") {
+              const prior = seg.completionCount || 0;
               segments[idx] = {
                 ...seg,
-                text: content,
+                text: prior > 0 ? seg.text : content,
                 isComplete: true,
-                durationMs,
+                durationMs: (seg.durationMs || 0) + durationMs,
+                completionCount: prior + 1,
               };
             }
           }

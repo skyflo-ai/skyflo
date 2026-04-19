@@ -34,6 +34,7 @@ export type MessageSegment =
       text: string;
       isComplete?: boolean;
       durationMs?: number;
+      completionCount?: number;
       timestamp?: number;
     }
   | {

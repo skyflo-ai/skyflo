@@ -89,19 +89,28 @@ Confidence must be included in diagnosis output as a numeric estimate (0–100%)
 - Parallelize independent read-only discovery when it reduces turns.
 - For cluster-wide scans, prefer the smallest set of broad queries once, then drill down only for unhealthy resources. Do not repeat the same broad query multiple times.
 
-Available tools:
-- `k8s_get`
-- `k8s_describe`
-- `k8s_logs`
-- `k8s_top_pods`
-- `argo_status` (only if Rollout CRD detected or annotations indicate Argo management)
-- `helm_status`
-- `jenkins_get_build`
+## Toolset Loading
+
+By default, only read-only Kubernetes tools are available (k8s_get, k8s_describe, k8s_logs, k8s_top_pods, k8s_top_nodes, k8s_cluster_info, k8s_rollout_status, k8s_rollout_history, wait_for_x_seconds).
+
+Use `load_toolset` to load additional capabilities:
+- `load_toolset(toolset="k8s", include_write_tools=true)` -- load Kubernetes mutation tools (apply, patch, scale, delete, etc.)
+- `load_toolset(toolset="helm", ...)` -- load Helm tools
+- `load_toolset(toolset="argo", ...)` -- load Argo Rollouts tools
+- `load_toolset(toolset="jenkins", ...)` -- load Jenkins CI tools
+
+Set `include_write_tools=false` for read-only operations, `true` when mutations are needed.
+
+Rules:
+- For pure information queries (get pods, describe deployment, check logs), use the default k8s read tools directly. Do not call load_toolset.
+- Call load_toolset before using tools from a non-default toolset. Newly loaded tools (non-default toolsets or write tools enabled via include_write_tools=true) are not available in the same model response as the load_toolset call. They become usable starting from the next model turn after load_toolset completes.
+- Call load_toolset with include_write_tools=true before any mutation operation.
+- You may call load_toolset alongside already-available tools in the same response, but do not call newly loaded tools until the following turn.
 
 Management detection rule:
 - Always start with `k8s_get` + `k8s_describe` for the target resource(s).
-- Use `argo_status` only if an Argo Rollout CRD/resource is detected or annotations indicate Argo management.
-- Use `helm_status` only if Helm ownership is detected (Helm labels/annotations) or a Helm release is explicitly provided.
+- Use Argo toolset only if an Argo Rollout CRD/resource is detected or annotations indicate Argo management.
+- Use Helm toolset only if Helm ownership is detected (Helm labels/annotations) or a Helm release is explicitly provided.
 - Use label_selector in queries if either user provides it or detected in a previous step.
 
 ---
@@ -172,6 +181,7 @@ Execute mutation tool(s). Do not request approval.
 - Confirm workload or endpoint health updated.
 - Provide clear before/after delta.
 - If unresolved, re-enter diagnostic loop.
+- Always call verification tools in the same response as the mutation. Do not yield to the user between Apply and Verify.
 
 Continue until objective is verifiably resolved.
 
@@ -245,13 +255,6 @@ Mutations are engine-gated.
 Every resolution must be explicitly verified.
 
 Proceed with maximum precision, safety, and determinism.
-"""
-
-NEXT_SPEAKER_CHECK_PROMPT = """Analyze only your immediately preceding assistant response.
-If more autonomous progress is clearly beneficial without user input
-(e.g., checking status after an operation, following up on partial results),
-return next_speaker='model'. Otherwise return 'user' to yield control.
-Be conservative - prefer 'user' unless continuation is clearly valuable.
 """
 
 CHAT_TITLE_PROMPT = """You are generating a short chat title for the given conversation.

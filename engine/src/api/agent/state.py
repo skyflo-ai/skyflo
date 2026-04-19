@@ -19,11 +19,11 @@ class AgentState(BaseModel):
     error: Optional[str] = None
     retry_count: int = 0
     max_retries: int = 3
-    auto_continue_turns: int = 0
     awaiting_approval: bool = False
     suppress_pending_event: bool = False
     ttft_emitted: bool = False
     approval_decisions: Dict[str, bool] = Field(default_factory=dict)
+    loaded_toolsets: Dict[str, bool] = Field(default_factory=lambda: {"k8s": False})
 
     class Config:
         arbitrary_types_allowed = True

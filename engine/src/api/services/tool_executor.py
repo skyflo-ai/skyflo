@@ -14,6 +14,96 @@ from .tools_cache import ToolsCache
 
 logger = logging.getLogger(__name__)
 
+AVAILABLE_TOOLSETS = ("k8s", "helm", "argo", "jenkins")
+
+LOAD_TOOLSET_TOOL: Dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "load_toolset",
+        "description": (
+            "Load additional tool categories into the current session. "
+            "By default only read-only Kubernetes tools are available. "
+            "Call this to load Helm, Argo Rollouts, or Jenkins tools, "
+            "or to enable write/mutation operations for any toolset. "
+            "Newly loaded tools are not callable in the same response as "
+            "load_toolset. They become available on the next model turn."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "toolset": {
+                    "type": "string",
+                    "enum": list(AVAILABLE_TOOLSETS),
+                    "description": "The toolset category to load.",
+                },
+                "include_write_tools": {
+                    "type": "boolean",
+                    "description": (
+                        "Set to true to include write/mutation tools "
+                        "(apply, delete, scale, patch, install, etc.). "
+                        "Leave false for read-only operations."
+                    ),
+                },
+            },
+            "required": ["toolset", "include_write_tools"],
+        },
+    },
+}
+
+
+def _resolve_tool_tag(tool: Dict[str, Any]) -> Optional[str]:
+    tags = tool.get("tags")
+    if isinstance(tags, list) and tags:
+        return tags[0]
+
+    meta = tool.get("meta") or {}
+    fastmcp = meta.get("_fastmcp") or {}
+    fm_tags = fastmcp.get("tags")
+    if isinstance(fm_tags, list) and fm_tags:
+        return fm_tags[0]
+
+    name = tool.get("name", "")
+    if isinstance(name, str):
+        if name.startswith("k8s_") or name == "wait_for_x_seconds":
+            return "k8s"
+        if name.startswith("helm_"):
+            return "helm"
+        if name.startswith("argo_"):
+            return "argo"
+        if name.startswith("jenkins_"):
+            return "jenkins"
+
+    return None
+
+
+def _is_read_only(tool: Dict[str, Any]) -> bool:
+    annotations = tool.get("annotations") or {}
+    return bool(annotations.get("readOnlyHint", False))
+
+
+ALLOWED_TOOL_TAGS = frozenset(AVAILABLE_TOOLSETS)
+
+
+def filter_tools_by_loaded_toolsets(
+    tools: List[Dict[str, Any]],
+    loaded_toolsets: Dict[str, bool],
+) -> List[Dict[str, Any]]:
+    filtered = []
+    for tool in tools:
+        tag = _resolve_tool_tag(tool)
+        if tag is None or tag not in ALLOWED_TOOL_TAGS:
+            continue
+
+        if tag not in loaded_toolsets:
+            continue
+
+        include_write = loaded_toolsets[tag]
+        if include_write or _is_read_only(tool):
+            filtered.append(tool)
+
+    return filtered
+
+
 ProgressCallback = Callable[[str, Optional[float]], Awaitable[None]]
 EventCallback = Callable[[Dict[str, Any]], Awaitable[None]]
 
@@ -116,23 +206,44 @@ class ToolExecutor:
 
         return args, None
 
-    async def get_llm_compatible_tools(self) -> List[Dict[str, Any]]:
+    async def get_llm_compatible_tools(
+        self, loaded_toolsets: Optional[Dict[str, bool]] = None
+    ) -> List[Dict[str, Any]]:
         try:
             all_tools = await self._tools.get_all(self._fetch_tools_from_server)
 
             all_tools = await self.filter_integrations_tools(all_tools)
 
-            return mcp_tools_to_openai_format({"tools": all_tools})
+            if loaded_toolsets is not None:
+                all_tools = filter_tools_by_loaded_toolsets(all_tools, loaded_toolsets)
+
+            openai_tools = mcp_tools_to_openai_format({"tools": all_tools})
+            openai_tools.append(LOAD_TOOLSET_TOOL)
+
+            logger.debug(f"Tools provided: {len(openai_tools)} (toolsets={loaded_toolsets})")
+
+            return openai_tools
         except Exception as e:
             logger.error(f"Error preparing OpenAI-compatible tools: {e}")
             try:
                 client = await self._get_mcp_client()
                 tools_raw = await client.get_tools()
 
-                return mcp_tools_to_openai_format(tools_raw)
+                raw_list = (
+                    tools_raw.get("tools", [])
+                    if isinstance(tools_raw, dict)
+                    else tools_raw
+                    if isinstance(tools_raw, list)
+                    else []
+                )
+                if loaded_toolsets is not None:
+                    raw_list = filter_tools_by_loaded_toolsets(raw_list, loaded_toolsets)
+                openai_tools = mcp_tools_to_openai_format({"tools": raw_list})
+                openai_tools.append(LOAD_TOOLSET_TOOL)
+                return openai_tools
             except Exception as inner:
                 logger.error(f"Fallback tools fetch failed: {inner}")
-                return []
+                return [LOAD_TOOLSET_TOOL]
 
     class ApprovalPending(Exception):
         def __init__(self, call_id: str, tool: str):

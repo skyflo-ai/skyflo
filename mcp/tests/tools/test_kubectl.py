@@ -390,7 +390,7 @@ class TestK8sExec:
                 pod_name="nginx-pod",
                 command="cat /etc/nginx/nginx.conf",
                 namespace="web",
-                container="nginx",
+                container_name="nginx",
             )
 
             mock_run_command.assert_called_once_with(
