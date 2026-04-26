@@ -20,11 +20,11 @@ interface DatePickerWithRangeProps extends React.HTMLAttributes<HTMLDivElement> 
 
 function GlassWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="lg-wrapper">
+    <div className="lg-wrapper ">
       <div className="lg-effect" />
       <div className="lg-tint" />
       <div className="lg-shine" />
-      <div className="relative z-10 p-2">{children}</div>
+      <div className="relative z-10">{children}</div>
     </div>
   );
 }
@@ -47,6 +47,7 @@ export function DatePickerWithRange({
       <Popover open={isStartOpen} onOpenChange={setIsStartOpen}>
         <PopoverTrigger asChild>
           <button
+            onClick={() => setIsStartOpen(true)}
             className={cn(
               "h-8 px-3 text-xs font-medium rounded-md transition-all duration-200 cursor-pointer inline-flex items-center gap-1.5",
               date?.from
@@ -92,6 +93,7 @@ export function DatePickerWithRange({
       <Popover open={isEndOpen} onOpenChange={setIsEndOpen}>
         <PopoverTrigger asChild>
           <button
+            onClick={() => date?.from && setIsEndOpen(true)}
             className={cn(
               "h-8 px-3 text-xs font-medium rounded-md transition-all duration-200 inline-flex items-center gap-1.5",
               !date?.from

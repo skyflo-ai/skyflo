@@ -7,6 +7,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { DatePickerWithRange } from "./DatePickerWithRange";
+import { DateRange } from "react-day-picker";
 
 export type QuickRangeKey = "15m" | "1h" | "6h" | "24h" | "7d" | "30d";
 
@@ -118,42 +120,36 @@ export default function TimeRangeDropdown({
   onCustomRangeApply,
 }: TimeRangeDropdownProps) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const [customStartInput, setCustomStartInput] = React.useState<string>(
-    toUtcInputValue(new Date(value.startAt)),
-  );
-  const [customEndInput, setCustomEndInput] = React.useState<string>(
-    toUtcInputValue(new Date(value.endAt)),
-  );
+  const [customRange, setCustomRange] = React.useState<DateRange | undefined>({
+    from: new Date(value.startAt),
+    to: new Date(value.endAt),
+  });
   const [customError, setCustomError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    setCustomStartInput(toUtcInputValue(new Date(value.startAt)));
-    setCustomEndInput(toUtcInputValue(new Date(value.endAt)));
+    setCustomRange({
+      from: new Date(value.startAt),
+      to: new Date(value.endAt),
+    });
     setCustomError(null);
   }, [value.startAt, value.endAt]);
 
   const applyCustomRange = () => {
-    if (!customStartInput || !customEndInput) {
+    if (!customRange?.from || !customRange?.to) {
       setCustomError("Select both start and end time.");
       return;
     }
 
-    const startIso = parseUtcInputToIso(customStartInput);
-    const endIso = parseUtcInputToIso(customEndInput);
-    if (!startIso || !endIso) {
-      setCustomError("Enter a valid date and time.");
-      return;
-    }
-
-    const start = new Date(startIso);
-    const end = new Date(endIso);
+    const start = customRange.from;
+    const end = customRange.to;
+    
     if (start >= end) {
       setCustomError("Start time must be before end time.");
       return;
     }
 
     setCustomError(null);
-    onCustomRangeApply(startIso, endIso, "UTC");
+    onCustomRangeApply(start.toISOString(), end.toISOString(), "UTC");
     setIsOpen(false);
   };
 
@@ -213,32 +209,11 @@ export default function TimeRangeDropdown({
               </span>
             </div>
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-zinc-400">
-                  Start date
-                </label>
-                <input
-                  type="datetime-local"
-                  lang="en-US"
-                  value={customStartInput}
-                  max={customEndInput || undefined}
-                  onChange={(event) => setCustomStartInput(event.target.value)}
-                  className="h-9 w-full rounded-md border border-white/[0.1] bg-[#0c1222] px-2 text-xs text-zinc-200 outline-none transition-colors focus:border-sky-500/50"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-zinc-400">
-                  End date
-                </label>
-                <input
-                  type="datetime-local"
-                  lang="en-US"
-                  value={customEndInput}
-                  min={customStartInput || undefined}
-                  onChange={(event) => setCustomEndInput(event.target.value)}
-                  className="h-9 w-full rounded-md border border-white/[0.1] bg-[#0c1222] px-2 text-xs text-zinc-200 outline-none transition-colors focus:border-sky-500/50"
-                />
-              </div>
+              <DatePickerWithRange
+                date={customRange}
+                setDate={setCustomRange}
+                className="w-full"
+              />
             </div>
             <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-2.5">
               <div className="min-h-4">
