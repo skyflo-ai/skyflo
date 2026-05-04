@@ -47,6 +47,7 @@ class Settings(BaseSettings):
         default=None, env="LLM_THINKING_BUDGET_TOKENS"
     )
     AGENT_TYPE: str = "assistant"
+    CORS_ORIGINS: str = "http://localhost:8080,http://127.0.0.1:8080"
 
     class Config:
         env_file = ".env"

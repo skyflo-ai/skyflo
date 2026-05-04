@@ -17,3 +17,4 @@ data:
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: {{ .Values.engine.config.jwtAccessTokenExpireMinutes | quote }}
   JWT_REFRESH_TOKEN_EXPIRE_DAYS: {{ .Values.engine.config.jwtRefreshTokenExpireDays | quote }}
   LLM_MAX_ITERATIONS: {{ .Values.engine.config.llmMaxIterations | quote }}
+  CORS_ORIGINS: {{ .Values.engine.config.corsOrigins | default "http://localhost:8080,http://127.0.0.1:8080" | quote }}

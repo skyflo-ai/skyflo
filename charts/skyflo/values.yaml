@@ -39,6 +39,7 @@ engine:
     jwtAccessTokenExpireMinutes: "15"
     jwtRefreshTokenExpireDays: "7"
     llmMaxIterations: "25"
+    corsOrigins: "http://localhost:8080,http://127.0.0.1:8080"
 
   secrets:
     # Use an existing Secret instead of creating one. The Secret must contain
