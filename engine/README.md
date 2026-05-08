@@ -20,9 +20,10 @@ The Engine follows a layered structure under `src/api`:
 
 The workflow is a compact graph compiled with an optional Postgres checkpointer:
 
-- Nodes: `entry` → `model` → `gate` → `final` with conditional routing
+- Nodes: `entry` → `memory_prepare` → `model` → `gate` → `final` with conditional routing
+- `memory_prepare` runs before the model on every new user turn: retrieves relevant memory documents, injects them as a system message, and emits a `memory.context.loaded` SSE event
 - `model` runs an LLM turn (via LiteLLM) and may produce tool calls
-- `gate` executes MCP tools (with approval policy) and feeds results back to the model
+- `gate` executes MCP tools (with approval policy) and memory virtual tools, feeding results back to the model
 - Continuation between `model` and `gate` is driven by conditional edges based on pending tool calls and approval state
 - Stop requests are honored mid-stream via Redis flags
 
@@ -39,6 +40,7 @@ All workflow events stream over SSE from `/api/v1/agent/chat` and `/api/v1/agent
 - `token`, `generation.start`, `generation.complete`
 - `tools.pending`, `tool.executing`, `tool.awaiting_approval`, `tool.result`, `tool.error`, `tool.approved`, `tool.denied`
 - `token.usage`, `ttft`
+- `memory.context.loaded`, `memory.search`, `memory.write.created`, `memory.write.blocked`, `memory.policy.denied`, `memory.promotion.proposed`, `memory.safety.flagged`
 - `completed`, `workflow_complete`, `workflow_error`, `workflow.error`
 
 ## Features
@@ -48,6 +50,11 @@ All workflow events stream over SSE from `/api/v1/agent/chat` and `/api/v1/agent
 - Thinking/reasoning model support with configurable effort and budget (Anthropic, OpenAI, DeepSeek, etc.)
 - Multi-provider LLM support (OpenAI, Groq, Ollama, Gemini, etc.) via LiteLLM
 - Approval gate for every mutating tool call, derived from MCP annotations (`readOnlyHint`, `destructiveHint`)
+- Scoped memory system: versioned, evidence-linked document memory injected as context before each model turn
+- Memory safety scanner blocking secrets, high-entropy strings, raw logs, and prompt injection phrases
+- Memory policy engine enforcing per-scope write permissions (workspace read-only, conversation and user writes agent-gated)
+- Admin memory API: store CRUD, document CRUD, version history, version redaction, full-text search
+- Automatic memory store seeding on first startup (workspace conventions, runbooks, conversation store)
 - Auth with fastapi-users (JWT), first user becomes admin
 - Refresh token rotation with cookie-based session management
 - Team admin endpoints (list/add/update/remove members)
@@ -150,6 +157,13 @@ Base path: `/api/v1`
   - `POST /auth/logout` (revoke refresh token, clear cookies)
 - Team admin (`/team/*`): members list/add/update/remove (requires admin)
 - Integrations (`/integrations/*`): list (authenticated), create/update/delete (admin only)
+- Memory (`/memory/*`):
+  - `POST /memory/stores`, `GET /memory/stores`, `GET/PATCH /memory/stores/{id}`, `POST /memory/stores/{id}/archive` (admin writes)
+  - `GET /memory/stores/{id}/documents`, `POST /memory/stores/{id}/documents`
+  - `GET /memory/documents/{id}`, `PATCH /memory/documents/{id}`, `DELETE /memory/documents/{id}` (admin writes)
+  - `GET /memory/documents/{id}/versions`
+  - `POST /memory/versions/{id}/redact` (admin only)
+  - `POST /memory/search`
 
 ### SSE Chat Example
 
@@ -180,9 +194,10 @@ Defined in `src/api/config/settings.py` (Pydantic Settings, `.env` loaded). Key 
 - Auth: `JWT_SECRET`, `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`
 - MCP: `MCP_SERVER_URL`
 - Integrations: `INTEGRATIONS_SECRET_NAMESPACE` (default `default`)
-- Workflow: `LLM_MAX_ITERATIONS`, `LLM_CONTEXT_WINDOW_MESSAGES` (max messages kept in the LLM context window per turn; default 40, increase for long-running troubleshooting sessions where older tool results need to remain in context)
+- Workflow: `LLM_MAX_ITERATIONS`, `LLM_CONTEXT_WINDOW_MESSAGES` (max messages kept in the LLM context window per turn; default 40)
 - LLM: `LLM_MODEL` (e.g. `gemini/gemini-2.5-pro`), `LLM_HOST` (optional), provider API key envs like `GEMINI_API_KEY`
 - Thinking/Reasoning: `LLM_REASONING_EFFORT` (`low`, `medium`, `high`), `LLM_THINKING_BUDGET_TOKENS` (Anthropic-specific), `LLM_MAX_TOKENS` (optional override when thinking is enabled)
+- Memory: `MEMORY_ENABLED` (default true), `MEMORY_CONTEXT_MAX_DOCS` (default 6), `MEMORY_CONTEXT_TOKEN_BUDGET` (default 2200), `MEMORY_MAX_DOCUMENT_BYTES` (default 100000), `MEMORY_MAX_WRITE_BYTES` (default 25000), `MEMORY_REQUIRE_SOURCE_REFS` (default true), `MEMORY_EMBEDDINGS_ENABLED` (default false), `MEMORY_EMBEDDING_DIM` (default 384)
 
 ## Component Structure
 
@@ -192,10 +207,11 @@ engine/
 │   └── api/
 │       ├── agent/          # LangGraph workflow (graph, model node, state, prompts, stop)
 │       ├── config/         # Settings, DB, rate limiting
-│       ├── endpoints/      # FastAPI routers (agent, auth, conversations, team, integrations, health)
+│       ├── endpoints/      # FastAPI routers (agent, auth, conversations, team, integrations, memory, health)
 │       ├── integrations/   # Provider-specific helpers (Jenkins)
+│       ├── memory/         # Scoped memory system (repository, retrieval, service, policy, safety, tools, formatter, events, seed)
 │       ├── middleware/     # CORS, logging
-│       ├── models/         # Tortoise ORM models (User, Conversation, Message, Integration, RefreshToken)
+│       ├── models/         # Tortoise ORM models (User, Conversation, Message, Integration, RefreshToken, MemoryStore, MemoryDocument, MemoryVersion, MemorySourceRef, ConversationMemoryUsage, DreamJob, DreamReviewItem)
 │       ├── schemas/        # Pydantic schemas (team)
 │       ├── services/       # MCP client, tool executor, approvals, limiter, persistence, titles, checkpointer, stop, tools cache
 │       └── utils/          # Helpers, sanitization, time

@@ -43,6 +43,7 @@ stringData:
   LLM_MODEL: "${LLM_MODEL}"
   LLM_HOST: "${LLM_HOST}"
   JWT_SECRET: "${JWT_SECRET}"
+  INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
   POSTGRES_DATABASE_URL: "${POSTGRES_DATABASE_URL}"
   REDIS_URL: "${REDIS_URL}"
 ---
@@ -57,6 +58,15 @@ stringData:
   POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
   POSTGRES_DB: "${POSTGRES_DB}"
   POSTGRES_PORT: "${POSTGRES_PORT}"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: skyflo-mcp-secrets
+  namespace: ${NAMESPACE}
+type: Opaque
+stringData:
+  INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -90,6 +100,7 @@ data:
   RETRY_BASE_DELAY: "60"
   RETRY_MAX_DELAY: "300"
   RETRY_EXPONENTIAL_BASE: "2.0"
+  ENGINE_INTERNAL_URL: "${ENGINE_INTERNAL_URL}"
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -952,6 +963,8 @@ spec:
         envFrom:
         - configMapRef:
             name: skyflo-mcp-config
+        - secretRef:
+            name: skyflo-mcp-secrets
         env:
         - name: APP_VERSION
           value: "${VERSION}"

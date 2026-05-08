@@ -23,7 +23,12 @@ class AgentState(BaseModel):
     suppress_pending_event: bool = False
     ttft_emitted: bool = False
     approval_decisions: Dict[str, bool] = Field(default_factory=dict)
-    loaded_toolsets: Dict[str, bool] = Field(default_factory=lambda: {"k8s": False})
+    loaded_toolsets: Dict[str, bool] = Field(
+        default_factory=lambda: {"k8s": False, "memory": False}
+    )
+
+    memory_context_loaded: bool = False
+    memory_hits: List[Dict[str, Any]] = Field(default_factory=list)
 
     class Config:
         arbitrary_types_allowed = True

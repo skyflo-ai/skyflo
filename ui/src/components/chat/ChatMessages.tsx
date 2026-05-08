@@ -10,6 +10,7 @@ import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolVisualization } from "./ToolVisualization";
 import { TokenUsageDisplay } from "./TokenUsageDisplay";
 import { CopyMessageMenu } from "./CopyMessageMenu";
+import { MemoryContextPanel } from "./MemoryContextPanel";
 import { markdownComponents } from "../ui/markdown-components";
 
 interface ChatMessagesViewProps {
@@ -175,7 +176,18 @@ export function ChatMessages({
                     {message.content}
                   </div>
                 ) : (
-                  renderAssistantSegments(message)
+                  <>
+                    {renderAssistantSegments(message)}
+                    {!message.isStreaming &&
+                      message.memoryDocuments &&
+                      message.memoryDocuments.length > 0 && (
+                        <div className="px-4">
+                          <MemoryContextPanel
+                            documents={message.memoryDocuments}
+                          />
+                        </div>
+                      )}
+                  </>
                 )}
               </div>
             </div>

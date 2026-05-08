@@ -48,6 +48,10 @@ engine:
     # Auto-generated if left empty. Preserved across upgrades.
     jwtSecret: ""
 
+    # Auto-generated if left empty. Shared secret between engine and MCP for internal API calls.
+    # Preserved across upgrades.
+    internalApiKey: ""
+
     # REQUIRED: set the LLM provider and model identifier (for example "gemini/gemini-2.5-pro")
     llmModel: ""
 
@@ -127,6 +131,8 @@ mcp:
     retryBaseDelay: "60"
     retryMaxDelay: "300"
     retryExponentialBase: "2.0"
+    # Override auto-computed engine internal URL if needed (default: in-cluster engine service)
+    engineInternalUrl: ""
 
 # -- UI (Next.js command interface)
 ui:

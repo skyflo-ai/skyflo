@@ -1,12 +1,17 @@
 import logging
 import time
-from typing import Any, Awaitable, Callable, Dict, Literal, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.errors import GraphRecursionError
 from langgraph.graph import END, START, StateGraph
 
 from ..config import settings
+from ..memory.events import emit_memory_context_loaded
+from ..memory.formatter import MemoryContextFormatter
+from ..memory.retrieval import MemoryRetrievalService
+from ..memory.schemas import MemoryHit
+from ..memory.tools import MEMORY_TOOL_NAMES
 from ..services.approvals import ApprovalService
 from ..services.checkpointer import get_checkpointer
 from ..services.mcp_client import MCPClient
@@ -20,7 +25,7 @@ from .stop import StopRequested, check_stop
 
 logger = logging.getLogger(__name__)
 
-INTERNAL_META_TOOLS = frozenset({"load_toolset"})
+INTERNAL_META_TOOLS = frozenset({"load_toolset"} | MEMORY_TOOL_NAMES)
 
 EventCallback = Callable[[Dict[str, Any]], Awaitable[None]]
 
@@ -34,11 +39,11 @@ def route_after_model(state: Dict[str, Any]) -> Literal["gate", "final"]:
     return "final"
 
 
-def route_from_entry(state: Dict[str, Any]) -> Literal["gate", "model"]:
+def route_from_entry(state: Dict[str, Any]) -> Literal["gate", "memory_prepare"]:
     pending_tools = get_state_value(state, "pending_tools", [])
     if pending_tools:
         return "gate"
-    return "model"
+    return "memory_prepare"
 
 
 def route_after_gate(state: Dict[str, Any]) -> Literal["model", "final"]:
@@ -68,6 +73,8 @@ class WorkflowGraph:
             event_callback=self.event_callback,
             tools_provider=self.tool_executor.get_llm_compatible_tools,
         )
+        self._memory_retrieval = MemoryRetrievalService()
+        self._memory_formatter = MemoryContextFormatter()
         self.graph = self._build_graph()
         self.compiled_graph = None
         self.checkpointer = None
@@ -76,14 +83,16 @@ class WorkflowGraph:
         workflow = StateGraph(AgentState)
 
         workflow.add_node("entry", self._entry_node)
+        workflow.add_node("memory_prepare", self._memory_prepare_node)
         workflow.add_node("model", self._model_node)
         workflow.add_node("gate", self._gate_node)
         workflow.add_node("final", self._final_node)
 
         workflow.add_edge(START, "entry")
         workflow.add_conditional_edges(
-            "entry", route_from_entry, {"gate": "gate", "model": "model"}
+            "entry", route_from_entry, {"gate": "gate", "memory_prepare": "memory_prepare"}
         )
+        workflow.add_edge("memory_prepare", "model")
         workflow.add_conditional_edges(
             "model", route_after_model, {"gate": "gate", "final": "final"}
         )
@@ -122,9 +131,85 @@ class WorkflowGraph:
 
     async def _entry_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
         await check_stop(state)
-        updates = {"ttft_emitted": False}
+        updates: Dict[str, Any] = {"ttft_emitted": False, "memory_context_loaded": False}
         if get_state_value(state, "awaiting_approval", False):
             updates["awaiting_approval"] = False
+        return updates
+
+    async def _memory_prepare_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        if not settings.MEMORY_ENABLED:
+            return {}
+
+        # Skip if context already loaded for this turn
+        if get_state_value(state, "memory_context_loaded", False):
+            return {}
+
+        # Find the latest user message to use as the retrieval query
+        messages = get_state_value(state, "messages", [])
+        latest_user_msg = ""
+        for msg in reversed(messages):
+            if isinstance(msg, dict) and msg.get("role") == "user":
+                content = msg.get("content", "")
+                if isinstance(content, list):
+                    for part in content:
+                        if isinstance(part, dict) and part.get("type") == "text":
+                            latest_user_msg = part.get("text", "")
+                            break
+                elif isinstance(content, str):
+                    latest_user_msg = content
+                if latest_user_msg:
+                    break
+
+        if not latest_user_msg:
+            return {"memory_context_loaded": True}
+
+        user_id_str = get_state_value(state, "user_id")
+        conversation_id_str = get_state_value(state, "conversation_id")
+        run_id = get_state_value(state, "run_id", "unknown")
+
+        try:
+            from uuid import UUID
+
+            if isinstance(user_id_str, UUID):
+                user_id = user_id_str
+            elif user_id_str:
+                user_id = UUID(str(user_id_str))
+            else:
+                user_id = None
+        except (ValueError, AttributeError, TypeError):
+            user_id = None
+
+        try:
+            hits: List[MemoryHit] = await self._memory_retrieval.retrieve_for_turn(
+                query=latest_user_msg,
+                user_id=user_id,
+                conversation_id=conversation_id_str,
+                run_id=run_id,
+                max_docs=settings.MEMORY_CONTEXT_MAX_DOCS,
+                token_budget=settings.MEMORY_CONTEXT_TOKEN_BUDGET,
+            )
+        except Exception as e:
+            logger.warning(f"Memory retrieval failed (non-fatal): {e}")
+            return {"memory_context_loaded": True}
+
+        if not hits:
+            return {"memory_context_loaded": True}
+
+        context_msg = self._memory_formatter.format(hits)
+
+        try:
+            await emit_memory_context_loaded(self.event_callback, run_id, hits)
+        except Exception as e:
+            logger.debug(f"Failed to emit memory.context.loaded: {e}")
+
+        updates: Dict[str, Any] = {
+            "memory_context_loaded": True,
+            "memory_hits": [h.minimal() for h in hits],
+        }
+
+        if context_msg:
+            updates["messages"] = [context_msg]
+
         return updates
 
     async def _model_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -237,6 +322,16 @@ class WorkflowGraph:
                             }
                         )
                         continue
+
+                    if tool_name in MEMORY_TOOL_NAMES:
+                        tool_args = {
+                            **tool_args,
+                            "_user_id": str(get_state_value(state, "user_id") or ""),
+                            "_conversation_id": str(
+                                get_state_value(state, "conversation_id") or ""
+                            ),
+                            "_run_id": get_state_value(state, "run_id", "unknown"),
+                        }
 
                     tool_results = await self.tool_executor.execute(
                         run_id=get_state_value(state, "run_id", "unknown"),

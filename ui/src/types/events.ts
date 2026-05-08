@@ -158,6 +158,71 @@ export interface ConversationTitleGeneratedEvent {
   timestamp: number;
 }
 
+export interface MemoryContextLoadedEvent {
+  type: "memory.context.loaded";
+  run_id: string;
+  documents: Array<{
+    document_id: string;
+    store_slug: string;
+    path: string;
+    trust_level: string;
+    version_id: string | null;
+    used_as: string;
+  }>;
+  timestamp: number;
+}
+
+export interface MemorySearchEvent {
+  type: "memory.search";
+  run_id: string;
+  query: string;
+  results_count: number;
+  timestamp: number;
+}
+
+export interface MemoryWriteCreatedEvent {
+  type: "memory.write.created";
+  run_id: string;
+  store_slug: string;
+  path: string;
+  document_id: string;
+  document_type: string;
+  timestamp: number;
+}
+
+export interface MemoryWriteBlockedEvent {
+  type: "memory.write.blocked";
+  run_id: string;
+  reason: string;
+  severity: string;
+  timestamp: number;
+}
+
+export interface MemoryPolicyDeniedEvent {
+  type: "memory.policy.denied";
+  run_id: string;
+  operation: string;
+  store_slug: string;
+  reason: string;
+  timestamp: number;
+}
+
+export interface MemoryPromotionProposedEvent {
+  type: "memory.promotion.proposed";
+  run_id: string;
+  source_document_id: string;
+  target_store_slug: string;
+  timestamp: number;
+}
+
+export interface MemorySafetyFlaggedEvent {
+  type: "memory.safety.flagged";
+  run_id: string;
+  finding_count: number;
+  severity: string;
+  timestamp: number;
+}
+
 export type Event =
   | ToolExecutingEvent
   | ToolResultEvent
@@ -177,4 +242,11 @@ export type Event =
   | CompletedEvent
   | WorkflowCompleteEvent
   | WorkflowErrorEvent
-  | ConversationTitleGeneratedEvent;
+  | ConversationTitleGeneratedEvent
+  | MemoryContextLoadedEvent
+  | MemorySearchEvent
+  | MemoryWriteCreatedEvent
+  | MemoryWriteBlockedEvent
+  | MemoryPolicyDeniedEvent
+  | MemoryPromotionProposedEvent
+  | MemorySafetyFlaggedEvent;

@@ -9,6 +9,7 @@ import {
   ThinkingEvent,
   ThinkingCompleteEvent,
   ConversationTitleGeneratedEvent,
+  MemoryContextLoadedEvent,
 } from "@/types/events";
 import { ChatMessage, ToolExecution, TokenUsage } from "@/types/chat";
 
@@ -38,6 +39,10 @@ export interface ChatServiceCallbacks {
     conversationId: string,
     title: string,
     timestamp: number,
+  ) => void;
+  onMemoryContextLoaded?: (
+    runId: string,
+    documents: MemoryContextLoadedEvent["documents"],
   ) => void;
 }
 
@@ -467,6 +472,21 @@ export class ChatService {
         break;
 
       case "heartbeat":
+        break;
+
+      case "memory.context.loaded": {
+        const memEvent = event as MemoryContextLoadedEvent;
+        this.callbacks.onMemoryContextLoaded?.(memEvent.run_id, memEvent.documents);
+        break;
+      }
+
+      case "memory.search":
+      case "memory.write.created":
+      case "memory.write.blocked":
+      case "memory.policy.denied":
+      case "memory.promotion.proposed":
+      case "memory.safety.flagged":
+        // These are informational events; no UI callback needed in Phase 1
         break;
 
       case "conversation.title.generated": {
