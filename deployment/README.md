@@ -182,8 +182,8 @@ The Engine deployment includes init containers that wait for PostgreSQL and Redi
 
 Per-service ConfigMaps in `config/` provide non-sensitive environment variables:
 
-- **engine-configmap.yaml**: `APP_NAME`, `APP_VERSION`, `LOG_LEVEL`, `RATE_LIMITING_ENABLED`, `RATE_LIMIT_PER_MINUTE`, `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`, `LLM_MAX_ITERATIONS`, `LLM_CONTEXT_WINDOW_MESSAGES`, `ENABLE_POSTGRES_CHECKPOINTER`
-- **mcp-configmap.yaml**: `APP_NAME`, `APP_VERSION`, `LOG_LEVEL`, `MAX_RETRY_ATTEMPTS`, `RETRY_BASE_DELAY`, `RETRY_MAX_DELAY`, `RETRY_EXPONENTIAL_BASE`
+- **engine-configmap.yaml**: `APP_NAME`, `APP_VERSION`, `LOG_LEVEL`, `RATE_LIMITING_ENABLED`, `RATE_LIMIT_PER_MINUTE`, `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`, `LLM_MAX_ITERATIONS`, `MEMORY_ENABLED`, `MEMORY_CONTEXT_MAX_DOCS`, `MEMORY_CONTEXT_TOKEN_BUDGET`, `MEMORY_REQUIRE_SOURCE_REFS`
+- **mcp-configmap.yaml**: `APP_NAME`, `APP_VERSION`, `LOG_LEVEL`, `MAX_RETRY_ATTEMPTS`, `RETRY_BASE_DELAY`, `RETRY_MAX_DELAY`, `RETRY_EXPONENTIAL_BASE`, `ENGINE_INTERNAL_URL`
 - **ui-configmap.yaml**: `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_VERSION`, `API_URL`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ENABLE_ANALYTICS`, `NEXT_PUBLIC_ENABLE_FEEDBACK`
 
 ### Secrets (sensitive)
@@ -192,6 +192,7 @@ Sensitive values are injected at install time by `install.sh` via `${VARIABLE}` 
 
 - LLM API keys (OpenAI, Anthropic, Azure, Gemini, Groq, etc.)
 - `JWT_SECRET`
+- `INTERNAL_API_KEY` (shared by engine and MCP; required for memory tool proxy)
 - `POSTGRES_DATABASE_URL`, `CHECKPOINTER_DATABASE_URL`
 - PostgreSQL credentials
 
@@ -199,7 +200,7 @@ Sensitive values are injected at install time by `install.sh` via `${VARIABLE}` 
 
 - All application containers run as non-root user (`skyflo`, UID 1002)
 - All capabilities dropped, `allowPrivilegeEscalation: false`
-- **NetworkPolicy**: MCP ingress restricted to Engine pods only (all egress allowed)
+- **NetworkPolicy**: MCP ingress restricted to Engine pods only; egress unrestricted (memory tools call `ENGINE_INTERNAL_URL` on the engine service)
 - Controller uses distroless nonroot runtime image
 - Sensitive values stored in Kubernetes Secrets (not ConfigMaps)
 

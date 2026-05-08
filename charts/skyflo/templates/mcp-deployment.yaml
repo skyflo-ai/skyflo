@@ -34,6 +34,11 @@ spec:
           env:
             - name: APP_VERSION
               value: {{ .Chart.AppVersion | quote }}
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "skyflo.engine.secretName" . }}
+                  key: INTERNAL_API_KEY
           readinessProbe:
             httpGet:
               path: /health/ready

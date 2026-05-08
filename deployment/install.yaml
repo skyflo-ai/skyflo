@@ -44,6 +44,7 @@ stringData:
   LLM_MODEL: "${LLM_MODEL}"
   LLM_HOST: "${LLM_HOST}"
   JWT_SECRET: "${JWT_SECRET}"
+  INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
   POSTGRES_DATABASE_URL: "${POSTGRES_DATABASE_URL}"
   REDIS_URL: "${REDIS_URL}"
 ---
@@ -58,6 +59,15 @@ stringData:
   POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
   POSTGRES_DB: "${POSTGRES_DB}"
   POSTGRES_PORT: "${POSTGRES_PORT}"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: skyflo-mcp-secrets
+  namespace: ${NAMESPACE}
+type: Opaque
+stringData:
+  INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -905,6 +915,8 @@ spec:
         envFrom:
         - configMapRef:
             name: skyflo-mcp-config
+        - secretRef:
+            name: skyflo-mcp-secrets
         env:
         - name: APP_VERSION
           value: "${VERSION}"

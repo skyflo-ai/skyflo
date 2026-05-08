@@ -31,17 +31,17 @@ Infrastructure automation tools fall into two categories.
 CLI assistants translate prompts into shell commands.
 Autonomous agents execute infrastructure changes without explicit approval.
 
-Neither model guarantees a deterministic execution process or a complete audit trail.
+Neither model guarantees a deterministic execution process or a complete audit trail. And neither one remembers what happened last time.
 
 Skyflo is a **self-hosted AI agent for Kubernetes and CI/CD systems**. It runs inside your cluster and executes infrastructure operations through a deterministic control loop:
 
-**Plan → Approve → Execute → Verify**
+**Recall → Plan → Approve → Execute → Verify → Persist**
 
-> Every mutating tool call is approval-gated, typed, and auditable.
+> Every mutating tool call is approval-gated, typed, and auditable. Every confirmed incident lesson is saved and recalled on the next relevant task.
 
 Skyflo is not a CLI wrapper, not an autonomous mutation bot, and not a GitOps control plane.
 
-It is an **in-cluster AI control layer** that enforces safe infrastructure changes before anything reaches production.
+It is an **in-cluster AI control layer** that enforces safe infrastructure changes before anything reaches production -- and builds operational memory across every session.
 
 ---
 
@@ -87,11 +87,12 @@ Bring your own LLM (OpenAI, Anthropic, Gemini, Groq, self-hosted). See the [quic
 
 Skyflo enforces a strict loop for every infrastructure change:
 
-1. **Plan**: generate a concrete, replayable plan
-2. **Approve**: explicit approval for every mutating tool call
-3. **Execute**: run typed tools via MCP (Kubernetes, Helm, Argo Rollouts, Jenkins)
-4. **Verify**: validate cluster state against declared intent
-5. **Persist**: store tool-level audit history
+1. **Recall**: retrieve prior incidents, runbooks, and service context from scoped memory
+2. **Plan**: generate a concrete, replayable plan
+3. **Approve**: explicit approval for every mutating tool call
+4. **Execute**: run typed tools via MCP (Kubernetes, Helm, Argo Rollouts, Jenkins)
+5. **Verify**: validate cluster state against declared intent
+6. **Persist**: store tool-level audit history and save confirmed lessons to memory
 
 No blind `kubectl apply`. No silent automation. No untracked changes.
 
@@ -102,7 +103,8 @@ No blind `kubectl apply`. No silent automation. No untracked changes.
 * Approval gate for every mutating tool call, enforced by the engine
 * Typed tool execution with schema-validated inputs
 * Persisted audit trail with tool results
-* Replayable control loop (plan → approve → execute → verify)
+* Replayable control loop (recall → plan → approve → execute → verify → persist)
+* Scoped memory with safety scanning (blocks secrets, raw logs, prompt injection)
 * Runs inside your cluster. No Skyflo telemetry or phone-home
 * LLM-agnostic via LiteLLM. No vendor lock-in
 
@@ -147,11 +149,11 @@ Deterministic plans. Explicit approval. Verified execution.
 
 ### System Architecture
 
-| Component                | Description                                                                  |
-| ------------------------ | ---------------------------------------------------------------------------- |
-| [**Engine**](engine)     | LangGraph workflow: planner, approval gate, verifier, persistence, auth/RBAC |
-| [**MCP Server**](mcp)    | Typed tools for Kubernetes, Helm, Argo Rollouts, Jenkins                     |
-| [**Command Center**](ui) | Next.js UI with real-time streaming, approvals, team admin                   |
+| Component                | Description                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------- |
+| [**Engine**](engine)     | LangGraph workflow: memory retrieval, planner, approval gate, verifier, persistence, auth/RBAC |
+| [**MCP Server**](mcp)    | Typed tools for Kubernetes, Helm, Argo Rollouts, Jenkins                                       |
+| [**Command Center**](ui) | Next.js UI with real-time streaming, approvals, memory context panel, team admin               |
 
 Details: [Architecture](https://skyflo.ai/docs/architecture)
 

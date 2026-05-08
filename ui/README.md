@@ -28,6 +28,8 @@ The UI communicates with the Engine in two ways:
    - `tool.awaiting_approval`: UI prompts to approve/deny
    - `token.usage`: LLM token metrics shown via `TokenUsageDisplay`
    - `ttft`: time-to-first-token latency
+   - `memory.context.loaded`: document metadata accumulated in `memoryHitsRef` and attached to the finalized assistant message; rendered as a collapsible `MemoryContextPanel`
+   - other `memory.*` events handled silently (no UI callback in Phase 1)
    - `completed` / `workflow_complete` / `workflow.error`: finalization
 4) Approvals use `ChatService.startApprovalStream(callId, approve, reason, conversationId)` which opens a second SSE stream to `/agent/approvals/{call_id}`.
 5) A running turn can be stopped via `approvals.stopConversation(conversationId, runId)` → `POST /agent/stop`.
@@ -92,11 +94,12 @@ yarn start
 ## Key Components
 
 - Chat
-  - `ChatInterface.tsx`: state machine for streaming turns, approvals, stop
-  - `ChatMessages.tsx`: renders Markdown, thinking, and tool segments
+  - `ChatInterface.tsx`: state machine for streaming turns, approvals, stop; accumulates memory hits in `memoryHitsRef` per run
+  - `ChatMessages.tsx`: renders Markdown, thinking, tool segments, and `MemoryContextPanel` per completed message
   - `ChatInput.tsx`: input + stop control
   - `ThinkingBlock.tsx`: collapsible view of model reasoning with streaming animation and duration
   - `ToolVisualization.tsx`: compact view of tool execution results/errors
+  - `MemoryContextPanel.tsx`: collapsible panel listing memory documents used for a response (store slug, path, trust level badge)
 - Settings
   - Profile (name), password change via `/auth/me` and `/auth/users/me/password`
   - Team admin (members, invitations, roles) via `/team/*` (admin only)

@@ -634,6 +634,72 @@ def _fix_json_arguments(args_str: str) -> str:
     return fixed
 
 
+_TOKEN_LIMIT_RE = re.compile(
+    r"token limit:\s*(\d+)\s*\(requested:\s*(\d+)\)",
+    re.IGNORECASE,
+)
+
+
+def format_model_error(error: Exception) -> Tuple[str, str]:
+    """Return a user-facing message and error_type for model failures."""
+    error_str = str(error)
+    lower = error_str.lower()
+
+    if "insufficient_quota" in lower or "exceeded your current quota" in lower:
+        return (
+            "The configured LLM API key has insufficient quota. "
+            "Check billing and credits for your provider account.",
+            "quota_exceeded",
+        )
+
+    if "token limit" in lower or "context length" in lower or "maximum context" in lower:
+        match = _TOKEN_LIMIT_RE.search(error_str)
+        if match:
+            limit = int(match.group(1))
+            requested = int(match.group(2))
+            return (
+                f"This request exceeded the model context limit "
+                f"({requested:,} tokens requested, limit {limit:,}). "
+                "Start a new conversation or reduce context (shorter history, fewer tools).",
+                "context_length_exceeded",
+            )
+        return (
+            "This request exceeded the model context limit. "
+            "Start a new conversation or reduce context (shorter history, fewer tools).",
+            "context_length_exceeded",
+        )
+
+    if "invalid api key" in lower or "authentication" in lower or "unauthorized" in lower:
+        return (
+            "LLM authentication failed. Verify the API key configured for this provider.",
+            "auth_error",
+        )
+
+    return (f"Model error: {error_str}", "unknown")
+
+
+async def emit_workflow_model_error(
+    event_callback: Optional[EventCallback],
+    error: Exception,
+    *,
+    run_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
+) -> Tuple[str, str]:
+    message, error_type = format_model_error(error)
+    if event_callback:
+        payload: Dict[str, Any] = {
+            "type": "workflow.error",
+            "error": message,
+            "error_type": error_type,
+        }
+        if run_id:
+            payload["run_id"] = run_id
+        if conversation_id:
+            payload["conversation_id"] = conversation_id
+        await event_callback(payload)
+    return message, error_type
+
+
 def _is_transient_error(error: Exception) -> bool:
     transient_indicators = [
         "timeout",
@@ -669,11 +735,41 @@ class ModelNode:
             messages = get_state_value(state, "messages", [])
             conversation_id = get_state_value(state, "conversation_id")
 
+            memory_context_msg = get_state_value(state, "memory_context_msg")
+            if memory_context_msg and messages:
+                # Inject memory context just before the last user message so the
+                # model sees it as context preceding the current request, not as a
+                # trailing message after the user turn.
+                last_user_idx = next(
+                    (
+                        i
+                        for i in range(len(messages) - 1, -1, -1)
+                        if (isinstance(messages[i], dict) and messages[i].get("role") == "user")
+                    ),
+                    None,
+                )
+                if last_user_idx is not None:
+                    messages = (
+                        list(messages[:last_user_idx])
+                        + [memory_context_msg]
+                        + list(messages[last_user_idx:])
+                    )
+                else:
+                    messages = [memory_context_msg] + list(messages)
+
             if not messages:
+                no_messages = ValueError("No messages provided")
+                friendly_message, error_type = await emit_workflow_model_error(
+                    self.event_callback,
+                    no_messages,
+                    run_id=run_id,
+                    conversation_id=conversation_id,
+                )
                 return {
                     "messages": [],
                     "pending_tools": [],
-                    "error": "No messages provided",
+                    "error": friendly_message,
+                    "error_type": error_type,
                 }
 
             start_time = get_state_value(state, "start_time")
@@ -703,13 +799,20 @@ class ModelNode:
 
         except Exception as e:
             logger.exception(f"Error in model node: {str(e)}")
+            friendly_message, error_type = await emit_workflow_model_error(
+                self.event_callback,
+                e,
+                run_id=get_state_value(state, "run_id"),
+                conversation_id=get_state_value(state, "conversation_id"),
+            )
             return {
                 "messages": [
                     {
                         "role": "assistant",
-                        "content": f"Error in model turn: {str(e)}",
+                        "content": friendly_message,
                     }
                 ],
                 "pending_tools": [],
-                "error": str(e),
+                "error": friendly_message,
+                "error_type": error_type,
             }

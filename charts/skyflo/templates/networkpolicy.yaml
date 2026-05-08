@@ -59,5 +59,12 @@ spec:
       ports:
         - protocol: TCP
           port: 443
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ include "skyflo.engine.fullname" . }}
+      ports:
+        - protocol: TCP
+          port: 8080
     {{- end }}
 {{- end }}

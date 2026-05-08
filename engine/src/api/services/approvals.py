@@ -23,6 +23,9 @@ class ApprovalService:
                 return True
 
             annotations = tool_metadata.get("annotations", {})
+            if annotations.get("systemTool", False):
+                return False
+
             read_only_hint = annotations.get("readOnlyHint", False)
             requires_approval = not read_only_hint
 

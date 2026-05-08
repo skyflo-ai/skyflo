@@ -345,6 +345,17 @@ def create_event_callback(
     return event_callback
 
 
+def resolve_workflow_user_id(
+    conversation: Optional[Conversation] = None,
+    user_id: Optional[str] = None,
+) -> Optional[str]:
+    if user_id:
+        return str(user_id)
+    if conversation and getattr(conversation, "user_id", None):
+        return str(conversation.user_id)
+    return None
+
+
 async def run_agent_workflow(
     run_id: str,
     messages: list[Dict[str, Any]],
@@ -352,6 +363,7 @@ async def run_agent_workflow(
     conversation_id: Optional[str] = None,
     persistence: Optional[ConversationPersistenceService] = None,
     conversation: Optional[Conversation] = None,
+    user_id: Optional[str] = None,
     pending_tools: Optional[list[Dict[str, Any]]] = None,
     suppress_pending_event: bool = False,
     approval_decisions: Optional[Dict[str, bool]] = None,
@@ -383,6 +395,10 @@ async def run_agent_workflow(
                 "conversation_id": conversation_id or run_id,
             }
 
+            resolved_user_id = resolve_workflow_user_id(conversation, user_id)
+            if resolved_user_id:
+                initial_state["user_id"] = resolved_user_id
+
             if suppress_pending_event:
                 initial_state["suppress_pending_event"] = True
 
@@ -412,8 +428,13 @@ async def run_agent_workflow(
         logger.exception(f"Error in agent workflow for run {run_id}: {str(e)}")
         await publish_event(
             channel,
-            "workflow_error",
-            {"run_id": run_id, "error": str(e), "status": "error"},
+            "workflow.error",
+            {
+                "type": "workflow.error",
+                "run_id": run_id,
+                "error": str(e),
+                "status": "error",
+            },
         )
 
 
@@ -442,6 +463,10 @@ async def chat_stream(request: Request, user=Depends(fastapi_users.current_user(
 
         unique_run_id = str(uuid.uuid4())
         channel = f"run:{unique_run_id}"
+
+        workflow_user_id: Optional[str] = None
+        if user and getattr(user, "id", None):
+            workflow_user_id = str(user.id)
 
         conversation: Optional[Conversation] = None
         persistence: Optional[ConversationPersistenceService] = None
@@ -512,6 +537,7 @@ async def chat_stream(request: Request, user=Depends(fastapi_users.current_user(
                     "conversation_id": conversation_id,
                     "persistence": persistence,
                     "conversation": conversation,
+                    "user_id": workflow_user_id,
                 },
                 endpoint_name="chat",
                 on_subscribed=on_stream_subscribed,
@@ -598,6 +624,7 @@ async def decide_approval(
                     "conversation_id": conversation_id,
                     "persistence": persistence,
                     "conversation": conversation,
+                    "user_id": (str(user.id) if user and getattr(user, "id", None) else None),
                     "pending_tools": None,
                     "suppress_pending_event": True,
                     "approval_decisions": {call_id: bool(decision.approve)},

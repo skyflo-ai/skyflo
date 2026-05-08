@@ -17,3 +17,7 @@ data:
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: {{ .Values.engine.config.jwtAccessTokenExpireMinutes | quote }}
   JWT_REFRESH_TOKEN_EXPIRE_DAYS: {{ .Values.engine.config.jwtRefreshTokenExpireDays | quote }}
   LLM_MAX_ITERATIONS: {{ .Values.engine.config.llmMaxIterations | quote }}
+  MEMORY_ENABLED: {{ .Values.engine.config.memoryEnabled | quote }}
+  MEMORY_CONTEXT_MAX_DOCS: {{ .Values.engine.config.memoryContextMaxDocs | quote }}
+  MEMORY_CONTEXT_TOKEN_BUDGET: {{ .Values.engine.config.memoryContextTokenBudget | quote }}
+  MEMORY_REQUIRE_SOURCE_REFS: {{ .Values.engine.config.memoryRequireSourceRefs | quote }}

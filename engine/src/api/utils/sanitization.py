@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List
 
-from ..agent.prompts import SYSTEM_PROMPT
+from ..agent.prompts import get_system_prompt
 from ..config import settings
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ def prepare_messages_with_system_prompt(messages: List[Dict[str, Any]]) -> List[
     has_system_message = any(msg.get("role") == "system" for msg in messages)
 
     if not has_system_message:
-        system_message = {"role": "system", "content": SYSTEM_PROMPT}
+        system_message = {"role": "system", "content": get_system_prompt()}
         return [system_message] + messages
 
     return messages

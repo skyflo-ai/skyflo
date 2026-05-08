@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from .config import close_db_connection, init_db, settings
 from .endpoints import api_router
+from .memory.seed import seed_memory_stores
 from .middleware import setup_middleware
 from .services.checkpointer import close_graph_checkpointer, init_graph_checkpointer
 from .services.limiter import close_limiter, init_limiter
@@ -53,10 +54,23 @@ async def verify_mcp_connection() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} version {settings.APP_VERSION}")
+
+    if settings.MEMORY_ENABLED and not settings.INTERNAL_API_KEY:
+        raise RuntimeError(
+            "INTERNAL_API_KEY must be set when MEMORY_ENABLED=true. "
+            "Generate with: openssl rand -base64 32. "
+            "Set MEMORY_ENABLED=false to run without the memory system."
+        )
+
     await verify_mcp_connection()
     await init_db()
     await init_limiter()
     await init_graph_checkpointer()
+    if settings.MEMORY_ENABLED:
+        try:
+            await seed_memory_stores()
+        except Exception as e:
+            logger.warning("Memory store seeding failed (non-fatal): %s", e)
 
     yield
 

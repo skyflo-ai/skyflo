@@ -13,6 +13,8 @@ import { ChatInput } from "./ChatInput";
 import { PendingApprovalsBar } from "./PendingApprovalsBar";
 import { QueuedMessagesBar } from "./QueuedMessagesBar";
 import { stopConversation } from "@/lib/approvals";
+import { isHiddenSystemTool } from "@/lib/hiddenTools";
+import { showError } from "@/components/ui/toast";
 
 const createEmptyUsage = (): TokenUsage => ({
   prompt_tokens: 0,
@@ -40,7 +42,7 @@ const mapTokenUsage = (raw: any): TokenUsage | undefined => {
 
 const accumulateUsage = (
   target: TokenUsage,
-  addition?: TokenUsage
+  addition?: TokenUsage,
 ): TokenUsage => {
   if (!addition) {
     return target;
@@ -86,18 +88,17 @@ interface ChatInterfaceProps {
 export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [currentMessage, setCurrentMessage] = useState<ChatMessageType | null>(
-    null
+    null,
   );
   const [inputValue, setInputValue] = useState("");
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [waitingForFirstUpdate, setWaitingForFirstUpdate] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [queuedMessages, setQueuedMessages] = useState<
     { id: string; content: string; timestamp: number }[]
   >([]);
   const [liveUsage, setLiveUsage] = useState<TokenUsage>(() =>
-    createEmptyUsage()
+    createEmptyUsage(),
   );
   const liveUsageRef = useRef<TokenUsage>(createEmptyUsage());
   const requestStartTimeRef = useRef<number | null>(null);
@@ -111,7 +112,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         return next;
       });
     },
-    []
+    [],
   );
   const resetLiveUsage = useCallback(() => {
     updateLiveUsage(() => createEmptyUsage());
@@ -140,10 +141,11 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     };
 
     const segments = getSegments();
-    const lastSegment = segments.length > 0 ? segments[segments.length - 1] : null;
+    const lastSegment =
+      segments.length > 0 ? segments[segments.length - 1] : null;
     const hasExecutingTool = segments.some(
       (seg: any) =>
-        seg.kind === "tool" && seg.toolExecution?.status === "executing"
+        seg.kind === "tool" && seg.toolExecution?.status === "executing",
     );
 
     if (
@@ -171,6 +173,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
   const chatServiceRef = useRef<ChatService | null>(null);
   const hasFinalizedRef = useRef(false);
+  const memoryHitsRef = useRef<
+    import("@/types/events").MemoryContextLoadedEvent["documents"]
+  >([]);
+  const memoryRunIdRef = useRef<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const lastScrollTopRef = useRef(0);
@@ -196,7 +202,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       updater:
         | ChatMessageType
         | null
-        | ((prev: ChatMessageType | null) => ChatMessageType | null)
+        | ((prev: ChatMessageType | null) => ChatMessageType | null),
     ) => {
       setCurrentMessage((prev) => {
         const nextValue =
@@ -205,7 +211,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         return nextValue;
       });
     },
-    []
+    [],
   );
 
   const removeQueuedMessage = useCallback((id: string) => {
@@ -213,7 +219,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   }, []);
 
   const convertToolExecution = (
-    execution: ToolExecution
+    execution: ToolExecution,
   ): ToolExecutionType => ({
     call_id: execution.call_id,
     tool: execution.tool,
@@ -228,13 +234,16 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
   const updateMessageWithTool = useCallback(
     (execution: ToolExecution) => {
+      if (isHiddenSystemTool(execution.tool)) {
+        return;
+      }
       const toolExecution = convertToolExecution(execution);
       updateCurrentMessage((prev) => {
         if (!prev) return prev;
 
         const prevSegments = prev.segments || [];
         const segIndex = prevSegments.findIndex(
-          (s) => s.kind === "tool" && s.id === execution.call_id
+          (s) => s.kind === "tool" && s.id === execution.call_id,
         );
         const updatedSegments: MessageSegment[] =
           segIndex >= 0
@@ -270,7 +279,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           const msg = updated[idx];
           if (msg.type === "assistant" && Array.isArray(msg.segments)) {
             const segIndex = msg.segments.findIndex(
-              (s) => s.kind === "tool" && s.id === execution.call_id
+              (s) => s.kind === "tool" && s.id === execution.call_id,
             );
             if (segIndex >= 0) {
               const newSegments = msg.segments.map((s, i) => {
@@ -291,11 +300,14 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         return updated;
       });
     },
-    [updateCurrentMessage]
+    [updateCurrentMessage],
   );
 
   const updateExistingMessageWithTool = useCallback(
     (execution: ToolExecution) => {
+      if (isHiddenSystemTool(execution.tool)) {
+        return;
+      }
       const toolExecution = convertToolExecution(execution);
       updateCurrentMessage((prev) => {
         if (!prev) return prev;
@@ -310,7 +322,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                     ...toolExecution,
                   },
                 } as any)
-              : s
+              : s,
         );
 
         return {
@@ -327,7 +339,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             Array.isArray((msg as any).segments)
           ) {
             const segIndex = (msg as any).segments.findIndex(
-              (s: any) => s.kind === "tool" && s.id === execution.call_id
+              (s: any) => s.kind === "tool" && s.id === execution.call_id,
             );
             if (segIndex >= 0) {
               const newSegments = (msg as any).segments.map(
@@ -340,7 +352,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                     return { ...s, toolExecution: merged } as any;
                   }
                   return s;
-                }
+                },
               );
               updated[idx] = { ...(msg as any), segments: newSegments } as any;
               break;
@@ -350,16 +362,17 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         return updated;
       });
     },
-    [updateCurrentMessage]
+    [updateCurrentMessage],
   );
 
   const addPendingTools = useCallback(
     (executions: ToolExecution[]) => {
-      if (!executions || executions.length === 0) return;
+      const visible = executions.filter((e) => !isHiddenSystemTool(e.tool));
+      if (!visible || visible.length === 0) return;
       setWaitingForFirstUpdate(false);
       updateCurrentMessage((prev) => {
         if (!prev) {
-          const seededSegments: MessageSegment[] = executions.map((e) => ({
+          const seededSegments: MessageSegment[] = visible.map((e) => ({
             kind: "tool",
             id: e.call_id,
             toolExecution: convertToolExecution(e),
@@ -382,12 +395,12 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         const existingToolIds = new Set(
           priorSegments
             .filter((s: any) => s.kind === "tool")
-            .map((s: any) => s.id)
+            .map((s: any) => s.id),
         );
         const updatedSegments: MessageSegment[] = priorSegments.map(
           (s: any) => {
             if (s.kind !== "tool") return s;
-            const match = executions.find((e) => e.call_id === s.id);
+            const match = visible.find((e) => e.call_id === s.id);
             if (match) {
               const newExec = convertToolExecution(match);
               return {
@@ -396,10 +409,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               } as any;
             }
             return s;
-          }
+          },
         );
 
-        for (const e of executions) {
+        for (const e of visible) {
           if (!existingToolIds.has(e.call_id)) {
             updatedSegments.push({
               kind: "tool",
@@ -414,7 +427,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         return { ...prev, segments: updatedSegments } as any;
       });
     },
-    [updateCurrentMessage]
+    [updateCurrentMessage],
   );
 
   useEffect(() => {
@@ -479,7 +492,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           if (!prev) return prev;
           const segments = prev.segments ? [...prev.segments] : [];
           let idx = segments.findLastIndex(
-            (s) => s.kind === "thinking" && !s.isComplete
+            (s) => s.kind === "thinking" && !s.isComplete,
           );
           if (idx < 0) {
             for (let i = segments.length - 1; i >= 0; i--) {
@@ -556,7 +569,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       },
 
       onError: (errorMsg: string) => {
-        setError(errorMsg);
+        showError(errorMsg, { autoClose: 15000 });
         setIsStreaming(false);
         setWaitingForFirstUpdate(false);
         isBulkActionRef.current = false;
@@ -610,7 +623,6 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               updateCurrentMessage(null);
               return;
             }
-            setError(null);
             setIsStreaming(true);
             hasFinalizedRef.current = false;
             isApprovalActionRef.current = true;
@@ -622,7 +634,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                     total: p.total ?? 0,
                     decision: p.decision,
                   }
-                : null
+                : null,
             );
             resetLiveUsage();
             lastTTRUpdateRef.current = 0;
@@ -632,7 +644,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                 next,
                 bulkDecisionRef.current === "approve",
                 undefined,
-                conversationId
+                conversationId,
               )
               .catch((error) => {
                 if (currentMessageRef.current) {
@@ -643,10 +655,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                   setMessages((msgs) => [...msgs, finalMessage]);
                   updateCurrentMessage(null);
                 }
-                setError(
+                showError(
                   error instanceof Error
                     ? error.message
-                    : `Failed to ${bulkDecisionRef.current} tool calls`
+                    : `Failed to ${bulkDecisionRef.current} tool calls`,
                 );
                 setIsStreaming(false);
                 isApprovalActionRef.current = false;
@@ -698,9 +710,13 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         hasFinalizedRef.current = true;
         setIsStreaming(false);
         if (currentMessageRef.current) {
+          const memDocs = memoryHitsRef.current;
           const finalMessage = {
             ...currentMessageRef.current,
             isStreaming: false,
+            ...(memDocs && memDocs.length > 0
+              ? { memoryDocuments: memDocs }
+              : {}),
           };
           setMessages((msgs) => [...msgs, finalMessage]);
         }
@@ -709,6 +725,18 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
       onReady: (runId: string) => {
         setCurrentRunId(runId);
+        memoryHitsRef.current = [];
+        memoryRunIdRef.current = runId;
+      },
+
+      onMemoryContextLoaded: (
+        runId: string,
+        documents: import("@/types/events").MemoryContextLoadedEvent["documents"],
+      ) => {
+        if (memoryRunIdRef.current !== runId) {
+          return;
+        }
+        memoryHitsRef.current = [...memoryHitsRef.current, ...documents];
       },
 
       onTokenUsage: (usage: TokenUsage, source: "turn_check" | "main") => {
@@ -884,7 +912,6 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         didCancel = true;
 
         hasFinalizedRef.current = false;
-        setError(null);
         updateCurrentMessage(null);
         setCurrentRunId(null);
 
@@ -892,7 +919,6 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       }
 
       if (!didCancel) {
-        setError(null);
         updateCurrentMessage(null);
         setCurrentRunId(null);
         hasFinalizedRef.current = false;
@@ -936,8 +962,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       try {
         await chatServiceRef.current?.startStream(chatMessages, conversationId);
       } catch (error) {
-        setError(
-          error instanceof Error ? error.message : "Failed to start stream"
+        showError(
+          error instanceof Error ? error.message : "Failed to start stream",
         );
         setIsStreaming(false);
       }
@@ -949,7 +975,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       conversationId,
       resetLiveUsage,
       updateCurrentMessage,
-    ]
+    ],
   );
 
   const submitQueuedMessageNow = useCallback(
@@ -962,7 +988,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       setQueuedMessages((q) => q.filter((m) => m.id !== id));
       void handleSendMessage(msg.content);
     },
-    [queuedMessages, handleSendMessage]
+    [queuedMessages, handleSendMessage],
   );
 
   useEffect(() => {
@@ -1011,7 +1037,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       }
       setInputValue("");
     },
-    [inputValue, isStreaming, handleSendMessage]
+    [inputValue, isStreaming, handleSendMessage],
   );
 
   const handleApprovalAction = useCallback(
@@ -1019,7 +1045,6 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       let removedMessage: { msg: ChatMessageType; idx: number } | null = null;
 
       try {
-        setError(null);
         isApprovalActionRef.current = true;
         approvalDecisionRef.current = approve;
 
@@ -1031,7 +1056,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           Array.isArray(currentMessageRef.current.segments)
         ) {
           const hasToolCall = currentMessageRef.current.segments.some(
-            (s) => s.kind === "tool" && s.id === callId
+            (s) => s.kind === "tool" && s.id === callId,
           );
           if (hasToolCall) {
             targetMsg = currentMessageRef.current;
@@ -1044,7 +1069,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             const msg = messages[i];
             if (msg.type === "assistant" && Array.isArray(msg.segments)) {
               const hasToolCall = msg.segments.some(
-                (s) => s.kind === "tool" && s.id === callId
+                (s) => s.kind === "tool" && s.id === callId,
               );
               if (hasToolCall) {
                 targetMsg = msg;
@@ -1063,7 +1088,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           updateCurrentMessage({ ...targetMsg, isStreaming: true });
         } else {
           updateCurrentMessage((prev) =>
-            prev ? { ...prev, isStreaming: true } : prev
+            prev ? { ...prev, isStreaming: true } : prev,
           );
         }
 
@@ -1078,7 +1103,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           callId,
           approve,
           reason,
-          conversationId
+          conversationId,
         );
       } catch (error) {
         if (removedMessage) {
@@ -1090,10 +1115,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           });
           updateCurrentMessage(null);
         }
-        setError(
+        showError(
           error instanceof Error
             ? error.message
-            : `Failed to ${approve ? "approve" : "deny"} tool call`
+            : `Failed to ${approve ? "approve" : "deny"} tool call`,
         );
         setIsStreaming(false);
         isApprovalActionRef.current = false;
@@ -1101,7 +1126,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         throw error;
       }
     },
-    [messages, conversationId, resetLiveUsage, updateCurrentMessage]
+    [messages, conversationId, resetLiveUsage, updateCurrentMessage],
   );
 
   const approvableTools = useMemo(() => {
@@ -1136,7 +1161,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       .filter(
         (t) =>
           (t.status === "pending" || t.status === "awaiting_approval") &&
-          (t as any).requires_approval
+          (t as any).requires_approval,
       );
   }, [currentMessage?.segments, messages]);
 
@@ -1174,7 +1199,6 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         setBulkProgress(null);
         return;
       }
-      setError(null);
       isApprovalActionRef.current = true;
       approvalDecisionRef.current = decision === "approve";
 
@@ -1233,7 +1257,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         updateCurrentMessage({ ...targetMsg, isStreaming: true });
       } else {
         updateCurrentMessage((prev) =>
-          prev ? { ...prev, isStreaming: true } : prev
+          prev ? { ...prev, isStreaming: true } : prev,
         );
       }
 
@@ -1249,7 +1273,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           next,
           decision === "approve",
           undefined,
-          conversationId
+          conversationId,
         )
         .catch((error) => {
           if (removedMessage) {
@@ -1261,10 +1285,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             });
             updateCurrentMessage(null);
           }
-          setError(
+          showError(
             error instanceof Error
               ? error.message
-              : `Failed to ${decision} tool calls`
+              : `Failed to ${decision} tool calls`,
           );
           setIsStreaming(false);
           isApprovalActionRef.current = false;
@@ -1281,7 +1305,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       messages,
       resetLiveUsage,
       updateCurrentMessage,
-    ]
+    ],
   );
 
   const assistantMessageCount = useMemo(() => {
@@ -1340,12 +1364,6 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         style={{ paddingBottom: footerHeight + 8 }}
       >
         <div className="max-w-5xl mx-auto">
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
-              <strong>Error:</strong> {error}
-            </div>
-          )}
-
           <ChatMessages
             messages={messages}
             currentMessage={currentMessage}

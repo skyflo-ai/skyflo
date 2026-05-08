@@ -4,7 +4,10 @@ import uuid
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from ..config import settings
-from ..integrations.jenkins import filter_jenkins_tools, inject_jenkins_metadata_tool_args
+from ..integrations.jenkins import (
+    filter_jenkins_tools,
+    inject_jenkins_metadata_tool_args,
+)
 from ..utils.clock import now_ms
 from ..utils.sanitization import mcp_tools_to_openai_format
 from .approvals import ApprovalService
@@ -14,7 +17,7 @@ from .tools_cache import ToolsCache
 
 logger = logging.getLogger(__name__)
 
-AVAILABLE_TOOLSETS = ("k8s", "helm", "argo", "jenkins")
+AVAILABLE_TOOLSETS = ("k8s", "helm", "argo", "jenkins", "memory")
 
 LOAD_TOOLSET_TOOL: Dict[str, Any] = {
     "type": "function",
@@ -72,6 +75,8 @@ def _resolve_tool_tag(tool: Dict[str, Any]) -> Optional[str]:
             return "argo"
         if name.startswith("jenkins_"):
             return "jenkins"
+        if name.startswith("memory_"):
+            return "memory"
 
     return None
 
@@ -82,6 +87,28 @@ def _is_read_only(tool: Dict[str, Any]) -> bool:
 
 
 ALLOWED_TOOL_TAGS = frozenset(AVAILABLE_TOOLSETS)
+
+_MEMORY_INTERNAL_PARAMS = frozenset({"_user_id", "_conversation_id", "_run_id"})
+
+
+def _strip_internal_memory_params(tools: List[Dict[str, Any]]) -> None:
+    """Remove system-injected context params from memory tool schemas before exposing to the LLM.
+
+    The engine injects _user_id, _conversation_id, and _run_id into memory tool
+    args at dispatch time. The LLM must not see or set these values.
+    """
+    for tool in tools:
+        fn = tool.get("function", {})
+        if not isinstance(fn.get("name"), str) or not fn["name"].startswith("memory_"):
+            continue
+        params = fn.get("parameters", {})
+        props = params.get("properties")
+        if isinstance(props, dict):
+            for key in _MEMORY_INTERNAL_PARAMS:
+                props.pop(key, None)
+        required = params.get("required")
+        if isinstance(required, list):
+            params["required"] = [r for r in required if r not in _MEMORY_INTERNAL_PARAMS]
 
 
 def filter_tools_by_loaded_toolsets(
@@ -153,6 +180,13 @@ class ToolExecutor:
             logger.error(f"Error fetching metadata for tool '{tool_name}': {e}")
             return None
 
+    @staticmethod
+    def _is_system_tool(tool_metadata: Optional[Dict[str, Any]]) -> bool:
+        if not tool_metadata:
+            return False
+        annotations = tool_metadata.get("annotations") or {}
+        return bool(annotations.get("systemTool", False))
+
     async def close(self) -> None:
         self._mcp_client = None
         await self.approvals.close()
@@ -164,7 +198,9 @@ class ToolExecutor:
             jenkins_status = jenkins_integration.status if jenkins_integration else None
 
             tools = filter_jenkins_tools(
-                tools=tools, integration_status=jenkins_status, is_configured=jenkins_configured
+                tools=tools,
+                integration_status=jenkins_status,
+                is_configured=jenkins_configured,
             )
 
             return tools
@@ -219,6 +255,7 @@ class ToolExecutor:
 
             openai_tools = mcp_tools_to_openai_format({"tools": all_tools})
             openai_tools.append(LOAD_TOOLSET_TOOL)
+            _strip_internal_memory_params(openai_tools)
 
             logger.debug(f"Tools provided: {len(openai_tools)} (toolsets={loaded_toolsets})")
 
@@ -240,6 +277,7 @@ class ToolExecutor:
                     raw_list = filter_tools_by_loaded_toolsets(raw_list, loaded_toolsets)
                 openai_tools = mcp_tools_to_openai_format({"tools": raw_list})
                 openai_tools.append(LOAD_TOOLSET_TOOL)
+                _strip_internal_memory_params(openai_tools)
                 return openai_tools
             except Exception as inner:
                 logger.error(f"Fallback tools fetch failed: {inner}")
@@ -264,6 +302,8 @@ class ToolExecutor:
         try:
             tool_metadata = await self._get_tool_metadata(name)
             tool_title = tool_metadata.get("title", name) if tool_metadata else name
+            system_tool = self._is_system_tool(tool_metadata)
+            publish_events = self.sse_publish is not None and not system_tool
 
             args, integration_error = await self.inject_integration_tool_params(
                 tool_name=name,
@@ -279,7 +319,12 @@ class ToolExecutor:
 
             validation_error = await self._validate_tool_parameters(name, args, tool_metadata)
             if validation_error:
-                return [{"type": "text", "text": f"Tool validation failed: {validation_error}"}]
+                return [
+                    {
+                        "type": "text",
+                        "text": f"Tool validation failed: {validation_error}",
+                    }
+                ]
 
             needs_approval = await self.approvals.need_approval(name, args)
 
@@ -291,7 +336,7 @@ class ToolExecutor:
                     decision = None
 
                 if decision is None:
-                    if self.sse_publish:
+                    if publish_events:
                         await self.sse_publish(
                             {
                                 "type": "tool.awaiting_approval",
@@ -306,7 +351,7 @@ class ToolExecutor:
                         )
                     raise ToolExecutor.ApprovalPending(call_id=call_id, tool=name)
                 elif decision is False:
-                    if self.sse_publish:
+                    if publish_events:
                         await self.sse_publish(
                             {
                                 "type": "tool.denied",
@@ -320,7 +365,7 @@ class ToolExecutor:
                         )
                     return [{"type": "text", "text": "Tool call was denied by the user"}]
                 else:
-                    if self.sse_publish:
+                    if publish_events:
                         await self.sse_publish(
                             {
                                 "type": "tool.approved",
@@ -335,7 +380,7 @@ class ToolExecutor:
 
             mcp_client = await self._get_mcp_client()
 
-            if self.sse_publish:
+            if publish_events:
                 await self.sse_publish(
                     {
                         "type": "tool.executing",
@@ -363,7 +408,7 @@ class ToolExecutor:
                     if parts:
                         error_message = "\n".join(parts)
 
-                if self.sse_publish:
+                if publish_events:
                     await self.sse_publish(
                         {
                             "type": "tool.error",
@@ -402,7 +447,7 @@ class ToolExecutor:
             else:
                 content_blocks.append({"type": "text", "text": str(result)})
 
-            if self.sse_publish:
+            if publish_events:
                 await self.sse_publish(
                     {
                         "type": "tool.result",
@@ -421,7 +466,8 @@ class ToolExecutor:
             raise awaiting
         except Exception as e:
             logger.exception(f"Error executing tool {name}: {e}")
-            if self.sse_publish:
+            tool_meta = locals().get("tool_metadata")
+            if self.sse_publish and not self._is_system_tool(tool_meta):
                 await self.sse_publish(
                     {
                         "type": "tool.error",
@@ -452,7 +498,10 @@ class ToolExecutor:
             return {"tools": [], "error": str(e)}
 
     async def _validate_tool_parameters(
-        self, name: str, args: Dict[str, Any], tool_metadata: Optional[Dict[str, Any]] = None
+        self,
+        name: str,
+        args: Dict[str, Any],
+        tool_metadata: Optional[Dict[str, Any]] = None,
     ) -> Optional[str]:
         try:
             tool_schema = tool_metadata or await self._get_tool_metadata(name)

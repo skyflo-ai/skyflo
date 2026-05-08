@@ -37,3 +37,4 @@ import tools.argo  # noqa: E402, F401
 import tools.helm  # noqa: E402, F401
 import tools.jenkins  # noqa: E402, F401
 import tools.kubectl  # noqa: E402, F401
+import tools.memory  # noqa: E402, F401

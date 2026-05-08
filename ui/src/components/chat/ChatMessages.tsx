@@ -10,7 +10,9 @@ import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolVisualization } from "./ToolVisualization";
 import { TokenUsageDisplay } from "./TokenUsageDisplay";
 import { CopyMessageMenu } from "./CopyMessageMenu";
+import { MemoryContextPanel } from "./MemoryContextPanel";
 import { markdownComponents } from "../ui/markdown-components";
+import { isHiddenSystemTool } from "@/lib/hiddenTools";
 
 interface ChatMessagesViewProps {
   messages: ChatMessage[];
@@ -74,6 +76,12 @@ export function ChatMessages({
       <div className={cn("relative", showUsage && "pb-10")}>
         <div className="space-y-2 px-4">
           {segments.map((seg) => {
+            if (
+              seg.kind === "tool" &&
+              isHiddenSystemTool(seg.toolExecution?.tool)
+            ) {
+              return null;
+            }
             if (seg.kind === "thinking") {
               return (
                 <ThinkingBlock
@@ -175,7 +183,18 @@ export function ChatMessages({
                     {message.content}
                   </div>
                 ) : (
-                  renderAssistantSegments(message)
+                  <>
+                    {renderAssistantSegments(message)}
+                    {!message.isStreaming &&
+                      message.memoryDocuments &&
+                      message.memoryDocuments.length > 0 && (
+                        <div className="px-4">
+                          <MemoryContextPanel
+                            documents={message.memoryDocuments}
+                          />
+                        </div>
+                      )}
+                  </>
                 )}
               </div>
             </div>
