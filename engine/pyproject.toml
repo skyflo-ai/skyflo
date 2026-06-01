@@ -97,7 +97,11 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/api/agent/prompts.py" = ["E501"]  # Allow long lines in prompt files
+"src/api/agent/prompts.py" = ["E501"]      # LLM prompt strings
+"src/api/memory/tools.py" = ["E501"]       # LLM tool descriptor strings
+"src/api/memory/safety.py" = ["E501"]      # Safety pattern description strings
+"src/api/memory/policy.py" = ["E501"]      # Policy reason strings
+"migrations/models/*.py" = ["E501"]        # Migration files with long SQL/schema strings
 
 [tool.aerich]
 tortoise_orm = "src.api.config.database.TORTOISE_ORM_CONFIG"

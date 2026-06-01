@@ -142,6 +142,11 @@ set_runtime_defaults() {
         print_colored "green" "✓ JWT secret generated"
     fi
 
+    if [ -z "$INTERNAL_API_KEY" ]; then
+        INTERNAL_API_KEY=$(openssl rand -base64 32)
+        print_colored "green" "✓ Internal API key generated"
+    fi
+
     if [ -z "$REDIS_URL" ]; then
         REDIS_URL="redis://skyflo-redis:6379/0"
         print_colored "yellow" "ℹ Redis: using in-cluster default"
@@ -150,6 +155,11 @@ set_runtime_defaults() {
     if [ -z "$MCP_SERVER_URL" ]; then
         MCP_SERVER_URL="http://skyflo-mcp:8888/mcp"
         print_colored "yellow" "ℹ MCP server: using in-cluster default"
+    fi
+
+    if [ -z "$ENGINE_INTERNAL_URL" ]; then
+        ENGINE_INTERNAL_URL="http://skyflo-engine:8080"
+        print_colored "yellow" "ℹ Engine internal URL: using in-cluster default"
     fi
 
     if [ -z "$INTEGRATIONS_SECRET_NAMESPACE" ]; then
@@ -179,9 +189,11 @@ set_runtime_defaults() {
     fi
 
     export JWT_SECRET
+    export INTERNAL_API_KEY
     export POSTGRES_DATABASE_URL
     export REDIS_URL
     export MCP_SERVER_URL
+    export ENGINE_INTERNAL_URL
     export INTEGRATIONS_SECRET_NAMESPACE
     export POSTGRES_USER
     export POSTGRES_PASSWORD

@@ -30,6 +30,8 @@ class Settings(BaseSettings):
 
     MCP_SERVER_URL: str = "http://127.0.0.1:8888/mcp"
 
+    INTERNAL_API_KEY: str
+
     INTEGRATIONS_SECRET_NAMESPACE: Optional[str] = Field(default="default")
 
     LLM_CONTEXT_WINDOW_MESSAGES: int = 40
@@ -47,6 +49,15 @@ class Settings(BaseSettings):
         default=None, env="LLM_THINKING_BUDGET_TOKENS"
     )
     AGENT_TYPE: str = "assistant"
+
+    MEMORY_ENABLED: bool = True
+    MEMORY_CONTEXT_MAX_DOCS: int = 6
+    MEMORY_CONTEXT_TOKEN_BUDGET: int = 2200
+    MEMORY_MAX_DOCUMENT_BYTES: int = 100_000
+    MEMORY_MAX_WRITE_BYTES: int = 25_000
+    MEMORY_REQUIRE_SOURCE_REFS: bool = True
+    MEMORY_EMBEDDINGS_ENABLED: bool = False
+    MEMORY_EMBEDDING_DIM: int = 384
 
     class Config:
         env_file = ".env"

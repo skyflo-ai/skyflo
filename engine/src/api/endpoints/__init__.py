@@ -6,6 +6,8 @@ from .auth import router as auth_router
 from .conversation import router as conversation_router
 from .health import router as health_router
 from .integrations import router as integrations_router
+from .memory import router as memory_router
+from .memory_agent import router as memory_agent_router
 from .team import router as team_router
 
 api_router = APIRouter()
@@ -17,6 +19,10 @@ api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 api_router.include_router(team_router, prefix="/team", tags=["team"])
 api_router.include_router(integrations_router, prefix="/integrations", tags=["integrations"])
 api_router.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
+api_router.include_router(memory_router, prefix="/memory", tags=["memory"])
+api_router.include_router(
+    memory_agent_router, prefix="/memory/agent", tags=["memory-agent-internal"]
+)
 
 
 __all__ = ["api_router"]

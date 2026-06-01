@@ -19,6 +19,7 @@ dependencies = [
     "pydantic==2.12.5",
     "httpx==0.28.1",
     "fastmcp==3.0.1",
+    "pydantic-settings>=2.8.1",
 ]
 
 [project.optional-dependencies]

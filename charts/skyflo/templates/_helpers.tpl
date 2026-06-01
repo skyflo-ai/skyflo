@@ -190,6 +190,28 @@ Default image tag: component tag > global tag > v<appVersion>.
 {{- end }}
 {{- end }}
 
+{{- define "skyflo.internalApiKey" -}}
+{{- if .Values.engine.secrets.internalApiKey }}
+{{- .Values.engine.secrets.internalApiKey }}
+{{- else }}
+{{- $secretName := include "skyflo.engine.secretName" . }}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $secretName }}
+{{- if and $existing $existing.data (index $existing.data "INTERNAL_API_KEY") }}
+{{- index $existing.data "INTERNAL_API_KEY" | b64dec }}
+{{- else }}
+{{- randAlphaNum 32 }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "skyflo.engine.internalUrl" -}}
+{{- if .Values.mcp.config.engineInternalUrl }}
+{{- .Values.mcp.config.engineInternalUrl }}
+{{- else }}
+{{- printf "http://%s:8080" (include "skyflo.engine.fullname" .) }}
+{{- end }}
+{{- end }}
+
 {{- define "skyflo.engine.apiUrl" -}}
 {{- if .Values.ui.config.apiUrl }}
 {{- .Values.ui.config.apiUrl }}

@@ -171,6 +171,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
   const chatServiceRef = useRef<ChatService | null>(null);
   const hasFinalizedRef = useRef(false);
+  const memoryHitsRef = useRef<import("@/types/events").MemoryContextLoadedEvent["documents"]>([]);
+  const memoryRunIdRef = useRef<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const lastScrollTopRef = useRef(0);
@@ -698,9 +700,11 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         hasFinalizedRef.current = true;
         setIsStreaming(false);
         if (currentMessageRef.current) {
+          const memDocs = memoryHitsRef.current;
           const finalMessage = {
             ...currentMessageRef.current,
             isStreaming: false,
+            ...(memDocs && memDocs.length > 0 ? { memoryDocuments: memDocs } : {}),
           };
           setMessages((msgs) => [...msgs, finalMessage]);
         }
@@ -709,6 +713,18 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
       onReady: (runId: string) => {
         setCurrentRunId(runId);
+        memoryHitsRef.current = [];
+        memoryRunIdRef.current = runId;
+      },
+
+      onMemoryContextLoaded: (
+        runId: string,
+        documents: import("@/types/events").MemoryContextLoadedEvent["documents"],
+      ) => {
+        if (memoryRunIdRef.current !== runId) {
+          return;
+        }
+        memoryHitsRef.current = [...memoryHitsRef.current, ...documents];
       },
 
       onTokenUsage: (usage: TokenUsage, source: "turn_check" | "main") => {

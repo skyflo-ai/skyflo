@@ -44,6 +44,15 @@ export type MessageSegment =
       timestamp?: number;
     };
 
+export interface MemoryDocumentRef {
+  document_id: string;
+  store_slug: string;
+  path: string;
+  trust_level: string;
+  version_id: string | null;
+  used_as: string;
+}
+
 export interface ChatMessage {
   id: string;
   type: "user" | "assistant";
@@ -52,6 +61,7 @@ export interface ChatMessage {
   isStreaming?: boolean;
   segments?: MessageSegment[];
   tokenUsage?: TokenUsage;
+  memoryDocuments?: MemoryDocumentRef[];
 }
 
 export interface ChatState {
