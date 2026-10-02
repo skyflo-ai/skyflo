@@ -1,5 +1,8 @@
 # Contributing to Skyflo
 
+> [!WARNING]
+> This guide describes the deprecated legacy Kubernetes agent. Read [the deprecation notice](DEPRECATION.md) before proposing changes or installing this project. For the current Skyflo product, visit [skyflo.ai](https://skyflo.ai).
+
 Thank you for considering contributing to Skyflo. This document outlines how to contribute effectively and what standards are expected.
 
 We are committed to providing a friendly, safe, and welcoming environment for all contributors. Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
