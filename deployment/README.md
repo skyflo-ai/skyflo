@@ -1,5 +1,8 @@
 # Skyflo Deployment
 
+> [!WARNING]
+> This guide describes the deprecated legacy Kubernetes agent. Read [the deprecation notice](../DEPRECATION.md) before proposing changes or installing this project. For the current Skyflo product, visit [skyflo.ai](https://skyflo.ai).
+
 Deployment assets for Skyflo: Dockerfiles, Kubernetes manifests, ConfigMaps, Nginx reverse proxy, and installer scripts for production and local development.
 
 ## Directory Structure
