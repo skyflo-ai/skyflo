@@ -6,3 +6,6 @@
 .vscode/
 *.sw?
 .cursor
+.claude
+graphify-out/
+CLAUDE.md

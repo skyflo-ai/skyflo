@@ -1,12 +1,14 @@
 "use client";
 
 import React from "react";
-import { MdCheck, MdKeyboardArrowDown } from "react-icons/md";
+import { MdCalendarToday, MdCheck, MdKeyboardArrowDown } from "react-icons/md";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { GlassWrapper } from "./DatePickerWithRange";
 
 export type QuickRangeKey = "15m" | "1h" | "6h" | "24h" | "7d" | "30d";
 
@@ -93,6 +95,41 @@ const formatUtcForTrigger = (date: Date): string => {
   ].join("");
 };
 
+const toWallClockInputValue = (date: Date): string => {
+  return [
+    date.getFullYear(),
+    "-",
+    pad2(date.getMonth() + 1),
+    "-",
+    pad2(date.getDate()),
+    "T",
+    pad2(date.getHours()),
+    ":",
+    pad2(date.getMinutes()),
+  ].join("");
+};
+
+const formatWallClockForField = (value: string): string => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) {
+    return "Select date";
+  }
+
+  const hours24 = date.getHours();
+  const period = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = ((hours24 + 11) % 12) + 1;
+
+  return `${pad2(date.getMonth() + 1)}/${pad2(date.getDate())}/${date.getFullYear()}, ${pad2(hours12)}:${pad2(date.getMinutes())} ${period}`;
+};
+
+const toTimeInputValue = (value: string): string => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) {
+    return "00:00";
+  }
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+};
+
 const formatLabelForTrigger = (value: AnalyticsTimeFilter): string => {
   if (value.kind === "quick" && value.quickRangeLabel) {
     return value.quickRangeLabel;
@@ -118,6 +155,8 @@ export default function TimeRangeDropdown({
   onCustomRangeApply,
 }: TimeRangeDropdownProps) {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isStartCalendarOpen, setIsStartCalendarOpen] = React.useState(false);
+  const [isEndCalendarOpen, setIsEndCalendarOpen] = React.useState(false);
   const [customStartInput, setCustomStartInput] = React.useState<string>(
     toUtcInputValue(new Date(value.startAt)),
   );
@@ -152,13 +191,92 @@ export default function TimeRangeDropdown({
       return;
     }
 
+    const now = new Date();
+    if (start > now || end > now) {
+      setCustomError("Select a time range that is not in the future.");
+      return;
+    }
+
     setCustomError(null);
     onCustomRangeApply(startIso, endIso, "UTC");
     setIsOpen(false);
   };
 
+  const handleStartDaySelect = (day: Date | undefined) => {
+    if (!day) {
+      return;
+    }
+    const current = customStartInput ? new Date(customStartInput) : new Date();
+    const next = new Date(
+      day.getFullYear(),
+      day.getMonth(),
+      day.getDate(),
+      current.getHours(),
+      current.getMinutes(),
+    );
+    setCustomStartInput(toWallClockInputValue(next));
+    setIsStartCalendarOpen(false);
+  };
+
+  const handleEndDaySelect = (day: Date | undefined) => {
+    if (!day) {
+      return;
+    }
+    const current = customEndInput ? new Date(customEndInput) : new Date();
+    const next = new Date(
+      day.getFullYear(),
+      day.getMonth(),
+      day.getDate(),
+      current.getHours(),
+      current.getMinutes(),
+    );
+    setCustomEndInput(toWallClockInputValue(next));
+    setIsEndCalendarOpen(false);
+  };
+
+  const handleStartTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const [hours, minutes] = event.target.value.split(":").map(Number);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+      return;
+    }
+    const current = customStartInput ? new Date(customStartInput) : new Date();
+    const next = new Date(
+      current.getFullYear(),
+      current.getMonth(),
+      current.getDate(),
+      hours,
+      minutes,
+    );
+    setCustomStartInput(toWallClockInputValue(next));
+  };
+
+  const handleEndTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const [hours, minutes] = event.target.value.split(":").map(Number);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+      return;
+    }
+    const current = customEndInput ? new Date(customEndInput) : new Date();
+    const next = new Date(
+      current.getFullYear(),
+      current.getMonth(),
+      current.getDate(),
+      hours,
+      minutes,
+    );
+    setCustomEndInput(toWallClockInputValue(next));
+  };
+
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover
+      open={isOpen}
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) {
+          setIsStartCalendarOpen(false);
+          setIsEndCalendarOpen(false);
+        }
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           className="inline-flex h-9 min-w-44 items-center justify-between gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/[0.06] hover:text-white"
@@ -217,27 +335,113 @@ export default function TimeRangeDropdown({
                 <label className="block text-xs font-medium text-zinc-400">
                   Start date
                 </label>
-                <input
-                  type="datetime-local"
-                  lang="en-US"
-                  value={customStartInput}
-                  max={customEndInput || undefined}
-                  onChange={(event) => setCustomStartInput(event.target.value)}
-                  className="h-9 w-full rounded-md border border-white/[0.1] bg-[#0c1222] px-2 text-xs text-zinc-200 outline-none transition-colors focus:border-sky-500/50"
-                />
+                <Popover
+                  open={isStartCalendarOpen}
+                  onOpenChange={setIsStartCalendarOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-white/[0.1] bg-[#0c1222] px-2 text-left text-xs text-zinc-200 outline-none transition-colors hover:border-white/[0.2] focus:border-sky-500/50"
+                    >
+                      <span>{formatWallClockForField(customStartInput)}</span>
+                      <MdCalendarToday className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    className="w-auto border-none bg-transparent p-0 shadow-none"
+                  >
+                    <GlassWrapper>
+                      <Calendar
+                        mode="single"
+                        autoFocus
+                        selected={
+                          customStartInput ? new Date(customStartInput) : undefined
+                        }
+                        onSelect={handleStartDaySelect}
+                        disabled={(day) => {
+                          if (customEndInput && day > new Date(customEndInput)) {
+                            return true;
+                          }
+                          if (day > new Date()) {
+                            return true;
+                          }
+                          return false;
+                        }}
+                      />
+                      <div className="mt-2 flex items-center justify-between border-t border-white/[0.08] pt-2">
+                        <span className="text-xs text-zinc-400">Time</span>
+                        <input
+                          type="time"
+                          value={toTimeInputValue(customStartInput)}
+                          onChange={handleStartTimeChange}
+                          className="h-8 rounded-md border border-white/[0.1] bg-[#0c1222] px-2 text-xs text-zinc-200 outline-none focus:border-sky-500/50"
+                        />
+                      </div>
+                    </GlassWrapper>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-zinc-400">
                   End date
                 </label>
-                <input
-                  type="datetime-local"
-                  lang="en-US"
-                  value={customEndInput}
-                  min={customStartInput || undefined}
-                  onChange={(event) => setCustomEndInput(event.target.value)}
-                  className="h-9 w-full rounded-md border border-white/[0.1] bg-[#0c1222] px-2 text-xs text-zinc-200 outline-none transition-colors focus:border-sky-500/50"
-                />
+                <Popover
+                  open={isEndCalendarOpen}
+                  onOpenChange={setIsEndCalendarOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-white/[0.1] bg-[#0c1222] px-2 text-left text-xs text-zinc-200 outline-none transition-colors hover:border-white/[0.2] focus:border-sky-500/50"
+                    >
+                      <span>{formatWallClockForField(customEndInput)}</span>
+                      <MdCalendarToday className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    className="w-auto border-none bg-transparent p-0 shadow-none"
+                  >
+                    <GlassWrapper>
+                      <Calendar
+                        mode="single"
+                        autoFocus
+                        selected={
+                          customEndInput ? new Date(customEndInput) : undefined
+                        }
+                        onSelect={handleEndDaySelect}
+                        disabled={(day) => {
+                          if (customStartInput) {
+                            const start = new Date(customStartInput);
+                            const startOfStartDay = new Date(
+                              start.getFullYear(),
+                              start.getMonth(),
+                              start.getDate(),
+                            );
+                            if (day < startOfStartDay) {
+                              return true;
+                            }
+                          }
+                          if (day > new Date()) {
+                            return true;
+                          }
+                          return false;
+                        }}
+                      />
+                      <div className="mt-2 flex items-center justify-between border-t border-white/[0.08] pt-2">
+                        <span className="text-xs text-zinc-400">Time</span>
+                        <input
+                          type="time"
+                          value={toTimeInputValue(customEndInput)}
+                          onChange={handleEndTimeChange}
+                          className="h-8 rounded-md border border-white/[0.1] bg-[#0c1222] px-2 text-xs text-zinc-200 outline-none focus:border-sky-500/50"
+                        />
+                      </div>
+                    </GlassWrapper>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-2.5">
